@@ -1,0 +1,48 @@
+---
+import { SITE_TITLE } from '../consts';
+import HeaderLink from './HeaderLink.astro';
+---
+
+<header>
+  <nav>
+    <a href="/" class="logo">{SITE_TITLE}</a>
+    <div class="links">
+      <HeaderLink href="/">Home</HeaderLink>
+      <HeaderLink href="/blog">記事一覧</HeaderLink>
+      <HeaderLink href="/about">About</HeaderLink>
+      <a href="https://tnks1407.com" target="_blank" class="ext-link">Works ↗</a>
+    </div>
+  </nav>
+</header>
+
+<style>
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,13,26,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+  }
+  nav {
+    max-width: 900px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .logo {
+    font-size: 1.1rem; font-weight: 800;
+    background: linear-gradient(90deg, var(--accent1), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-decoration: none;
+  }
+  .links { display: flex; gap: 0.25rem; align-items: center; }
+  .ext-link {
+    padding: 0.4rem 0.75rem;
+    color: var(--text-muted); font-size: 0.875rem; font-weight: 600;
+    text-decoration: none; border-radius: 6px;
+    transition: color 0.2s;
+  }
+  .ext-link:hover { color: var(--accent3); }
+  @media (max-width: 480px) {
+    .ext-link { display: none; }
+  }
+</style>

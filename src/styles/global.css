@@ -1,0 +1,108 @@
+:root {
+  --bg: #0d0d1a;
+  --surface: #13132a;
+  --surface2: #1a1a35;
+  --border: #2a2a55;
+  --accent1: #b48ef5;
+  --accent2: #f590c8;
+  --accent3: #5ee8e8;
+  --text: #e8e8f8;
+  --text-muted: #8888aa;
+  --glow1: rgba(180,142,245,0.15);
+  --glow2: rgba(245,144,200,0.12);
+  --box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Nunito', 'Hiragino Sans', 'Meiryo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.8;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+main {
+  width: 740px;
+  max-width: calc(100% - 2em);
+  margin: auto;
+  padding: 3em 1em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 0.75rem 0;
+  color: var(--text);
+  line-height: 1.25;
+  font-weight: 800;
+}
+h1 { font-size: 2.25em; }
+h2 { font-size: 1.75em; }
+h3 { font-size: 1.4em; }
+h4 { font-size: 1.15em; }
+h5 { font-size: 1em; }
+
+strong, b { font-weight: 700; }
+
+a { color: var(--accent1); text-decoration: none; }
+a:hover { color: var(--accent2); }
+
+p { margin-bottom: 1em; }
+.prose p { margin-bottom: 1.5em; }
+
+textarea { width: 100%; font-size: 16px; }
+input { font-size: 16px; }
+table { width: 100%; border-collapse: collapse; }
+table th, table td { padding: 0.5rem 1rem; border: 1px solid var(--border); }
+table th { background: var(--surface2); }
+
+img { max-width: 100%; height: auto; border-radius: 8px; }
+
+code {
+  padding: 2px 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.85em;
+  color: var(--accent3);
+}
+
+pre {
+  padding: 1.5em;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+pre > code { all: unset; color: var(--text); font-size: 0.875em; }
+
+blockquote {
+  border-left: 3px solid var(--accent1);
+  padding: 0.5rem 0 0.5rem 1.25rem;
+  margin: 1.5rem 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+@media (max-width: 720px) {
+  body { font-size: 16px; }
+  main { padding: 1em; }
+}
+
+.sr-only {
+  border: 0; padding: 0; margin: 0;
+  position: absolute !important;
+  height: 1px; width: 1px; overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
