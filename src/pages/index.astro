@@ -127,3 +127,105 @@ const posts = (await getCollection('blog')).sort(
   .empty { text-align: center; padding: 3rem; background: #fff; border: 2px dashed #f0c8e0; border-radius: 16px; color: #9a7aaa; }
   .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
 </style>
+
+<canvas id="tinks" style="position:fixed;bottom:0;left:0;pointer-events:none;z-index:999;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
+<div id="tinks-bubble" style="position:fixed;bottom:0;left:0;pointer-events:none;z-index:1000;display:none;
+  background:#fff;border:2px solid #f0c8e0;border-radius:12px 12px 12px 2px;
+  padding:0.4rem 0.75rem;font-family:'Nunito',sans-serif;font-size:0.8rem;font-weight:700;
+  color:#3d2848;white-space:nowrap;box-shadow:0 2px 12px rgba(200,126,192,0.15);"></div>
+
+<script>
+(() => {
+  const SHEET_URL = 'https://raw.githubusercontent.com/TNKS1407/shinku-tinks/master/spritesheet.webp';
+  const CW = 192, CH = 208, COLS = 8, SCALE = 2;
+  const DRAW_W = CW * SCALE, DRAW_H = CH * SCALE;
+  const STATES = {
+    idle:   { row: 0, frames: 6 },
+    runR:   { row: 1, frames: 8 },
+    runL:   { row: 2, frames: 8 },
+    wave:   { row: 3, frames: 4 },
+    jump:   { row: 4, frames: 5 },
+    review: { row: 8, frames: 6 },
+  };
+  // Quips that hint at being the blog author without saying so
+  const QUIPS = [
+    '今日も書いたよ',
+    '…読んでくれた？',
+    'いい論文を見つけた',
+    'また明日',
+    'ふむ…',
+    '気になるガジェットがあって',
+    '…',
+    '次の記事、楽しみにしてて',
+  ];
+  const canvas = document.getElementById('tinks');
+  canvas.width = DRAW_W; canvas.height = DRAW_H;
+  const ctx = canvas.getContext('2d');
+  const bubble = document.getElementById('tinks-bubble');
+  const off = document.createElement('canvas');
+  off.width = CW; off.height = CH;
+  const offCtx = off.getContext('2d');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = SHEET_URL;
+  let posX = 40, velX = 0.7, state = 'idle', frame = 0, stateTimer = 0;
+  const FPS = 8, FRAME_MS = 1000 / FPS;
+  function chromaKey(data) {
+    for (let i = 0; i < data.length; i += 4)
+      if (data[i] > 200 && data[i+1] < 80 && data[i+2] > 200) data[i+3] = 0;
+  }
+  function drawSprite() {
+    const s = STATES[state];
+    offCtx.clearRect(0, 0, CW, CH);
+    offCtx.drawImage(img, (frame % COLS) * CW, s.row * CH, CW, CH, 0, 0, CW, CH);
+    const d = offCtx.getImageData(0, 0, CW, CH);
+    chromaKey(d.data); offCtx.putImageData(d, 0, 0);
+    ctx.clearRect(0, 0, DRAW_W, DRAW_H);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, DRAW_W, DRAW_H);
+  }
+  function positionCanvas() {
+    const maxX = window.innerWidth - DRAW_W;
+    posX = Math.max(0, Math.min(maxX, posX));
+    canvas.style.left = posX + 'px';
+    bubble.style.left = (posX + DRAW_W * 0.1) + 'px';
+    bubble.style.bottom = (DRAW_H + 8) + 'px';
+  }
+  function showBubble() {
+    bubble.textContent = QUIPS[Math.floor(Math.random() * QUIPS.length)];
+    bubble.style.display = 'block';
+    setTimeout(() => { bubble.style.display = 'none'; }, 3000);
+  }
+  function pickState() {
+    const r = Math.random();
+    if (r < 0.3) { state = 'runR'; velX = 1.0; }
+    else if (r < 0.6) { state = 'runL'; velX = -1.0; }
+    else if (r < 0.75) { state = 'review'; velX = 0; }
+    else if (r < 0.88) { state = 'wave'; velX = 0; showBubble(); }
+    else { state = 'idle'; velX = 0; }
+    stateTimer = 150 + Math.random() * 200;
+    frame = 0;
+  }
+  let lastTs = 0;
+  function tick(ts) {
+    if (!img.complete) { requestAnimationFrame(tick); return; }
+    if (ts - lastTs > FRAME_MS) {
+      frame = (frame + 1) % STATES[state].frames;
+      posX += velX;
+      const maxX = window.innerWidth - DRAW_W;
+      if (posX <= 0) { posX = 0; velX = Math.abs(velX); state = 'runR'; frame = 0; }
+      if (posX >= maxX) { posX = maxX; velX = -Math.abs(velX); state = 'runL'; frame = 0; }
+      if (--stateTimer <= 0) pickState();
+      drawSprite(); positionCanvas();
+      lastTs = ts;
+    }
+    requestAnimationFrame(tick);
+  }
+  img.onload = () => {
+    posX = Math.random() * (window.innerWidth - DRAW_W * 2) + DRAW_W;
+    pickState();
+    requestAnimationFrame(tick);
+  };
+  window.addEventListener('resize', positionCanvas);
+})();
+</script>
