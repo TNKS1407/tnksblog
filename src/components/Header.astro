@@ -18,9 +18,9 @@ import HeaderLink from './HeaderLink.astro';
 <style>
   header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(13,13,26,0.9);
+    background: rgba(253,246,251,0.92);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1.5px solid #f0c8e0;
     padding: 0 1.5rem;
   }
   nav {
@@ -30,19 +30,17 @@ import HeaderLink from './HeaderLink.astro';
   }
   .logo {
     font-size: 1.1rem; font-weight: 800;
-    background: linear-gradient(90deg, var(--accent1), var(--accent2));
+    background: linear-gradient(90deg, #c87ec0, #e86fa0);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     text-decoration: none;
   }
   .links { display: flex; gap: 0.25rem; align-items: center; }
   .ext-link {
     padding: 0.4rem 0.75rem;
-    color: var(--text-muted); font-size: 0.875rem; font-weight: 600;
-    text-decoration: none; border-radius: 6px;
+    color: #9a7aaa; font-size: 0.875rem; font-weight: 700;
+    text-decoration: none; border-radius: 8px;
     transition: color 0.2s;
   }
-  .ext-link:hover { color: var(--accent3); }
-  @media (max-width: 480px) {
-    .ext-link { display: none; }
-  }
+  .ext-link:hover { color: #5bbfb0; }
+  @media (max-width: 480px) { .ext-link { display: none; } }
 </style>

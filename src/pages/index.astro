@@ -22,12 +22,14 @@ const posts = (await getCollection('blog')).sort(
     <Header />
     <main>
       <div class="hero">
-        <div class="glow"></div>
         <div class="hero-text">
           <div class="label">✦ Curated by Claude</div>
-          <h1>tnksblog</h1>
+          <h1>tnkblog</h1>
           <p>{SITE_DESCRIPTION}</p>
         </div>
+        <div class="deco deco1">◆</div>
+        <div class="deco deco2">✿</div>
+        <div class="deco deco3">◇</div>
       </div>
 
       <section class="posts">
@@ -69,54 +71,59 @@ const posts = (await getCollection('blog')).sort(
   .hero {
     position: relative; text-align: center;
     padding: 4rem 1rem 3rem; overflow: hidden;
-    border-radius: 16px; margin-bottom: 3rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border-radius: 20px; margin-bottom: 3rem;
+    background: linear-gradient(135deg, #fff0f8 0%, #fce8f4 50%, #edf8f6 100%);
+    border: 1.5px solid #f0c8e0;
+    box-shadow: 0 4px 24px rgba(200,126,192,0.12);
   }
-  .glow {
-    position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse 70% 70% at 30% 50%, var(--glow1), transparent),
-      radial-gradient(ellipse 50% 50% at 70% 50%, var(--glow2), transparent);
+  .deco {
+    position: absolute; font-size: 1.5rem; opacity: 0.2; user-select: none;
   }
-  .hero-text { position: relative; z-index: 1; }
+  .deco1 { top: 1rem; left: 2rem; color: #c87ec0; }
+  .deco2 { top: 1.5rem; right: 3rem; color: #e86fa0; }
+  .deco3 { bottom: 1rem; right: 2rem; color: #5bbfb0; }
   .label {
     display: inline-block;
-    background: rgba(180,142,245,0.12); border: 1px solid rgba(180,142,245,0.3);
-    color: var(--accent1); padding: 0.25rem 0.75rem; border-radius: 999px;
+    background: rgba(200,126,192,0.1); border: 1.5px solid #f0c8e0;
+    color: #c87ec0; padding: 0.25rem 0.75rem; border-radius: 999px;
     font-size: 0.8rem; font-weight: 700; font-family: 'JetBrains Mono', monospace;
     margin-bottom: 1rem;
   }
   h1 {
     font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 800;
-    background: linear-gradient(90deg, var(--accent1), var(--accent2), var(--accent3));
+    background: linear-gradient(90deg, #c87ec0, #e86fa0, #5bbfb0);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 0.75rem;
   }
-  .hero p { color: var(--text-muted); font-size: 1rem; max-width: 500px; margin: 0 auto; }
+  .hero p { color: #9a7aaa; font-size: 1rem; max-width: 500px; margin: 0 auto; }
 
   .section-title {
     font-size: 1.25rem; font-weight: 800; margin-bottom: 1.5rem;
     display: flex; align-items: center; gap: 0.75rem; color: var(--text);
   }
-  .line { flex: 1; height: 1px; background: var(--border); }
+  .line { flex: 1; height: 2px; background: linear-gradient(90deg, #f0c8e0, transparent); border-radius: 999px; }
 
   ul { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
   .post-card {
     display: flex; gap: 1.25rem;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 1.25rem;
+    background: #fff; border: 1.5px solid #f0c8e0;
+    border-radius: 16px; padding: 1.25rem;
     text-decoration: none; color: var(--text);
-    transition: border-color 0.2s, transform 0.2s;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 12px rgba(200,126,192,0.08);
   }
-  .post-card:hover { border-color: var(--accent1); transform: translateX(4px); }
+  .post-card:hover {
+    border-color: #c87ec0;
+    transform: translateX(4px);
+    box-shadow: 0 4px 20px rgba(200,126,192,0.15);
+  }
   .post-img { width: 100px; flex-shrink: 0; }
   .post-img img { width: 100px; height: 70px; object-fit: cover; border-radius: 8px; }
   .post-body { flex: 1; min-width: 0; }
-  .post-date { font-size: 0.8rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.25rem; }
-  .post-title { font-weight: 800; font-size: 1rem; margin-bottom: 0.4rem; }
-  .post-desc { font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .post-date { font-size: 0.8rem; color: #9a7aaa; font-family: 'JetBrains Mono', monospace; margin-bottom: 0.25rem; }
+  .post-title { font-weight: 800; font-size: 1rem; margin-bottom: 0.4rem; color: #3d2848; }
+  .post-desc { font-size: 0.875rem; color: #9a7aaa; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  .empty { text-align: center; padding: 3rem; background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; color: var(--text-muted); }
+  .empty { text-align: center; padding: 3rem; background: #fff; border: 2px dashed #f0c8e0; border-radius: 16px; color: #9a7aaa; }
   .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
 </style>

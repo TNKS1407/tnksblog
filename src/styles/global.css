@@ -1,16 +1,15 @@
 :root {
-  --bg: #0d0d1a;
-  --surface: #13132a;
-  --surface2: #1a1a35;
-  --border: #2a2a55;
-  --accent1: #b48ef5;
-  --accent2: #f590c8;
-  --accent3: #5ee8e8;
-  --text: #e8e8f8;
-  --text-muted: #8888aa;
-  --glow1: rgba(180,142,245,0.15);
-  --glow2: rgba(245,144,200,0.12);
-  --box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --bg: #fdf6fb;
+  --surface: #fff0f8;
+  --surface2: #fce8f4;
+  --border: #f0c8e0;
+  --accent1: #c87ec0;
+  --accent2: #e86fa0;
+  --accent3: #5bbfb0;
+  --text: #3d2848;
+  --text-muted: #9a7aaa;
+  --shadow: rgba(200,126,192,0.15);
+  --box-shadow: 0 4px 20px rgba(200,126,192,0.12);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -58,7 +57,7 @@ table { width: 100%; border-collapse: collapse; }
 table th, table td { padding: 0.5rem 1rem; border: 1px solid var(--border); }
 table th { background: var(--surface2); }
 
-img { max-width: 100%; height: auto; border-radius: 8px; }
+img { max-width: 100%; height: auto; border-radius: 10px; }
 
 code {
   padding: 2px 6px;
@@ -67,17 +66,17 @@ code {
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 0.85em;
-  color: var(--accent3);
+  color: var(--accent1);
 }
 
 pre {
   padding: 1.5em;
-  border-radius: 10px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
   overflow-x: auto;
 }
-pre > code { all: unset; color: var(--text); font-size: 0.875em; }
+pre > code { all: unset; font-size: 0.875em; color: var(--text); }
 
 blockquote {
   border-left: 3px solid var(--accent1);
@@ -85,11 +84,13 @@ blockquote {
   margin: 1.5rem 0;
   color: var(--text-muted);
   font-style: italic;
+  background: var(--surface);
+  border-radius: 0 8px 8px 0;
 }
 
 hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1.5px solid var(--border);
   margin: 2rem 0;
 }
 
