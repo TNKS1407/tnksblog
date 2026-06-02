@@ -138,7 +138,7 @@ const posts = (await getCollection('blog')).sort(
 (() => {
   const SHEET_URL = 'https://raw.githubusercontent.com/TNKS1407/shinku-tinks/master/spritesheet.webp';
   const CW = 192, CH = 208, COLS = 8;
-  const getScale = () => window.innerWidth < 480 ? 1 : window.innerWidth < 768 ? 1.5 : 2;
+  const getScale = () => window.innerWidth < 480 ? 0.65 : window.innerWidth < 768 ? 0.9 : 1.25;
   let SCALE = getScale();
   let DRAW_W = CW * SCALE, DRAW_H = CH * SCALE;
   const STATES = {
