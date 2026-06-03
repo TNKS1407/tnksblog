@@ -115,12 +115,141 @@ import Footer from '../components/Footer.astro';
       <div class="status" id="fourier-status">左に描いてね。マウスを離したら解析が始まる。</div>
     </div>
 
+    <!-- Sound Scope -->
+    <div class="app-card">
+      <div class="app-title">Sound Scope</div>
+      <div class="app-desc">
+        マイクの音をリアルタイムで波形とスペクトルに表示する。ブラウザの Web Audio API だけで動く。<br>
+        スペクトルを見ていると、母音ごとに倍音のパターンが違うのがわかったり、ノイズと純音の違いが見えたりして面白い。
+      </div>
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <button class="btn primary" id="scope-start">マイクを開始</button>
+        <button class="btn" id="scope-stop" disabled>停止</button>
+        <span id="scope-status" style="font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);align-self:center;">— 停止中</span>
+      </div>
+      <div class="fourier-wrap">
+        <div>
+          <div class="canvas-label">WAVEFORM — 時間領域</div>
+          <canvas id="cv-wave" width="340" height="160" style="height:160px;"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">SPECTRUM — 周波数領域 (FFT)</div>
+          <canvas id="cv-spec" width="340" height="160" style="height:160px;"></canvas>
+        </div>
+      </div>
+      <div class="controls" style="margin-top:.75rem;">
+        <div class="ctrl-group">
+          <label>ゲイン</label>
+          <input type="range" id="scope-gain" min="1" max="10" value="3" step="0.5">
+          <span id="scope-gain-val">3</span>
+        </div>
+        <div class="ctrl-group">
+          <label>スペクトル最大 [Hz]</label>
+          <input type="range" id="scope-maxf" min="1000" max="20000" value="8000" step="500">
+          <span id="scope-maxf-val">8000</span>
+        </div>
+      </div>
+    </div>
+
   </main>
   <Footer />
 </body>
 </html>
 
 <script>
+/* ═══════════════════════════════════════════════════
+   Sound Scope
+═══════════════════════════════════════════════════ */
+(()=>{
+  let audioCtx=null, analyser=null, stream=null, rafId=null;
+  const cvW=document.getElementById('cv-wave');
+  const cvS=document.getElementById('cv-spec');
+  const ctxW=cvW.getContext('2d');
+  const ctxS=cvS.getContext('2d');
+  const btnStart=document.getElementById('scope-start');
+  const btnStop=document.getElementById('scope-stop');
+  const statusEl=document.getElementById('scope-status');
+  const gainSlider=document.getElementById('scope-gain');
+  const maxfSlider=document.getElementById('scope-maxf');
+  gainSlider.addEventListener('input',()=>document.getElementById('scope-gain-val').textContent=gainSlider.value);
+  maxfSlider.addEventListener('input',()=>document.getElementById('scope-maxf-val').textContent=maxfSlider.value);
+
+  const TEAL='#3c7876', TEAL2='rgba(60,120,118,.15)', BG='#faf8f4', GRID='rgba(227,219,208,.6)';
+
+  function drawGrid(ctx,w,h){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1;
+    for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(0,h*i/4);ctx.lineTo(w,h*i/4);ctx.stroke();}
+    for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(w*i/4,0);ctx.lineTo(w*i/4,h);ctx.stroke();}
+  }
+
+  function loop(){
+    const W=cvW.width, H=cvW.height;
+    const gain=parseFloat(gainSlider.value);
+    const maxF=parseFloat(maxfSlider.value);
+    const bufLen=analyser.frequencyBinCount;
+    const timeBuf=new Float32Array(bufLen);
+    const freqBuf=new Uint8Array(bufLen);
+    analyser.getFloatTimeDomainData(timeBuf);
+    analyser.getByteFrequencyData(freqBuf);
+
+    // Waveform
+    drawGrid(ctxW,W,H);
+    ctxW.beginPath();
+    ctxW.strokeStyle=TEAL; ctxW.lineWidth=1.5;
+    for(let i=0;i<W;i++){
+      const idx=Math.floor(i/W*bufLen);
+      const y=H/2-(timeBuf[idx]*gain*H/2);
+      i===0?ctxW.moveTo(i,y):ctxW.lineTo(i,y);
+    }
+    ctxW.stroke();
+
+    // Spectrum
+    const sampleRate=audioCtx.sampleRate;
+    const maxBin=Math.floor(maxF/(sampleRate/2)*bufLen);
+    drawGrid(ctxS,W,H);
+    ctxS.fillStyle=TEAL2;
+    ctxS.beginPath(); ctxS.moveTo(0,H);
+    for(let i=0;i<W;i++){
+      const bin=Math.floor(i/W*maxBin);
+      const y=H-(freqBuf[bin]/255)*H;
+      i===0?ctxS.lineTo(0,y):ctxS.lineTo(i,y);
+    }
+    ctxS.lineTo(W,H); ctxS.closePath(); ctxS.fill();
+    ctxS.beginPath();
+    ctxS.strokeStyle=TEAL; ctxS.lineWidth=1.5;
+    for(let i=0;i<W;i++){
+      const bin=Math.floor(i/W*maxBin);
+      const y=H-(freqBuf[bin]/255)*H;
+      i===0?ctxS.moveTo(i,y):ctxS.lineTo(i,y);
+    }
+    ctxS.stroke();
+
+    rafId=requestAnimationFrame(loop);
+  }
+
+  btnStart.addEventListener('click',async()=>{
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      const src=audioCtx.createMediaStreamSource(stream);
+      analyser=audioCtx.createAnalyser();
+      analyser.fftSize=2048;
+      src.connect(analyser);
+      loop();
+      btnStart.disabled=true; btnStop.disabled=false;
+      statusEl.textContent='— 録音中';
+    }catch(e){statusEl.textContent='— マイク許可が必要です';}
+  });
+  btnStop.addEventListener('click',()=>{
+    if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    if(audioCtx){audioCtx.close();audioCtx=null;}
+    btnStart.disabled=false; btnStop.disabled=true;
+    statusEl.textContent='— 停止中';
+  });
+})();
+
 /* ═══════════════════════════════════════════════════
    Fourier Sketchbook
 ═══════════════════════════════════════════════════ */
