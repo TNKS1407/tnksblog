@@ -236,7 +236,10 @@ import Footer from '../components/Footer.astro';
 
   btnStart.addEventListener('click',async()=>{
     try{
-      stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      stream=await navigator.mediaDevices.getUserMedia({
+        audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},
+        video:false
+      });
       audioCtx=new (window.AudioContext||window.webkitAudioContext)();
       const src=audioCtx.createMediaStreamSource(stream);
       analyser=audioCtx.createAnalyser();
@@ -392,24 +395,32 @@ function drawSpectrum(activeN) {
   ctxSF.fillStyle = '#faf8f4';
   ctxSF.fillRect(0,0,sw,sh);
 
-  const total = Math.min(fourier.length, 64); // show up to 64 components
-  const maxAmp = fourier[0].amp || 1;
-  const barW = sw / total;
+  // Sort by frequency order (not amplitude) and skip n=0 (DC)
+  const byFreq = [...fourier].sort((a,b) => a.freq - b.freq).filter(f => f.freq > 0);
+  const show = Math.min(byFreq.length, 40);
+  const maxAmp = Math.max(...byFreq.slice(0,show).map(f=>f.amp), 0.001);
+  const barW = sw / show;
 
-  for(let i=0; i<total; i++) {
-    const amp = fourier[i].amp;
-    const h = Math.max(2, (amp / maxAmp) * (sh - 14));
-    const active = i < activeN;
-    ctxSF.fillStyle = active ? TEAL : 'rgba(60,120,118,.2)';
-    ctxSF.fillRect(i*barW + 1, sh - h - 2, Math.max(1, barW - 2), h);
+  // Active set: which freqs are in the top activeN by amplitude
+  const activeFreqs = new Set(fourier.slice(0, activeN).map(f=>f.freq));
+
+  for(let i=0; i<show; i++) {
+    const {freq, amp} = byFreq[i];
+    const h = Math.max(2, (amp / maxAmp) * (sh - 18));
+    const active = activeFreqs.has(freq);
+    ctxSF.fillStyle = active ? TEAL : 'rgba(60,120,118,.18)';
+    ctxSF.fillRect(i*barW + 1, sh - h - 14, Math.max(1, barW - 2), h);
+    // tick label every 5
+    if(i % 5 === 0) {
+      ctxSF.fillStyle = '#bbb5ac';
+      ctxSF.font = '8px JetBrains Mono, monospace';
+      ctxSF.fillText(freq, i*barW + 1, sh - 2);
+    }
   }
 
-  // Labels
   ctxSF.fillStyle = '#aaa49b';
-  ctxSF.font = '9px JetBrains Mono, monospace';
-  ctxSF.fillText('DC', 2, sh - 2);
-  ctxSF.fillText(`n=${total}`, sw - 28, sh - 2);
-  ctxSF.fillText('amplitude →', sw/2 - 30, 10);
+  ctxSF.font = '8px JetBrains Mono, monospace';
+  ctxSF.fillText('harmonic n →', 2, 10);
 }
 
 function loop() {
