@@ -459,8 +459,8 @@ function loop() {
   const speed = parseInt(sliderSpeed.value);
   const dt = (2*Math.PI / fourier.slice(0,N).length) * speed * 0.004;
 
-  // Draw epicycles and get tip
-  const tip = drawEpicycles(ctxE, CX, CY, animTime, fourier.slice(0,N));
+  // Draw epicycles and get tip — start from (0,0): DC component carries us to centroid
+  const tip = drawEpicycles(ctxE, 0, 0, animTime, fourier.slice(0,N));
 
   // Trace path
   tracePath.push({x:tip.x, y:tip.y});
