@@ -340,7 +340,9 @@ function computeDFT(pts) {
       re += pts[n].x * Math.cos(a) + pts[n].y * Math.sin(a);
       im += -pts[n].x * Math.sin(a) + pts[n].y * Math.cos(a);
     }
-    result.push({ freq: k, amp: Math.hypot(re,im)/N, phase: Math.atan2(im,re) });
+    // k > N/2 → negative frequency (counterclockwise rotation)
+    const freq = k <= N / 2 ? k : k - N;
+    result.push({ freq, amp: Math.hypot(re,im)/N, phase: Math.atan2(im,re) });
   }
   return result.sort((a,b) => b.amp - a.amp);
 }
