@@ -215,6 +215,36 @@ import Footer from '../components/Footer.astro';
     for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(w*i/4,0);ctx.lineTo(w*i/4,h);ctx.stroke();}
   }
 
+  // Note markers: [frequency, label, color]
+  const NOTE_A = 440;
+  const NOTE_MARKERS = [];
+  // Chromatic scale notes around middle octaves with Japanese solfege
+  const SOLFEGE = ['ド','ド#','レ','レ#','ミ','ファ','ファ#','ソ','ソ#','ラ','ラ#','シ'];
+  // Generate notes from C2 to C8
+  for(let midi=36; midi<=108; midi++){
+    const freq = 440 * Math.pow(2, (midi-69)/12);
+    const noteName = SOLFEGE[midi % 12];
+    const octave = Math.floor(midi/12) - 1;
+    const isA = midi % 12 === 9; // A note
+    const isC = midi % 12 === 0; // C note
+    if(isA || isC) NOTE_MARKERS.push({freq, label: noteName+(isA?octave:''), isA, isC});
+  }
+
+  function drawNoteMarkers(ctx, W, H, sampleRate, bufLen, maxF){
+    for(const {freq, label, isA, isC} of NOTE_MARKERS){
+      if(freq > maxF) continue;
+      const x = Math.round(freq / maxF * W);
+      ctx.strokeStyle = isA ? 'rgba(60,120,118,.7)' : 'rgba(140,107,79,.45)';
+      ctx.lineWidth = isA ? 1.5 : 1;
+      ctx.setLineDash(isA ? [] : [3,3]);
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H-14); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = isA ? '#3c7876' : '#8c6d4f';
+      ctx.font = `bold ${isA?9:8}px JetBrains Mono, monospace`;
+      ctx.fillText(label, x+2, H-3);
+    }
+  }
+
   function loop(){
     const W=cvW.width, H=cvW.height;
     const gain=parseFloat(gainSlider.value);
@@ -256,6 +286,9 @@ import Footer from '../components/Footer.astro';
       i===0?ctxS.moveTo(i,y):ctxS.lineTo(i,y);
     }
     ctxS.stroke();
+
+    // Note markers overlay
+    drawNoteMarkers(ctxS, W, H, sampleRate, bufLen, maxF);
 
     rafId=requestAnimationFrame(loop);
   }
