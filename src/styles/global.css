@@ -1,27 +1,31 @@
 :root {
-  --bg: #fdf6fb;
-  --surface: #fff0f8;
-  --surface2: #fce8f4;
-  --border: #f0c8e0;
-  --accent1: #c87ec0;
-  --accent2: #e86fa0;
-  --accent3: #5bbfb0;
-  --text: #3d2848;
-  --text-muted: #9a7aaa;
-  --shadow: rgba(200,126,192,0.15);
-  --box-shadow: 0 4px 20px rgba(200,126,192,0.12);
+  --bg: #f5f2ec;
+  --surface: #faf8f4;
+  --surface2: #f0ece6;
+  --card: #ffffff;
+  --border: #e3dbd0;
+  --accent: #3c7876;
+  --accent-dim: rgba(60,120,118,0.09);
+  --accent-soft: #e6f0ef;
+  --text: #1d1b17;
+  --text-muted: #7d7568;
+  --text-faint: #aaa49b;
+  --shadow: rgba(29,27,23,0.06);
+  --dot: #cfc9be;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Nunito', 'Hiragino Sans', 'Meiryo', sans-serif;
+  font-family: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Meiryo', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 18px;
-  line-height: 1.8;
+  line-height: 1.85;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  background-image: radial-gradient(circle, var(--dot) 1px, transparent 0);
+  background-size: 20px 20px;
 }
 
 main {
@@ -35,18 +39,18 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0 0 0.75rem 0;
   color: var(--text);
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 700;
 }
-h1 { font-size: 2.25em; }
-h2 { font-size: 1.75em; }
-h3 { font-size: 1.4em; }
-h4 { font-size: 1.15em; }
+h1 { font-size: 2.1em; }
+h2 { font-size: 1.65em; }
+h3 { font-size: 1.35em; }
+h4 { font-size: 1.1em; }
 h5 { font-size: 1em; }
 
 strong, b { font-weight: 700; }
 
-a { color: var(--accent1); text-decoration: none; }
-a:hover { color: var(--accent2); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { opacity: 0.75; }
 
 p { margin-bottom: 1em; }
 .prose p { margin-bottom: 1.5em; }
@@ -66,31 +70,31 @@ code {
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 0.85em;
-  color: var(--accent1);
+  color: var(--accent);
 }
 
 pre {
   padding: 1.5em;
   border-radius: 12px;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
+  background: var(--card);
+  border: 1px solid var(--border);
   overflow-x: auto;
 }
 pre > code { all: unset; font-size: 0.875em; color: var(--text); }
 
 blockquote {
-  border-left: 3px solid var(--accent1);
+  border-left: 3px solid var(--accent);
   padding: 0.5rem 0 0.5rem 1.25rem;
   margin: 1.5rem 0;
   color: var(--text-muted);
   font-style: italic;
-  background: var(--surface);
+  background: var(--accent-soft);
   border-radius: 0 8px 8px 0;
 }
 
 hr {
   border: none;
-  border-top: 1.5px solid var(--border);
+  border-top: 1px solid var(--border);
   margin: 2rem 0;
 }
 

@@ -18,29 +18,31 @@ import HeaderLink from './HeaderLink.astro';
 <style>
   header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(253,246,251,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1.5px solid #f0c8e0;
+    background: rgba(245,242,236,0.90);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid #e3dbd0;
     padding: 0 1.5rem;
   }
   nav {
     max-width: 900px; margin: 0 auto;
     display: flex; align-items: center; justify-content: space-between;
-    height: 56px;
+    height: 52px;
   }
   .logo {
-    font-size: 1.1rem; font-weight: 800;
-    background: linear-gradient(90deg, #c87ec0, #e86fa0);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-size: 1rem; font-weight: 700;
+    color: #1d1b17;
     text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: .02em;
   }
-  .links { display: flex; gap: 0.25rem; align-items: center; }
+  .logo:hover { color: #3c7876; opacity: 1; }
+  .links { display: flex; gap: 0.15rem; align-items: center; }
   .ext-link {
-    padding: 0.4rem 0.75rem;
-    color: #9a7aaa; font-size: 0.875rem; font-weight: 700;
-    text-decoration: none; border-radius: 8px;
-    transition: color 0.2s;
+    padding: 0.3rem 0.65rem;
+    color: #7d7568; font-size: 0.82rem; font-weight: 500;
+    text-decoration: none; border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
   }
-  .ext-link:hover { color: #5bbfb0; }
+  .ext-link:hover { color: #3c7876; background: rgba(60,120,118,0.09); opacity: 1; }
   @media (max-width: 480px) { .ext-link { display: none; } }
 </style>
