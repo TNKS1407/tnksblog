@@ -1,0 +1,381 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="Play — tnkblog" description="ランキンの遊び場。フーリエ スケッチブックほか。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    .play-intro{
+      background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);
+      border-radius:14px;padding:1.5rem 1.75rem;margin-bottom:2.5rem;
+      box-shadow:0 1px 6px rgba(29,27,23,.05);
+    }
+    .play-intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin-bottom:.5rem;}
+    .play-intro p:last-child{margin-bottom:0;}
+
+    .app-card{
+      background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);
+      border-radius:14px;padding:1.5rem;margin-bottom:2rem;
+      box-shadow:0 1px 6px rgba(29,27,23,.05);
+    }
+    .app-title{font-size:1.05rem;font-weight:700;margin-bottom:.3rem;}
+    .app-desc{font-size:.8rem;color:var(--text-muted,#7d7568);margin-bottom:1.25rem;line-height:1.6;}
+
+    /* Fourier Sketchbook */
+    .fourier-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+    @media(max-width:640px){.fourier-wrap{grid-template-columns:1fr;}}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;
+      background:#faf8f4;cursor:crosshair;touch-action:none;}
+    .canvas-label{font-size:.7rem;font-family:'JetBrains Mono',monospace;
+      color:var(--text-muted,#7d7568);margin-bottom:.4rem;letter-spacing:.04em;}
+
+    .controls{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;
+      color:var(--text-muted,#7d7568);white-space:nowrap;}
+    .ctrl-group input[type=range]{width:100px;accent-color:#3c7876;}
+    .ctrl-group span{font-size:.72rem;font-family:'JetBrains Mono',monospace;
+      color:#3c7876;font-weight:700;min-width:2ch;}
+    .btn{padding:.35rem .85rem;border:1px solid var(--border,#e3dbd0);border-radius:7px;
+      background:none;font-family:inherit;font-size:.78rem;color:var(--text-muted,#7d7568);
+      cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .btn.primary{background:#3c7876;color:#fff;border-color:#3c7876;}
+    .btn.primary:hover{opacity:.85;}
+
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;
+      color:var(--text-faint,#aaa49b);margin-top:.5rem;}
+
+    /* Preset buttons */
+    .presets{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;}
+    .preset-btn{padding:.22rem .6rem;border:1px solid var(--border,#e3dbd0);border-radius:5px;
+      font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text-muted,#7d7568);
+      background:none;cursor:pointer;transition:all .15s;}
+    .preset-btn:hover{border-color:#3c7876;color:#3c7876;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main>
+
+    <div class="play-intro">
+      <p>ここはランキンの遊び場。ブログより気楽なやつ。</p>
+      <p>好奇心のまま作ったものを置いている。使い方があってもなくても、まあいい。</p>
+    </div>
+
+    <!-- Fourier Sketchbook -->
+    <div class="app-card">
+      <div class="app-title">Fourier スケッチブック</div>
+      <div class="app-desc">
+        左のキャンバスにマウスで形を描くと、回転する円（エピサイクル）の重ね合わせが元の形を再現する。<br>
+        フーリエ級数は「任意の周期関数を正弦波の和で表せる」という話で、これはその可視化。RFでいえば、任意の波形をスペクトルに分解してまた足し合わせるようなもの。
+      </div>
+
+      <div class="fourier-wrap">
+        <div>
+          <div class="canvas-label">INPUT — ここに描く</div>
+          <canvas id="cv-draw" width="340" height="340"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">OUTPUT — エピサイクル</div>
+          <canvas id="cv-epi" width="340" height="340"></canvas>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>N（高調波数）</label>
+          <input type="range" id="n-harmonics" min="1" max="128" value="32">
+          <span id="n-val">32</span>
+        </div>
+        <div class="ctrl-group">
+          <label>速度</label>
+          <input type="range" id="speed" min="1" max="10" value="3">
+          <span id="speed-val">3</span>
+        </div>
+        <button class="btn primary" id="btn-clear">クリア</button>
+        <button class="btn" id="btn-pause">一時停止</button>
+      </div>
+
+      <div class="presets">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-right:.2rem;">プリセット:</span>
+        <button class="preset-btn" data-shape="square">矩形波</button>
+        <button class="preset-btn" data-shape="triangle">三角波</button>
+        <button class="preset-btn" data-shape="sawtooth">ノコギリ波</button>
+        <button class="preset-btn" data-shape="circle">円</button>
+        <button class="preset-btn" data-shape="lemniscate">∞</button>
+        <button class="preset-btn" data-shape="rf">RF↯</button>
+      </div>
+
+      <div class="status" id="fourier-status">左に描いてね。マウスを離したら解析が始まる。</div>
+    </div>
+
+  </main>
+  <Footer />
+</body>
+</html>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   Fourier Sketchbook
+═══════════════════════════════════════════════════ */
+const cvDraw = document.getElementById('cv-draw');
+const cvEpi  = document.getElementById('cv-epi');
+const ctxD   = cvDraw.getContext('2d');
+const ctxE   = cvEpi.getContext('2d');
+const W = cvDraw.width, H = cvDraw.height;
+const CX = W/2, CY = H/2;
+
+const TEAL  = '#3c7876';
+const TEAL2 = 'rgba(60,120,118,.18)';
+const TEAL3 = 'rgba(60,120,118,.45)';
+const PATH_COL = 'rgba(60,120,118,.7)';
+const TRACE_COL = '#3c7876';
+
+// ── State ─────────────────────────────────────────
+let drawing = false, rawPts = [], fourier = [], paused = false;
+let animTime = 0, animId = null, tracePath = [];
+let prevMouseX = null, prevMouseY = null;
+
+const sliderN     = document.getElementById('n-harmonics');
+const sliderSpeed = document.getElementById('speed');
+const statusEl    = document.getElementById('fourier-status');
+
+sliderN.addEventListener('input', () => {
+  document.getElementById('n-val').textContent = sliderN.value;
+  if(fourier.length) startAnimation();
+});
+sliderSpeed.addEventListener('input', () => {
+  document.getElementById('speed-val').textContent = sliderSpeed.value;
+});
+document.getElementById('btn-clear').addEventListener('click', clearAll);
+document.getElementById('btn-pause').addEventListener('click', togglePause);
+
+// ── Drawing ───────────────────────────────────────
+function pos(e, cv) {
+  const r = cv.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+
+cvDraw.addEventListener('mousedown',  e => startDraw(pos(e, cvDraw)));
+cvDraw.addEventListener('mousemove',  e => { if(drawing) continueDraw(pos(e, cvDraw)); });
+cvDraw.addEventListener('mouseup',    () => endDraw());
+cvDraw.addEventListener('mouseleave', () => { if(drawing) endDraw(); });
+cvDraw.addEventListener('touchstart', e => { e.preventDefault(); startDraw(pos(e, cvDraw)); }, {passive:false});
+cvDraw.addEventListener('touchmove',  e => { e.preventDefault(); if(drawing) continueDraw(pos(e, cvDraw)); }, {passive:false});
+cvDraw.addEventListener('touchend',   e => { e.preventDefault(); endDraw(); }, {passive:false});
+
+function startDraw({x, y}) {
+  drawing = true; rawPts = [{x,y}];
+  clearCanvas(ctxD);
+  ctxD.beginPath(); ctxD.moveTo(x,y);
+  ctxD.strokeStyle = TEAL3; ctxD.lineWidth = 2.5; ctxD.lineCap='round';
+  prevMouseX = x; prevMouseY = y;
+}
+function continueDraw({x, y}) {
+  if(!drawing) return;
+  rawPts.push({x,y});
+  ctxD.lineTo(x,y); ctxD.stroke();
+  ctxD.beginPath(); ctxD.moveTo(x,y);
+  prevMouseX = x; prevMouseY = y;
+}
+function endDraw() {
+  if(!drawing || rawPts.length < 4) { drawing = false; return; }
+  drawing = false;
+  analyze();
+}
+
+// ── DFT ───────────────────────────────────────────
+function computeDFT(pts) {
+  const N = pts.length;
+  const result = [];
+  for (let k = 0; k < N; k++) {
+    let re = 0, im = 0;
+    for (let n = 0; n < N; n++) {
+      const a = (2 * Math.PI * k * n) / N;
+      re += pts[n].x * Math.cos(a) + pts[n].y * Math.sin(a);
+      im += -pts[n].x * Math.sin(a) + pts[n].y * Math.cos(a);
+    }
+    result.push({ freq: k, amp: Math.hypot(re,im)/N, phase: Math.atan2(im,re) });
+  }
+  return result.sort((a,b) => b.amp - a.amp);
+}
+
+function sampleEvenly(pts, target=256) {
+  if(pts.length <= target) return pts;
+  const result = [];
+  for(let i=0; i<target; i++) {
+    result.push(pts[Math.round(i*(pts.length-1)/(target-1))]);
+  }
+  return result;
+}
+
+function analyze() {
+  const sampled = sampleEvenly(rawPts, 256);
+  // Center the points
+  const mx = sampled.reduce((s,p)=>s+p.x,0)/sampled.length;
+  const my = sampled.reduce((s,p)=>s+p.y,0)/sampled.length;
+  const centered = sampled.map(p=>({x:p.x-mx+CX, y:p.y-my+CY}));
+  fourier = computeDFT(centered);
+  statusEl.textContent = `${rawPts.length}点サンプル → DFT完了。N=${sliderN.value}本の円で近似中。`;
+  startAnimation();
+}
+
+// ── Animation ─────────────────────────────────────
+function startAnimation() {
+  if(animId) cancelAnimationFrame(animId);
+  animTime = 0; tracePath = [];
+  clearCanvas(ctxE);
+  loop();
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('btn-pause').textContent = paused ? '再開' : '一時停止';
+  if(!paused) loop();
+}
+
+function clearCanvas(ctx) {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#faf8f4';
+  ctx.fillRect(0,0,W,H);
+}
+
+function loop() {
+  if(paused || !fourier.length) return;
+  clearCanvas(ctxE);
+  const N = Math.min(parseInt(sliderN.value), fourier.length);
+  const speed = parseInt(sliderSpeed.value);
+  const dt = (2*Math.PI / fourier.slice(0,N).length) * speed * 0.004;
+
+  // Draw epicycles and get tip
+  const tip = drawEpicycles(ctxE, CX, CY, animTime, fourier.slice(0,N));
+
+  // Trace path
+  tracePath.push({x:tip.x, y:tip.y});
+  if(tracePath.length > 2000) tracePath.shift();
+
+  // Draw trace
+  ctxE.beginPath();
+  ctxE.moveTo(tracePath[0].x, tracePath[0].y);
+  for(let i=1; i<tracePath.length; i++) ctxE.lineTo(tracePath[i].x, tracePath[i].y);
+  ctxE.strokeStyle = TRACE_COL;
+  ctxE.lineWidth = 2;
+  ctxE.lineCap = 'round';
+  ctxE.stroke();
+
+  animTime += dt;
+  animId = requestAnimationFrame(loop);
+}
+
+function drawEpicycles(ctx, x, y, t, fs) {
+  for(const f of fs) {
+    const px = x, py = y;
+    const angle = f.freq * t + f.phase;
+    x += f.amp * Math.cos(angle);
+    y += f.amp * Math.sin(angle);
+    if(f.amp < 0.5) continue;
+    // circle
+    ctx.beginPath();
+    ctx.arc(px, py, f.amp, 0, 2*Math.PI);
+    ctx.strokeStyle = TEAL2;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // arm
+    ctx.beginPath();
+    ctx.moveTo(px,py); ctx.lineTo(x,y);
+    ctx.strokeStyle = TEAL3;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // dot
+    ctx.beginPath();
+    ctx.arc(x,y,2.5,0,2*Math.PI);
+    ctx.fillStyle = TEAL;
+    ctx.fill();
+  }
+  return {x,y};
+}
+
+// ── Presets ───────────────────────────────────────
+function makeShape(name) {
+  const N = 300;
+  const pts = [];
+  for(let i=0; i<N; i++) {
+    const t = (2*Math.PI*i)/N;
+    let x,y;
+    switch(name) {
+      case 'square':
+        x = Math.sign(Math.cos(t));
+        y = Math.sign(Math.sin(t));
+        break;
+      case 'triangle':
+        x = (2/Math.PI)*Math.asin(Math.cos(t));
+        y = (2/Math.PI)*Math.asin(Math.sin(t));
+        break;
+      case 'sawtooth':
+        x = (t/Math.PI - Math.floor(t/Math.PI+0.5))*2;
+        y = Math.sin(t);
+        break;
+      case 'circle':
+        x = Math.cos(t); y = Math.sin(t);
+        break;
+      case 'lemniscate': {
+        const st = Math.sin(t);
+        const d = 1+Math.cos(t)*Math.cos(t);
+        x = Math.cos(t)/d; y = Math.cos(t)*st/d;
+        break;
+      }
+      case 'rf': {
+        // Stylized lightning bolt / RF symbol
+        const segs = [[-.6,.0],[-.2,-.5],[0,.0],[.4,-.5],[.6,.0]];
+        const s = i/N*(segs.length-1);
+        const si = Math.floor(s), sf = s-si;
+        const a = segs[Math.min(si, segs.length-1)];
+        const b = segs[Math.min(si+1, segs.length-1)];
+        x = a[0]*(1-sf)+b[0]*sf; y = a[1]*(1-sf)+b[1]*sf;
+        break;
+      }
+      default: x=Math.cos(t); y=Math.sin(t);
+    }
+    pts.push({x: CX + x*120, y: CY + y*120});
+  }
+  return pts;
+}
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const shape = btn.dataset.shape;
+    rawPts = makeShape(shape);
+    // Draw on left canvas
+    clearCanvas(ctxD);
+    ctxD.beginPath();
+    ctxD.moveTo(rawPts[0].x, rawPts[0].y);
+    rawPts.forEach(p => ctxD.lineTo(p.x, p.y));
+    ctxD.closePath();
+    ctxD.strokeStyle = TEAL3; ctxD.lineWidth = 2.5; ctxD.lineCap='round';
+    ctxD.stroke();
+    statusEl.textContent = `プリセット「${btn.textContent}」を読み込んで解析中…`;
+    fourier = computeDFT(rawPts);
+    statusEl.textContent = `プリセット「${btn.textContent}」— N=${sliderN.value}本の円で近似中。`;
+    startAnimation();
+  });
+});
+
+function clearAll() {
+  if(animId) { cancelAnimationFrame(animId); animId = null; }
+  fourier = []; rawPts = []; tracePath = []; animTime = 0;
+  clearCanvas(ctxD); clearCanvas(ctxE);
+  statusEl.textContent = '左に描いてね。マウスを離したら解析が始まる。';
+  document.getElementById('btn-pause').textContent = '一時停止';
+  paused = false;
+}
+
+// Init
+clearCanvas(ctxD); clearCanvas(ctxE);
+</script>
