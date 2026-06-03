@@ -128,10 +128,16 @@ import Footer from '../components/Footer.astro';
         マイクの音をリアルタイムで波形とスペクトルに表示する。ブラウザの Web Audio API だけで動く。<br>
         スペクトルを見ていると、母音ごとに倍音のパターンが違うのがわかったり、ノイズと純音の違いが見えたりして面白い。
       </div>
-      <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <div style="display:flex;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap;align-items:center;">
         <button class="btn primary" id="scope-start">マイクを開始</button>
         <button class="btn" id="scope-stop" disabled>停止</button>
-        <span id="scope-status" style="font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);align-self:center;">— 停止中</span>
+        <span id="scope-status" style="font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">— 停止中</span>
+      </div>
+      <div style="display:flex;gap:.4rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">音声処理:</span>
+        <button class="preset-btn" id="scope-raw" style="border-color:#3c7876;color:#3c7876;">処理なし（生）</button>
+        <button class="preset-btn" id="scope-proc">処理あり（スマホ標準）</button>
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">← 切り替えると再接続</span>
       </div>
       <div class="fourier-wrap">
         <div>
@@ -168,6 +174,7 @@ import Footer from '../components/Footer.astro';
 ═══════════════════════════════════════════════════ */
 (()=>{
   let audioCtx=null, analyser=null, stream=null, rafId=null;
+  let rawMode=true; // true=処理なし, false=処理あり
   const cvW=document.getElementById('cv-wave');
   const cvS=document.getElementById('cv-spec');
   const ctxW=cvW.getContext('2d');
@@ -177,8 +184,27 @@ import Footer from '../components/Footer.astro';
   const statusEl=document.getElementById('scope-status');
   const gainSlider=document.getElementById('scope-gain');
   const maxfSlider=document.getElementById('scope-maxf');
+  const btnRaw=document.getElementById('scope-raw');
+  const btnProc=document.getElementById('scope-proc');
   gainSlider.addEventListener('input',()=>document.getElementById('scope-gain-val').textContent=gainSlider.value);
   maxfSlider.addEventListener('input',()=>document.getElementById('scope-maxf-val').textContent=maxfSlider.value);
+
+  function setMode(raw){
+    rawMode=raw;
+    btnRaw.style.borderColor=raw?'#3c7876':'';
+    btnRaw.style.color=raw?'#3c7876':'';
+    btnProc.style.borderColor=raw?'':'#3c7876';
+    btnProc.style.color=raw?'':'#3c7876';
+  }
+  btnRaw.addEventListener('click',()=>{ setMode(true); if(stream) reconnect(); });
+  btnProc.addEventListener('click',()=>{ setMode(false); if(stream) reconnect(); });
+
+  async function reconnect(){
+    if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    if(audioCtx){audioCtx.close();audioCtx=null;}
+    await startMic();
+  }
 
   const TEAL='#3c7876', TEAL2='rgba(60,120,118,.15)', BG='#faf8f4', GRID='rgba(227,219,208,.6)';
 
@@ -234,12 +260,12 @@ import Footer from '../components/Footer.astro';
     rafId=requestAnimationFrame(loop);
   }
 
-  btnStart.addEventListener('click',async()=>{
+  async function startMic(){
     try{
-      stream=await navigator.mediaDevices.getUserMedia({
-        audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},
-        video:false
-      });
+      const constraints = rawMode
+        ? {audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false}
+        : {audio:true,video:false};
+      stream=await navigator.mediaDevices.getUserMedia(constraints);
       audioCtx=new (window.AudioContext||window.webkitAudioContext)();
       const src=audioCtx.createMediaStreamSource(stream);
       analyser=audioCtx.createAnalyser();
@@ -247,9 +273,10 @@ import Footer from '../components/Footer.astro';
       src.connect(analyser);
       loop();
       btnStart.disabled=true; btnStop.disabled=false;
-      statusEl.textContent='— 録音中';
+      statusEl.textContent=`— 録音中（${rawMode?'処理なし':'処理あり'}）`;
     }catch(e){statusEl.textContent='— マイク許可が必要です';}
-  });
+  }
+  btnStart.addEventListener('click', startMic);
   btnStop.addEventListener('click',()=>{
     if(rafId){cancelAnimationFrame(rafId);rafId=null;}
     if(stream) stream.getTracks().forEach(t=>t.stop());
