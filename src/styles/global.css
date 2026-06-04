@@ -103,6 +103,15 @@ hr {
   main { padding: 1em; }
 }
 
+/* KaTeX math rendering overrides */
+.katex { color: var(--text); font-size: 1.05em; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: .5rem 0; }
+.katex span, .katex * {
+  background: transparent !important;
+  border: none !important;
+  color: inherit;
+}
+
 .sr-only {
   border: 0; padding: 0; margin: 0;
   position: absolute !important;
