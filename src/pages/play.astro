@@ -163,6 +163,59 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- Lissajous Figures -->
+    <div class="app-card">
+      <div class="app-title">リサージュ図形</div>
+      <div class="app-desc">
+        X・Y軸に異なる周波数の正弦波を入れると現れる曲線。オシロスコープのXYモードで見るあれ。<br>
+        周波数比が整数比なら安定した閉曲線になり、位相差が変化すると図形がゆっくり変形していく。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">LISSAJOUS — x=sin(fx·t+δ), y=sin(fy·t)</div>
+          <canvas id="cv-lissa" width="320" height="320"></canvas>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group">
+              <label>fx</label>
+              <input type="range" id="lissa-fx" min="1" max="8" value="3" step="1" style="width:110px;">
+              <span id="lissa-fx-val">3</span>
+            </div>
+            <div class="ctrl-group">
+              <label>fy</label>
+              <input type="range" id="lissa-fy" min="1" max="8" value="2" step="1" style="width:110px;">
+              <span id="lissa-fy-val">2</span>
+            </div>
+            <div class="ctrl-group">
+              <label>δ [°]</label>
+              <input type="range" id="lissa-phase" min="0" max="359" value="90" step="1" style="width:110px;">
+              <span id="lissa-phase-val">90°</span>
+            </div>
+            <div class="ctrl-group">
+              <label>位相アニメ</label>
+              <input type="checkbox" id="lissa-anim" checked style="accent-color:#3c7876;width:auto;">
+            </div>
+            <div class="ctrl-group">
+              <label>速度</label>
+              <input type="range" id="lissa-speed" min="1" max="30" value="6" style="width:110px;">
+              <span id="lissa-speed-val">6</span>
+            </div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">プリセット:</span>
+            <button class="preset-btn" data-lissa="1,1,90">1:1 円</button>
+            <button class="preset-btn" data-lissa="1,2,90">1:2</button>
+            <button class="preset-btn" data-lissa="1,3,90">1:3</button>
+            <button class="preset-btn" data-lissa="2,3,90">2:3</button>
+            <button class="preset-btn" data-lissa="3,4,45">3:4</button>
+            <button class="preset-btn" data-lissa="3,5,30">3:5</button>
+          </div>
+          <div id="lissa-info" style="margin-top:.75rem;font-size:.7rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.6;"></div>
+        </div>
+      </div>
+    </div>
+
   </main>
   <Footer />
 </body>
@@ -588,7 +641,7 @@ function makeShape(name) {
   return pts;
 }
 
-document.querySelectorAll('.preset-btn').forEach(btn => {
+document.querySelectorAll('.preset-btn[data-shape]').forEach(btn => {
   btn.addEventListener('click', () => {
     const shape = btn.dataset.shape;
     rawPts = makeShape(shape);
@@ -618,4 +671,104 @@ function clearAll() {
 
 // Init
 clearCanvas(ctxD); clearCanvas(ctxE);
+
+/* ═══════════════════════════════════════════════════
+   Lissajous Figures
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv = document.getElementById('cv-lissa');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const CX = W/2, CY = H/2, R = W * 0.43;
+  const TEAL = '#3c7876', BG = '#faf8f4', GRID = 'rgba(227,219,208,.65)';
+
+  const slFx    = document.getElementById('lissa-fx');
+  const slFy    = document.getElementById('lissa-fy');
+  const slPh    = document.getElementById('lissa-phase');
+  const slSp    = document.getElementById('lissa-speed');
+  const cbAnim  = document.getElementById('lissa-anim');
+  const elFxV   = document.getElementById('lissa-fx-val');
+  const elFyV   = document.getElementById('lissa-fy-val');
+  const elPhV   = document.getElementById('lissa-phase-val');
+  const elSpV   = document.getElementById('lissa-speed-val');
+  const infoEl  = document.getElementById('lissa-info');
+
+  let phase = 90, animId = null;
+
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+  function draw() {
+    const fx = parseInt(slFx.value);
+    const fy = parseInt(slFy.value);
+    const delta = phase * Math.PI / 180;
+
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle grid
+    ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+    [CX, CX - R*0.5, CX + R*0.5].forEach(x => {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    });
+    [CY, CY - R*0.5, CY + R*0.5].forEach(y => {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    });
+
+    // Lissajous curve
+    const N = Math.max(1200, fx * fy * 300);
+    ctx.beginPath();
+    ctx.strokeStyle = TEAL; ctx.lineWidth = 1.75;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i <= N; i++) {
+      const t = (2 * Math.PI * i) / N;
+      const x = CX + R * Math.sin(fx * t + delta);
+      const y = CY + R * Math.sin(fy * t);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Corner label
+    ctx.fillStyle = '#bbb5ac';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(`${fx}:${fy}  δ=${Math.round(phase)}°`, 6, 14);
+
+    // Info text
+    const g = gcd(fx, fy);
+    infoEl.textContent = `最簡比 ${fx/g}:${fy/g}  — X交差数 ${fy}本, Y交差数 ${fx}本`;
+  }
+
+  function tick() {
+    if (cbAnim.checked) {
+      const speed = parseFloat(slSp.value);
+      phase = (phase + speed * 0.18) % 360;
+      slPh.value = Math.round(phase);
+      elPhV.textContent = Math.round(phase) + '°';
+    }
+    draw();
+    animId = requestAnimationFrame(tick);
+  }
+
+  slFx.addEventListener('input', () => { elFxV.textContent = slFx.value; if (!cbAnim.checked) draw(); });
+  slFy.addEventListener('input', () => { elFyV.textContent = slFy.value; if (!cbAnim.checked) draw(); });
+  slPh.addEventListener('input', () => {
+    phase = parseFloat(slPh.value);
+    elPhV.textContent = Math.round(phase) + '°';
+    if (!cbAnim.checked) draw();
+  });
+  slSp.addEventListener('input', () => { elSpV.textContent = slSp.value; });
+  cbAnim.addEventListener('change', () => { if (cbAnim.checked && !animId) tick(); });
+
+  document.querySelectorAll('[data-lissa]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [fx, fy, ph] = btn.dataset.lissa.split(',').map(Number);
+      slFx.value = fx; slFy.value = fy;
+      elFxV.textContent = fx; elFyV.textContent = fy;
+      phase = ph; slPh.value = ph; elPhV.textContent = ph + '°';
+      if (!cbAnim.checked) draw();
+    });
+  });
+
+  // Start
+  tick();
+})();
 </script>
