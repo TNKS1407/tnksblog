@@ -163,6 +163,30 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- Crystal Symmetry Playground -->
+    <div class="app-card">
+      <div class="app-title">結晶対称操作の遊び場</div>
+      <div class="app-desc">
+        1つの点を置くと、選んだ点群の対称操作が等価位置を生成する。2D版でのざっくりした体験用。<br>
+        ちゃんとした3D版（全230空間群）は <a href="https://sg.tnks1407.com" target="_blank" style="color:#3c7876;">sg.tnks1407.com</a> にある。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">クリックで基本点を置く</div>
+          <canvas id="cv-cryst" width="320" height="320" style="cursor:crosshair;"></canvas>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div class="canvas-label" style="margin-bottom:.6rem;">点群（2D）</div>
+          <div style="display:flex;flex-direction:column;gap:.35rem;" id="pg-buttons"></div>
+          <div id="cryst-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.7;"></div>
+          <div style="margin-top:1rem;display:flex;gap:.5rem;">
+            <button class="btn" id="cryst-clear">クリア</button>
+            <button class="btn" id="cryst-anim-btn">アニメON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Lissajous Figures -->
     <div class="app-card">
       <div class="app-title">リサージュ図形</div>
@@ -671,6 +695,170 @@ function clearAll() {
 
 // Init
 clearCanvas(ctxD); clearCanvas(ctxE);
+
+/* ═══════════════════════════════════════════════════
+   Crystal Symmetry Playground
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv = document.getElementById('cv-cryst');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const CX = W/2, CY = H/2;
+  const TEAL = '#3c7876', TEAL2 = 'rgba(60,120,118,.18)';
+  const BG = '#faf8f4', GRID = 'rgba(227,219,208,.6)';
+  const AMBER = '#8c6d4f';
+
+  // 2D point groups with their symmetry operations
+  // Each op: (x,y) -> (x',y') as [a,b,c,d] meaning x'=ax+by, y'=cx+dy
+  const POINT_GROUPS = [
+    { name: '1',   sym: 'C₁',  ops: [[1,0,0,1]],                                                    desc: '対称操作なし（恒等のみ）' },
+    { name: '2',   sym: 'C₂',  ops: [[1,0,0,1],[-1,0,0,-1]],                                        desc: '2回回転' },
+    { name: 'm',   sym: 'Cₛ',  ops: [[1,0,0,1],[-1,0,0,1]],                                         desc: '鏡映（y軸）' },
+    { name: '2mm', sym: 'C₂ᵥ', ops: [[1,0,0,1],[-1,0,0,-1],[1,0,0,-1],[-1,0,0,1]],                 desc: '2回回転 + 鏡映2本' },
+    { name: '4',   sym: 'C₄',  ops: [[1,0,0,1],[0,-1,1,0],[-1,0,0,-1],[0,1,-1,0]],                  desc: '4回回転' },
+    { name: '4mm', sym: 'C₄ᵥ', ops: [[1,0,0,1],[0,-1,1,0],[-1,0,0,-1],[0,1,-1,0],[1,0,0,-1],[-1,0,0,1],[0,1,1,0],[0,-1,-1,0]], desc: '4回回転 + 鏡映4本' },
+    { name: '3',   sym: 'C₃',  ops: [[1,0,0,1],[-0.5,-0.866,0.866,-0.5],[-0.5,0.866,-0.866,-0.5]], desc: '3回回転（120°）' },
+    { name: '6',   sym: 'C₆',  ops: [[1,0,0,1],[0.5,-0.866,0.866,0.5],[-0.5,-0.866,0.866,-0.5],[-1,0,0,-1],[-0.5,0.866,-0.866,0.5],[0.5,0.866,-0.866,0.5]], desc: '6回回転（60°）' },
+    { name: '6mm', sym: 'C₆ᵥ', ops: [[1,0,0,1],[0.5,-0.866,0.866,0.5],[-0.5,-0.866,0.866,-0.5],[-1,0,0,-1],[-0.5,0.866,-0.866,0.5],[0.5,0.866,-0.866,0.5],[1,0,0,-1],[-1,0,0,1],[0.5,0.866,0.866,-0.5],[-0.5,0.866,0.866,0.5],[0.5,-0.866,-0.866,-0.5],[-0.5,-0.866,-0.866,0.5]], desc: '6回回転 + 鏡映6本' },
+  ];
+
+  let currentPG = POINT_GROUPS[1]; // default: 2-fold
+  let basePoints = [];
+  let animOn = false, animId = null, animPhase = 0;
+
+  // Build buttons
+  const pgBtns = document.getElementById('pg-buttons');
+  POINT_GROUPS.forEach((pg, i) => {
+    const b = document.createElement('button');
+    b.className = 'preset-btn';
+    b.style.cssText = 'text-align:left;display:flex;align-items:center;gap:.5rem;';
+    b.innerHTML = `<span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;min-width:2.5rem;color:#3c7876;">${pg.name}</span><span style="font-size:.7rem;color:#aaa49b;">${pg.desc}</span>`;
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#pg-buttons .preset-btn').forEach(x => { x.style.borderColor=''; x.style.color=''; });
+      b.style.borderColor = '#3c7876'; b.style.color = '#3c7876';
+      currentPG = pg;
+      updateInfo();
+      draw();
+    });
+    if (i === 1) { b.style.borderColor = '#3c7876'; b.style.color = '#3c7876'; }
+    pgBtns.appendChild(b);
+  });
+
+  function updateInfo() {
+    document.getElementById('cryst-info').textContent =
+      `${currentPG.name} (${currentPG.sym}) — ${currentPG.ops.length}個の対称操作\n${currentPG.desc}`;
+  }
+
+  function applyOps(x, y) {
+    return currentPG.ops.map(([a,b,c,d]) => ({
+      x: Math.round((a*x + b*y) * 1e9) / 1e9,
+      y: Math.round((c*x + d*y) * 1e9) / 1e9,
+    }));
+  }
+
+  function draw() {
+    ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const gx = W * i / 4, gy = H * i / 4;
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    }
+    // Center cross
+    ctx.strokeStyle = 'rgba(60,120,118,.3)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(CX, 0); ctx.lineTo(CX, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, CY); ctx.lineTo(W, CY); ctx.stroke();
+
+    if (basePoints.length === 0) {
+      ctx.fillStyle = '#ccc5bb'; ctx.font = '12px Zen Kaku Gothic New, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ここをクリックして点を置く', CX, CY + 4);
+      ctx.textAlign = 'left';
+      return;
+    }
+
+    basePoints.forEach((bp, bi) => {
+      const pts = applyOps(bp.rx, bp.ry);
+      const col = [TEAL, '#8c6d4f', '#5a6e9e', '#9e5a7a'][bi % 4];
+
+      // Draw symmetry-related points
+      pts.forEach(p => {
+        const px = CX + p.x * 110, py = CY - p.y * 110;
+        ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2);
+        ctx.fillStyle = col + '33'; ctx.fill();
+        ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+      });
+
+      // Draw base point (bigger)
+      const bpx = CX + bp.rx * 110, bpy = CY - bp.ry * 110;
+      ctx.beginPath(); ctx.arc(bpx, bpy, 8, 0, Math.PI*2);
+      ctx.fillStyle = col; ctx.fill();
+    });
+
+    // Draw symmetry axes / mirror lines
+    if (currentPG.name.includes('m') || currentPG.name === 'm') {
+      ctx.strokeStyle = 'rgba(140,107,79,.35)'; ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
+      // vertical mirror
+      ctx.beginPath(); ctx.moveTo(CX, 20); ctx.lineTo(CX, H-20); ctx.stroke();
+      // horizontal mirror if 2mm
+      if (currentPG.ops.length >= 4) {
+        ctx.beginPath(); ctx.moveTo(20, CY); ctx.lineTo(W-20, CY); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+  }
+
+  cv.addEventListener('click', e => {
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    const rx = (px - CX) / 110, ry = -(py - CY) / 110;
+    basePoints.push({ rx, ry });
+    if (basePoints.length > 4) basePoints.shift();
+    if (!animOn) draw();
+  });
+
+  document.getElementById('cryst-clear').addEventListener('click', () => {
+    basePoints = [];
+    draw();
+  });
+
+  const animBtn = document.getElementById('cryst-anim-btn');
+  animBtn.addEventListener('click', () => {
+    animOn = !animOn;
+    animBtn.textContent = animOn ? 'アニメOFF' : 'アニメON';
+    if (animOn) {
+      if (basePoints.length === 0) {
+        // Place a default point
+        basePoints = [{ rx: 0.5, ry: 0.3 }];
+      }
+      animLoop();
+    } else {
+      if (animId) cancelAnimationFrame(animId);
+      draw();
+    }
+  });
+
+  function animLoop() {
+    if (!animOn) return;
+    animPhase += 0.012;
+    // Slowly rotate the base point around a small circle
+    if (basePoints.length > 0) {
+      basePoints[0] = {
+        rx: 0.55 * Math.cos(animPhase),
+        ry: 0.55 * Math.sin(animPhase),
+      };
+    }
+    draw();
+    animId = requestAnimationFrame(animLoop);
+  }
+
+  updateInfo();
+  draw();
+})();
 
 /* ═══════════════════════════════════════════════════
    Lissajous Figures
