@@ -185,6 +185,123 @@
     draw(); updateReadout();
   }
 
+  // ---- 複素数を繰り返し掛ける（螺旋）widget ----
+  function mountSpiralIteration(root: HTMLElement) {
+    root.classList.add('tw');
+    root.innerHTML = `
+      <div class="tw-title">複素数を繰り返し掛ける</div>
+      <div class="tw-stage"><canvas width="680" height="680"></canvas></div>
+      <div class="tw-controls">
+        <div class="tw-row">
+          <label>r = |c|</label>
+          <input type="range" class="r" min="0.5" max="1.5" step="0.01" value="0.88" />
+        </div>
+        <div class="tw-row">
+          <label>θ&nbsp;&nbsp;</label>
+          <input type="range" class="t" min="2" max="90" step="1" value="24" />
+        </div>
+        <div class="tw-readout">
+          c = <b class="rv">0.88</b> · e<sup>j·<b class="tv">24</b>°</sup>　→　zₙ = cⁿ·z₀
+          <br /><span class="state"></span>
+        </div>
+        <div class="tw-btns">
+          <button class="tw-btn p1">円 (r=1)</button>
+          <button class="tw-btn p2">内巻き (r&lt;1)</button>
+          <button class="tw-btn p3">外巻き (r&gt;1)</button>
+        </div>
+      </div>`;
+
+    const canvas = root.querySelector('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const rIn = root.querySelector('input.r') as HTMLInputElement;
+    const tIn = root.querySelector('input.t') as HTMLInputElement;
+    const rv = root.querySelector('.rv') as HTMLElement;
+    const tv = root.querySelector('.tv') as HTMLElement;
+    const stateEl = root.querySelector('.state') as HTMLElement;
+
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const R0 = W * 0.40;               // z₀ の初期半径(px)
+
+    const css = (v: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+    function draw() {
+      const r = parseFloat(rIn.value);
+      const thDeg = parseFloat(tIn.value);
+      const th = thDeg * Math.PI / 180;
+      rv.textContent = r.toFixed(2);
+      tv.textContent = String(Math.round(thDeg));
+
+      const accent = css('--accent') || '#3c7876';
+      const border = css('--border') || '#e3dbd0';
+      const faint = css('--text-faint') || '#aaa49b';
+      ctx.clearRect(0, 0, W, H);
+
+      // 軸
+      ctx.strokeStyle = border; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W - 20, cy);
+      ctx.moveTo(cx, 20); ctx.lineTo(cx, H - 20); ctx.stroke();
+      // z₀ の円（基準）
+      ctx.strokeStyle = faint; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.arc(cx, cy, R0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // 点列 zₙ = cⁿ·z₀  （半径 R0·rⁿ、角度 nθ）
+      const pts: [number, number][] = [];
+      let rad = R0;
+      const maxR = W * 0.49, minR = 0.6;
+      for (let n = 0; n <= 400; n++) {
+        const ang = n * th;
+        pts.push([cx + rad * Math.cos(ang), cy - rad * Math.sin(ang)]);
+        rad *= r;
+        if (r < 1 && rad < minR) break;
+        if (r > 1 && rad > maxR) break;
+        if (Math.abs(r - 1) < 1e-6 && n > Math.ceil(360 / thDeg) * 2) break;
+      }
+
+      // 螺旋の線
+      ctx.strokeStyle = accent; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.stroke(); ctx.globalAlpha = 1;
+
+      // 各ステップの点
+      ctx.fillStyle = accent;
+      for (const [x, y] of pts) {
+        ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+      }
+      // z₀ を強調
+      const [x0, y0] = pts[0];
+      ctx.fillStyle = accent;
+      ctx.beginPath(); ctx.arc(x0, y0, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x0, y0, 3, 0, Math.PI * 2); ctx.fill();
+      // 中心
+      ctx.fillStyle = faint;
+      ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+
+      stateEl.textContent =
+        r < 0.999 ? '内巻き — 中心へ吸い込まれる対数螺旋' :
+        r > 1.001 ? '外巻き — 外へ広がる対数螺旋' :
+                    '円 — 半径が変わらず回り続ける';
+    }
+
+    rIn.addEventListener('input', draw);
+    tIn.addEventListener('input', draw);
+    (root.querySelector('.p1') as HTMLElement).addEventListener('click', () => {
+      rIn.value = '1.00'; tIn.value = '24'; draw();
+    });
+    (root.querySelector('.p2') as HTMLElement).addEventListener('click', () => {
+      rIn.value = '0.88'; tIn.value = '24'; draw();
+    });
+    (root.querySelector('.p3') as HTMLElement).addEventListener('click', () => {
+      rIn.value = '1.10'; tIn.value = '18'; draw();
+    });
+
+    draw();
+  }
+
   // ---- マウンタ ----
   function mountAll() {
     document.querySelectorAll<HTMLElement>('[data-widget]').forEach((el) => {
@@ -192,6 +309,7 @@
       el.dataset.mounted = '1';
       switch (el.dataset.widget) {
         case 'complex-rotation': mountComplexRotation(el); break;
+        case 'spiral-iteration': mountSpiralIteration(el); break;
       }
     });
   }
