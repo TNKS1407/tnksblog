@@ -1,0 +1,201 @@
+---
+/*
+ * Widgets — 記事に埋め込むインタラクティブ部品のマウンタ。
+ * 記事側には <div data-widget="名前"></div> を置くだけ。
+ * このコンポーネントを全記事レイアウトに 1 つ入れておけば、
+ * ページ内の data-widget を探して対応する部品を組み立てる。
+ */
+---
+
+<style is:global>
+  .tw {
+    margin: 2rem 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 6px var(--shadow);
+  }
+  .tw-title {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.9rem; text-transform: uppercase;
+  }
+  .tw-stage { display: flex; justify-content: center; }
+  .tw canvas { width: 100%; max-width: 340px; height: auto; touch-action: none; }
+  .tw-controls {
+    margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;
+  }
+  .tw-row { display: flex; align-items: center; gap: 0.75rem; }
+  .tw-row label {
+    font-size: 0.78rem; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+  }
+  .tw input[type=range] {
+    flex: 1; accent-color: var(--accent); height: 4px;
+  }
+  .tw-readout {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+    color: var(--text); text-align: center; line-height: 1.7;
+  }
+  .tw-readout b { color: var(--accent); font-weight: 600; }
+  .tw-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+  .tw-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+    background: var(--accent-dim); color: var(--accent);
+    border: 1px solid rgba(60,120,118,0.25); border-radius: 8px;
+    padding: 0.4rem 0.85rem; cursor: pointer; transition: background 0.15s;
+  }
+  .tw-btn:hover { background: var(--accent-soft); }
+  .tw-btn.ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
+</style>
+
+<script>
+  // ---- 複素回転 widget ----
+  function mountComplexRotation(root: HTMLElement) {
+    root.classList.add('tw');
+    root.innerHTML = `
+      <div class="tw-title">複素平面で回す</div>
+      <div class="tw-stage"><canvas width="680" height="680"></canvas></div>
+      <div class="tw-controls">
+        <div class="tw-row">
+          <label>θ</label>
+          <input type="range" min="0" max="360" step="1" value="30" />
+        </div>
+        <div class="tw-readout">
+          z = e<sup>jθ</sup> = <b class="re">0.87</b> + <b class="im">0.50</b> j
+          <br /><span class="deg">θ = 30°</span>
+        </div>
+        <div class="tw-btns">
+          <button class="tw-btn mul">× j（90°回す）</button>
+          <button class="tw-btn ghost reset">リセット</button>
+        </div>
+      </div>`;
+
+    const canvas = root.querySelector('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const slider = root.querySelector('input[type=range]') as HTMLInputElement;
+    const reEl = root.querySelector('.re') as HTMLElement;
+    const imEl = root.querySelector('.im') as HTMLElement;
+    const degEl = root.querySelector('.deg') as HTMLElement;
+    const mulBtn = root.querySelector('.mul') as HTMLElement;
+    const resetBtn = root.querySelector('.reset') as HTMLElement;
+
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const R = W * 0.36;                 // 単位円の半径(px)
+
+    let theta = 30;                     // 表示中の角度(deg)
+    let target = 30;                    // 補間先
+
+    const css = (v: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+    function draw() {
+      const accent = css('--accent') || '#3c7876';
+      const border = css('--border') || '#e3dbd0';
+      const faint = css('--text-faint') || '#aaa49b';
+      const text = css('--text') || '#1d1b17';
+      ctx.clearRect(0, 0, W, H);
+
+      // 軸
+      ctx.strokeStyle = border; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W - 20, cy);
+      ctx.moveTo(cx, 20); ctx.lineTo(cx, H - 20); ctx.stroke();
+
+      // 単位円
+      ctx.strokeStyle = faint; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+      // 軸ラベル 1, j, -1, -j
+      ctx.fillStyle = faint; ctx.font = '500 26px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('1', cx + R + 22, cy + 16);
+      ctx.fillText('-1', cx - R - 24, cy + 16);
+      ctx.fillText('j', cx - 16, cy - R - 20);
+      ctx.fillText('-j', cx - 18, cy + R + 22);
+
+      const rad = theta * Math.PI / 180;
+      const px = cx + R * Math.cos(rad);
+      const py = cy - R * Math.sin(rad);
+
+      // 投影線(実部・虚部)
+      ctx.strokeStyle = accent; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, cy); ctx.stroke(); // →実軸
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(cx, py); ctx.stroke(); // →虚軸
+      ctx.setLineDash([]);
+
+      // 角度の弧（canvasのyは下向きなので -rad 側へ描く）
+      ctx.strokeStyle = accent; ctx.globalAlpha = 0.4; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx, cy, R * 0.28, 0, -rad, theta > 0); ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // ベクトル
+      ctx.strokeStyle = accent; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+
+      // 点
+      ctx.fillStyle = accent;
+      ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function updateReadout() {
+      const rad = theta * Math.PI / 180;
+      const re = Math.cos(rad), im = Math.sin(rad);
+      reEl.textContent = re.toFixed(2);
+      imEl.textContent = (im >= 0 ? '' : '') + im.toFixed(2);
+      degEl.textContent = `θ = ${Math.round(theta)}°`;
+    }
+
+    let raf = 0;
+    function animate() {
+      const diff = target - theta;
+      if (Math.abs(diff) < 0.3) {
+        theta = target; draw(); updateReadout();
+        cancelAnimationFrame(raf); raf = 0; return;
+      }
+      theta += diff * 0.18;
+      draw(); updateReadout();
+      raf = requestAnimationFrame(animate);
+    }
+    function animateTo(v: number) {
+      target = v;
+      if (!raf) raf = requestAnimationFrame(animate);
+    }
+
+    slider.addEventListener('input', () => {
+      const v = parseFloat(slider.value);
+      target = v; theta = v;            // スライダーは即時追従
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      draw(); updateReadout();
+    });
+    mulBtn.addEventListener('click', () => {
+      const next = (Math.round(target) + 90) % 360;
+      slider.value = String(next);
+      animateTo(next);                  // ×j はくるっと回す
+    });
+    resetBtn.addEventListener('click', () => {
+      slider.value = '30'; theta = 30; target = 30;
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      draw(); updateReadout();
+    });
+
+    draw(); updateReadout();
+  }
+
+  // ---- マウンタ ----
+  function mountAll() {
+    document.querySelectorAll<HTMLElement>('[data-widget]').forEach((el) => {
+      if (el.dataset.mounted) return;
+      el.dataset.mounted = '1';
+      switch (el.dataset.widget) {
+        case 'complex-rotation': mountComplexRotation(el); break;
+      }
+    });
+  }
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', mountAll);
+  else mountAll();
+</script>
