@@ -831,10 +831,9 @@ clearCanvas(ctxD); clearCanvas(ctxE);
     animOn = !animOn;
     animBtn.textContent = animOn ? 'アニメOFF' : 'アニメON';
     if (animOn) {
-      if (basePoints.length === 0) {
-        // Place a default point
-        basePoints = [{ rx: 0.5, ry: 0.3 }];
-      }
+      // Reset to single point for clean animation
+      basePoints = [{ rx: 0.55, ry: 0 }];
+      animPhase = 0;
       animLoop();
     } else {
       if (animId) cancelAnimationFrame(animId);
