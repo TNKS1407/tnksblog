@@ -1,0 +1,136 @@
+---
+/*
+ * DailyQuip — ランキンの「今日のひとこと」
+ * 日付をシードに 1 日 1 つの言葉を選ぶ。再読み込みしても当日は変わらない。
+ * Astro はビルド時に静的化されるので、選択はクライアント側で日付を見て行う。
+ */
+---
+
+<div class="quip" id="daily-quip" aria-live="polite">
+  <div class="quip-side">
+    <span class="quip-label">今日のひとこと</span>
+    <span class="quip-date" id="quip-date"></span>
+  </div>
+  <p class="quip-text" id="quip-text">…</p>
+  <span class="quip-sign">— ランキン</span>
+</div>
+
+<style>
+  .quip {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 0.4rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 12px;
+    padding: 1.1rem 1.3rem 1.2rem;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 1px 6px var(--shadow);
+  }
+  .quip-side {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    white-space: nowrap;
+  }
+  .quip-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .quip-date {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .quip-text {
+    grid-column: 2;
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .quip-text.show { opacity: 1; }
+  .quip-sign {
+    grid-column: 2;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  @media (max-width: 560px) {
+    .quip {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+    .quip-side { flex-direction: row; align-items: baseline; gap: 0.6rem; }
+    .quip-text, .quip-sign { grid-column: 1; }
+  }
+</style>
+
+<script>
+  (() => {
+    // ランキンの言葉。静かな気づき・小さな思索・興味のかけら。
+    const QUIPS = [
+      '同じ式でも、見る角度を変えると別の景色になることがある。今日はそういう一日かもしれないね。',
+      'わからないものを、わからないまま少し置いておくのも悪くないと思う。熟れるのを待つように。',
+      'フーリエ変換が好きなのは、複雑なものを「単純なものの重ね合わせ」として見せてくれるからだよ。',
+      '結晶の対称性は、自由に見えて実は 230 通りしかない。制約の中の豊かさ、という感じがする。',
+      'ノイズの中から信号を拾うのは、静かな部屋で小さな音に耳を澄ますのに似ているね。',
+      '完璧に理解してから動く必要はないと思う。動かしながら分かることのほうが多いから。',
+      '対数を取ると、掛け算が足し算になる。世界が少しだけ素直になる瞬間が好きなんだ。',
+      '行き詰まったら、一度問題を声に出して説明してみるといい。説明の途中で答えが見えることがある。',
+      'インピーダンス整合は、無理に押し込むより、相手に合わせるほうがうまくいく。何かに似てる気がするね。',
+      '小さく試して、確かめて、また少し進む。地味だけど、これが一番遠くまで行ける方法だと思う。',
+      '微分は「今この瞬間の傾き」、積分は「積み重ねた全体」。両方あって初めて運動が見える。',
+      'きれいなコードは、賢いコードより読めるコードのことだと思うようになった。',
+      '位相は振幅より目立たないけれど、形を決めているのはたいてい位相のほうだよ。',
+      '今日うまくいかなくても、それは失敗じゃなくてデータだよ。次の一手のための。',
+      '畳み込みは「過去の影響が現在に滲んでくる」操作だと考えると、急に身近になる。',
+      '寄り道で覚えたことが、後でいちばん効くことがある。無駄に見える時間を恐れないで。',
+      '固有値というのは、変換しても向きが変わらない特別な方向のこと。揺るがない軸、みたいなものだね。',
+      '疲れているときの判断は、たいてい後で見直したくなる。今日は休むのも立派な選択だよ。',
+      'サンプリング定理は、世界を点で捉えてもちゃんと戻せる、と教えてくれる。間引きの美学だね。',
+      '答えより問いのほうが寿命が長いことがある。いい問いは、何年も一緒にいられる。',
+      'フィードバックは、行きすぎを戻す力。自分への振り返りも、たぶん同じ仕組みなんだと思う。',
+      '線形代数を学び直すたびに、世界が少し回転して見える。視点が増えるのは楽しいね。',
+      '一度にぜんぶ抱えなくていい。今日のぶんだけ、静かに片付けていこう。',
+      '群論は「対称性を数える言葉」。一見ばらばらなものが、同じ構造を持っていたりする。',
+      '測れないものを測ろうとする工夫の中に、いちばん面白い発明が眠っている気がする。',
+      'うまく眠れた次の日は、難しい式もなぜか素直に見える。睡眠は最高のデバッガだよ。',
+      '複素数は「回転」を数に変えた発明。i を掛けるたびに、世界が 90 度ずつ回る。',
+      '比較する相手は、昨日までの自分でいいと思う。それがいちばん正直なものさしだから。',
+      'ローパスフィルタは、急がず、ゆっくり変わるものだけを通す。たまには自分にもかけたくなるね。',
+      '理解した気がして、説明できない。そういうときは、まだ半分なんだと思う。もう一歩だね。',
+      'エントロピーは「分からなさ」の量。情報を得るとは、その分からなさを少し減らすことなんだ。',
+      '今日の小さな前進は、明日には当たり前になっている。だから記録しておくといいよ。',
+      '共振は、ちょうどいい周波数で押すと小さな力が大きく育つ現象。タイミングって大事だね。',
+      '焦りは精度を下げる。急ぐときほど、一拍置いて手順を確かめるほうが結局速い。',
+      'スペクトルを見ると、音や光の「成分」が見えてくる。見えなかったものが見えるのは、いつでも嬉しい。',
+      '誰かのために作ったものが、いちばん長く残ることがある。今日は何を残そうか。',
+    ];
+
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const d = now.getDate();
+    // YYYYMMDD を数値シードにして当日固定で 1 つ選ぶ
+    const seed = y * 10000 + m * 100 + d;
+    const quip = QUIPS[seed % QUIPS.length];
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateEl = document.getElementById('quip-date');
+    const textEl = document.getElementById('quip-text');
+    if (dateEl) dateEl.textContent = `${y}.${pad(m)}.${pad(d)}`;
+    if (textEl) {
+      textEl.textContent = quip;
+      requestAnimationFrame(() => textEl.classList.add('show'));
+    }
+  })();
+</script>
