@@ -23,6 +23,7 @@
   }
   .tw-stage { display: flex; justify-content: center; }
   .tw canvas { width: 100%; max-width: 340px; height: auto; touch-action: none; }
+  .tw-wide canvas { max-width: 540px; }
   .tw-controls {
     margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;
   }
@@ -415,6 +416,196 @@
     draw(); tick();
   }
 
+  // ---- バグ vs 修正：6回回転の比較ビジュアル ----
+  function mountCrystalBugCompare(root: HTMLElement) {
+    root.classList.add('tw', 'tw-wide');
+    root.innerHTML = `
+      <div class="tw-title">同じ6回回転、符号ひとつの違い</div>
+      <div class="tw-stage"><canvas width="760" height="430"></canvas></div>
+      <div class="tw-readout" style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;">
+        左は 240°回転の行列の右下を <b>+0.5</b> にしてしまった当時のコード。行列式が 0.5 になり、
+        そのかけら（橙）だけ面積が半分に縮んで歪み、六角形が閉じない。<br />
+        右は右下を <b>−0.5</b> に直した正しい回転。6枚がきれいに揃う。
+      </div>`;
+
+    const canvas = root.querySelector('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const W = canvas.width, H = canvas.height;
+    const css = (v: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+    // 向きが分かるよう非対称なモチーフ（半径1付近の小さな三角）
+    const motif: [number, number][] = [[1.04, -0.05], [0.74, 0.03], [0.92, 0.27]];
+    const correct = [
+      [1, 0, 0, 1], [0.5, -0.866, 0.866, 0.5], [-0.5, -0.866, 0.866, -0.5],
+      [-1, 0, 0, -1], [-0.5, 0.866, -0.866, -0.5], [0.5, 0.866, -0.866, 0.5],
+    ];
+    const buggy = correct.map((o, i) =>
+      i === 4 ? [-0.5, 0.866, -0.866, 0.5] : o);   // 240° の右下符号だけ違う
+
+    function panel(centerX: number, ops: number[][], label: string) {
+      const accent = css('--accent') || '#3c7876';
+      const faint = css('--text-faint') || '#aaa49b';
+      const amber = '#8c6d4f';
+      const text = css('--text-muted') || '#6b6557';
+      const cy = H * 0.54, scale = 92;
+
+      // 単位円・中心
+      ctx.strokeStyle = faint; ctx.lineWidth = 1; ctx.globalAlpha = 0.45;
+      ctx.beginPath(); ctx.arc(centerX, cy, scale, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = faint;
+      ctx.beginPath(); ctx.arc(centerX, cy, 3, 0, Math.PI * 2); ctx.fill();
+
+      ops.forEach((op, i) => {
+        const [a, b, c, d] = op;
+        const isHot = i === 4;                       // 240° のかけら
+        ctx.beginPath();
+        motif.forEach(([x, y], j) => {
+          const X = a * x + b * y, Y = c * x + d * y;
+          const px = centerX + scale * X, py = cy - scale * Y;
+          j ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        });
+        ctx.closePath();
+        ctx.fillStyle = isHot ? 'rgba(140,109,79,0.30)' : 'rgba(60,120,118,0.16)';
+        ctx.fill();
+        ctx.strokeStyle = isHot ? amber : accent; ctx.lineWidth = 2; ctx.stroke();
+      });
+
+      ctx.fillStyle = text; ctx.font = '600 19px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(label, centerX, 14);
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    panel(W * 0.27, buggy, 'バグ：det 0.5');
+    panel(W * 0.73, correct, '修正後：det 1');
+  }
+
+  // ---- バグ vs 修正：負の周波数の比較ビジュアル ----
+  function mountFourierBugCompare(root: HTMLElement) {
+    root.classList.add('tw', 'tw-wide');
+    root.innerHTML = `
+      <div class="tw-title">負の周波数を落とすと線が閉じない</div>
+      <div class="tw-stage"><canvas width="760" height="430"></canvas></div>
+      <div class="tw-readout" style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;">
+        同じ四角形を円の重ね合わせで再現する。左は <b>freq = k</b>（バグ）。後半の円が逆回りにならず
+        猛烈に正回転して、点と点の間で線が暴れる。右は <b>k &gt; N/2 を k−N に</b>直したもの。静かに四角を描く。
+      </div>
+      <div class="tw-btns"><button class="tw-btn pause">一時停止</button></div>`;
+
+    const canvas = root.querySelector('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const pauseBtn = root.querySelector('.pause') as HTMLElement;
+    const W = canvas.width, H = canvas.height;
+    const css = (v: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+    // 四角形を N 点でサンプリング（実部=x, 虚部=y）
+    const N = 64, S = 1;
+    const pts: [number, number][] = [];
+    for (let i = 0; i < N; i++) {
+      const f = (i / N) * 4, side = Math.floor(f), u = f - side;
+      let x = 0, y = 0;
+      if (side === 0) { x = -S + 2 * S * u; y = -S; }
+      else if (side === 1) { x = S; y = -S + 2 * S * u; }
+      else if (side === 2) { x = S - 2 * S * u; y = S; }
+      else { x = -S; y = S - 2 * S * u; }
+      pts.push([x, y]);
+    }
+
+    // DFT 係数 X_k = (1/N) Σ z_n e^{-j2πkn/N}
+    const Xre: number[] = [], Xim: number[] = [];
+    for (let k = 0; k < N; k++) {
+      let re = 0, im = 0;
+      for (let n = 0; n < N; n++) {
+        const a = (2 * Math.PI * k * n) / N, ca = Math.cos(a), sa = Math.sin(a);
+        re += pts[n][0] * ca + pts[n][1] * sa;
+        im += pts[n][1] * ca - pts[n][0] * sa;
+      }
+      Xre.push(re / N); Xim.push(im / N);
+    }
+    const freqBuggy = (k: number) => k;
+    const freqCorrect = (k: number) => (k <= N / 2 ? k : k - N);
+
+    // 連続パラメータ t∈[0,2π) で再構成して経路を先に作る
+    const M = 1600;
+    function buildPath(freq: (k: number) => number): [number, number][] {
+      const path: [number, number][] = [];
+      for (let m = 0; m < M; m++) {
+        const t = (2 * Math.PI * m) / M;
+        let xr = 0, xi = 0;
+        for (let k = 0; k < N; k++) {
+          const b = freq(k) * t, cb = Math.cos(b), sb = Math.sin(b);
+          xr += Xre[k] * cb - Xim[k] * sb;
+          xi += Xre[k] * sb + Xim[k] * cb;
+        }
+        path.push([xr, xi]);
+      }
+      return path;
+    }
+    const pathBug = buildPath(freqBuggy);
+    const pathFix = buildPath(freqCorrect);
+
+    const cy = H * 0.54, scale = 78;
+    function panel(centerX: number, path: [number, number][], head: number, label: string, hot: boolean) {
+      const accent = css('--accent') || '#3c7876';
+      const faint = css('--text-faint') || '#aaa49b';
+      const amber = '#8c6d4f';
+      const text = css('--text-muted') || '#6b6557';
+
+      // サンプル点（元の四角形の頂点列）
+      ctx.fillStyle = faint; ctx.globalAlpha = 0.5;
+      for (const [x, y] of pts) {
+        ctx.beginPath();
+        ctx.arc(centerX + scale * x, cy - scale * y, 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // 経路全体（薄く）
+      ctx.strokeStyle = hot ? amber : accent; ctx.globalAlpha = 0.22; ctx.lineWidth = 1;
+      ctx.beginPath();
+      path.forEach(([x, y], i) =>
+        i ? ctx.lineTo(centerX + scale * x, cy - scale * y) : ctx.moveTo(centerX + scale * x, cy - scale * y));
+      ctx.closePath(); ctx.stroke(); ctx.globalAlpha = 1;
+
+      // 明るい尾（直近 160 点）
+      ctx.strokeStyle = hot ? amber : accent; ctx.lineWidth = 2;
+      ctx.beginPath();
+      const tail = 160;
+      for (let j = 0; j < tail; j++) {
+        const idx = (head - tail + j + M) % M;
+        const [x, y] = path[idx];
+        j ? ctx.lineTo(centerX + scale * x, cy - scale * y) : ctx.moveTo(centerX + scale * x, cy - scale * y);
+      }
+      ctx.stroke();
+
+      // ペン先
+      const [hx, hy] = path[head % M];
+      ctx.fillStyle = hot ? amber : accent;
+      ctx.beginPath(); ctx.arc(centerX + scale * hx, cy - scale * hy, 4, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = text; ctx.font = '600 17px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(label, centerX, 14);
+    }
+
+    let head = 0, running = true;
+    function frame() {
+      ctx.clearRect(0, 0, W, H);
+      panel(W * 0.27, pathBug, head, 'バグ：freq = k', true);
+      panel(W * 0.73, pathFix, head, '修正後：k−N も使う', false);
+      head = (head + 6) % M;
+      if (running) requestAnimationFrame(frame);
+    }
+    pauseBtn.addEventListener('click', () => {
+      running = !running;
+      pauseBtn.textContent = running ? '一時停止' : '再生';
+      if (running) frame();
+    });
+    frame();
+  }
+
   // ---- マウンタ ----
   function mountAll() {
     document.querySelectorAll<HTMLElement>('[data-widget]').forEach((el) => {
@@ -424,6 +615,8 @@
         case 'complex-rotation': mountComplexRotation(el); break;
         case 'spiral-iteration': mountSpiralIteration(el); break;
         case 'counter-rotation': mountCounterRotation(el); break;
+        case 'crystal-bug-compare': mountCrystalBugCompare(el); break;
+        case 'fourier-bug-compare': mountFourierBugCompare(el); break;
       }
     });
   }
