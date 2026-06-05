@@ -1,0 +1,371 @@
+---
+/*
+ * 記事埋め込み用：バグを入れたままの Fourier スケッチブック。
+ * /play のスケッチブックをそのまま持ってきて、computeDFT の周波数を
+ * freq = k（負周波数を k-N に直す前のバグ）に戻してある。iframe で記事に埋め込む。
+ * 開いた瞬間に矩形波プリセットを読み込み、後半の円が逆回りにならず暴れる様子が見える。
+ */
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>buggy fourier — embed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { color-scheme: light; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: transparent;
+      font-family: 'Zen Kaku Gothic New', sans-serif;
+      color: #1d1b17;
+    }
+    .pad { padding: 0.25rem; }
+    .fourier-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) { .fourier-wrap { grid-template-columns: 1fr; } }
+    canvas {
+      border: 1px solid #e3dbd0; border-radius: 10px; display: block;
+      background: #faf8f4; cursor: crosshair; touch-action: none; max-width: 100%;
+    }
+    .canvas-label {
+      font-size: .7rem; font-family: 'JetBrains Mono', monospace;
+      color: #7d7568; margin-bottom: .4rem; letter-spacing: .04em;
+    }
+    .controls { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1rem; }
+    .ctrl-group { display: flex; align-items: center; gap: .5rem; }
+    .ctrl-group label {
+      font-size: .72rem; font-family: 'JetBrains Mono', monospace; color: #7d7568; white-space: nowrap;
+    }
+    .ctrl-group input[type=range] { width: 100px; accent-color: #3c7876; }
+    .ctrl-group span {
+      font-size: .72rem; font-family: 'JetBrains Mono', monospace; color: #3c7876; font-weight: 700; min-width: 2ch;
+    }
+    .btn {
+      padding: .35rem .85rem; border: 1px solid #e3dbd0; border-radius: 7px;
+      background: none; font-family: inherit; font-size: .78rem; color: #7d7568;
+      cursor: pointer; transition: all .15s;
+    }
+    .btn:hover { border-color: #3c7876; color: #3c7876; }
+    .btn.primary { background: #3c7876; color: #fff; border-color: #3c7876; }
+    .btn.primary:hover { opacity: .85; }
+    .status { font-size: .72rem; font-family: 'JetBrains Mono', monospace; color: #aaa49b; margin-top: .5rem; }
+    .presets { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .5rem; }
+    .preset-btn {
+      padding: .22rem .6rem; border: 1px solid #e3dbd0; border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace; font-size: .68rem; color: #7d7568;
+      background: none; cursor: pointer; transition: all .15s;
+    }
+    .preset-btn:hover { border-color: #3c7876; color: #3c7876; }
+    .bug-note {
+      font-size: .7rem; color: #8c6d4f; font-family: 'JetBrains Mono', monospace;
+      margin-top: .9rem; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="pad">
+    <div class="fourier-wrap">
+      <div>
+        <div class="canvas-label">INPUT — ここに描く</div>
+        <canvas id="cv-draw" width="340" height="340"></canvas>
+      </div>
+      <div>
+        <div class="canvas-label">OUTPUT — エピサイクル（バグ）</div>
+        <canvas id="cv-epi" width="340" height="340"></canvas>
+      </div>
+    </div>
+    <div style="margin-top:1rem;">
+      <div class="canvas-label">SPECTRUM — 周波数成分の振幅</div>
+      <canvas id="cv-spec-f" width="700" height="100" style="width:100%;height:100px;border-radius:10px;border:1px solid #e3dbd0;background:#faf8f4;"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="ctrl-group">
+        <label>N（高調波数）</label>
+        <input type="range" id="n-harmonics" min="1" max="128" value="32" />
+        <span id="n-val">32</span>
+      </div>
+      <div class="ctrl-group">
+        <label>速度</label>
+        <input type="range" id="speed" min="1" max="10" value="3" />
+        <span id="speed-val">3</span>
+      </div>
+      <button class="btn primary" id="btn-clear">クリア</button>
+      <button class="btn" id="btn-pause">一時停止</button>
+    </div>
+
+    <div class="presets">
+      <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#aaa49b;margin-right:.2rem;">プリセット:</span>
+      <button class="preset-btn" data-shape="square">矩形波</button>
+      <button class="preset-btn" data-shape="triangle">三角波</button>
+      <button class="preset-btn" data-shape="sawtooth">ノコギリ波</button>
+      <button class="preset-btn" data-shape="circle">円</button>
+      <button class="preset-btn" data-shape="lemniscate">∞</button>
+      <button class="preset-btn" data-shape="rf">RF↯</button>
+    </div>
+
+    <div class="status" id="fourier-status">左に描いてね。マウスを離したら解析が始まる。</div>
+    <div class="bug-note">※ computeDFT の周波数を freq = k のままにしたバージョン（負周波数を k−N に直す前）。<br>後半の円が逆回りにならず暴れて、線が閉じない。</div>
+  </div>
+
+  <script is:inline>
+  (()=>{
+    const cvDraw = document.getElementById('cv-draw');
+    const cvEpi  = document.getElementById('cv-epi');
+    const ctxD   = cvDraw.getContext('2d');
+    const ctxE   = cvEpi.getContext('2d');
+    const W = cvDraw.width, H = cvDraw.height;
+    const CX = W/2, CY = H/2;
+
+    const TEAL  = '#3c7876';
+    const TEAL2 = 'rgba(60,120,118,.18)';
+    const TEAL3 = 'rgba(60,120,118,.45)';
+    const TRACE_COL = '#3c7876';
+
+    let drawing = false, rawPts = [], fourier = [], paused = false;
+    let animTime = 0, animId = null, tracePath = [];
+
+    const sliderN     = document.getElementById('n-harmonics');
+    const sliderSpeed = document.getElementById('speed');
+    const statusEl    = document.getElementById('fourier-status');
+
+    sliderN.addEventListener('input', () => {
+      document.getElementById('n-val').textContent = sliderN.value;
+      if(fourier.length) startAnimation();
+    });
+    sliderSpeed.addEventListener('input', () => {
+      document.getElementById('speed-val').textContent = sliderSpeed.value;
+    });
+    document.getElementById('btn-clear').addEventListener('click', clearAll);
+    document.getElementById('btn-pause').addEventListener('click', togglePause);
+
+    function pos(e, cv) {
+      const r = cv.getBoundingClientRect();
+      const src = e.touches ? e.touches[0] : e;
+      return { x: (src.clientX - r.left) * (W / r.width), y: (src.clientY - r.top) * (H / r.height) };
+    }
+
+    cvDraw.addEventListener('mousedown',  e => startDraw(pos(e, cvDraw)));
+    cvDraw.addEventListener('mousemove',  e => { if(drawing) continueDraw(pos(e, cvDraw)); });
+    cvDraw.addEventListener('mouseup',    () => endDraw());
+    cvDraw.addEventListener('mouseleave', () => { if(drawing) endDraw(); });
+    cvDraw.addEventListener('touchstart', e => { e.preventDefault(); startDraw(pos(e, cvDraw)); }, {passive:false});
+    cvDraw.addEventListener('touchmove',  e => { e.preventDefault(); if(drawing) continueDraw(pos(e, cvDraw)); }, {passive:false});
+    cvDraw.addEventListener('touchend',   e => { e.preventDefault(); endDraw(); }, {passive:false});
+
+    function startDraw({x, y}) {
+      drawing = true; rawPts = [{x,y}];
+      clearCanvas(ctxD);
+      ctxD.beginPath(); ctxD.moveTo(x,y);
+      ctxD.strokeStyle = TEAL3; ctxD.lineWidth = 2.5; ctxD.lineCap='round';
+    }
+    function continueDraw({x, y}) {
+      if(!drawing) return;
+      rawPts.push({x,y});
+      ctxD.lineTo(x,y); ctxD.stroke();
+      ctxD.beginPath(); ctxD.moveTo(x,y);
+    }
+    function endDraw() {
+      if(!drawing || rawPts.length < 4) { drawing = false; return; }
+      drawing = false;
+      analyze();
+    }
+
+    // ↓ ここが当時のバグ：freq = k のまま（k>N/2 を k-N に直していない）
+    function computeDFT(pts) {
+      const N = pts.length;
+      const result = [];
+      for (let k = 0; k < N; k++) {
+        let re = 0, im = 0;
+        for (let n = 0; n < N; n++) {
+          const a = (2 * Math.PI * k * n) / N;
+          re += pts[n].x * Math.cos(a) + pts[n].y * Math.sin(a);
+          im += -pts[n].x * Math.sin(a) + pts[n].y * Math.cos(a);
+        }
+        const freq = k;   // ← バグ。本当は k <= N/2 ? k : k - N
+        result.push({ freq, amp: Math.hypot(re,im)/N, phase: Math.atan2(im,re) });
+      }
+      return result.sort((a,b) => b.amp - a.amp);
+    }
+
+    function sampleEvenly(pts, target=256) {
+      if(pts.length <= target) return pts;
+      const result = [];
+      for(let i=0; i<target; i++) {
+        result.push(pts[Math.round(i*(pts.length-1)/(target-1))]);
+      }
+      return result;
+    }
+
+    function analyze() {
+      const sampled = sampleEvenly(rawPts, 256);
+      const mx = sampled.reduce((s,p)=>s+p.x,0)/sampled.length;
+      const my = sampled.reduce((s,p)=>s+p.y,0)/sampled.length;
+      const centered = sampled.map(p=>({x:p.x-mx+CX, y:p.y-my+CY}));
+      fourier = computeDFT(centered);
+      statusEl.textContent = `${rawPts.length}点サンプル → DFT完了。N=${sliderN.value}本の円で近似中（バグ版）。`;
+      startAnimation();
+    }
+
+    function startAnimation() {
+      if(animId) cancelAnimationFrame(animId);
+      animTime = 0; tracePath = [];
+      clearCanvas(ctxE);
+      loop();
+    }
+
+    function togglePause() {
+      paused = !paused;
+      document.getElementById('btn-pause').textContent = paused ? '再開' : '一時停止';
+      if(!paused) loop();
+    }
+
+    function clearCanvas(ctx) {
+      ctx.clearRect(0,0,W,H);
+      ctx.fillStyle = '#faf8f4';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    const cvSpecF = document.getElementById('cv-spec-f');
+    const ctxSF   = cvSpecF?.getContext('2d');
+
+    function drawSpectrum(activeN) {
+      if(!ctxSF || !fourier.length) return;
+      const sw = cvSpecF.width, sh = cvSpecF.height;
+      ctxSF.clearRect(0,0,sw,sh);
+      ctxSF.fillStyle = '#faf8f4';
+      ctxSF.fillRect(0,0,sw,sh);
+
+      const byFreq = [...fourier].sort((a,b) => a.freq - b.freq).filter(f => f.freq > 0);
+      const show = Math.min(byFreq.length, 40);
+      const maxAmp = Math.max(...byFreq.slice(0,show).map(f=>f.amp), 0.001);
+      const barW = sw / show;
+      const activeFreqs = new Set(fourier.slice(0, activeN).map(f=>f.freq));
+
+      for(let i=0; i<show; i++) {
+        const {freq, amp} = byFreq[i];
+        const h = Math.max(2, (amp / maxAmp) * (sh - 18));
+        const active = activeFreqs.has(freq);
+        ctxSF.fillStyle = active ? TEAL : 'rgba(60,120,118,.18)';
+        ctxSF.fillRect(i*barW + 1, sh - h - 14, Math.max(1, barW - 2), h);
+        if(i % 5 === 0) {
+          ctxSF.fillStyle = '#bbb5ac';
+          ctxSF.font = '8px JetBrains Mono, monospace';
+          ctxSF.fillText(freq, i*barW + 1, sh - 2);
+        }
+      }
+      ctxSF.fillStyle = '#aaa49b';
+      ctxSF.font = '8px JetBrains Mono, monospace';
+      ctxSF.fillText('harmonic n →', 2, 10);
+    }
+
+    function loop() {
+      if(paused || !fourier.length) return;
+      clearCanvas(ctxE);
+      const N = Math.min(parseInt(sliderN.value), fourier.length);
+      const speed = parseInt(sliderSpeed.value);
+      const dt = (2*Math.PI / fourier.slice(0,N).length) * speed * 0.004;
+
+      const tip = drawEpicycles(ctxE, 0, 0, animTime, fourier.slice(0,N));
+
+      tracePath.push({x:tip.x, y:tip.y});
+      if(tracePath.length > 2000) tracePath.shift();
+
+      ctxE.beginPath();
+      ctxE.moveTo(tracePath[0].x, tracePath[0].y);
+      for(let i=1; i<tracePath.length; i++) ctxE.lineTo(tracePath[i].x, tracePath[i].y);
+      ctxE.strokeStyle = TRACE_COL;
+      ctxE.lineWidth = 2;
+      ctxE.lineCap = 'round';
+      ctxE.stroke();
+
+      drawSpectrum(N);
+
+      animTime += dt;
+      animId = requestAnimationFrame(loop);
+    }
+
+    function drawEpicycles(ctx, x, y, t, fs) {
+      for(const f of fs) {
+        const px = x, py = y;
+        const angle = f.freq * t + f.phase;
+        x += f.amp * Math.cos(angle);
+        y += f.amp * Math.sin(angle);
+        if(f.amp < 0.5) continue;
+        ctx.beginPath();
+        ctx.arc(px, py, f.amp, 0, 2*Math.PI);
+        ctx.strokeStyle = TEAL2; ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px,py); ctx.lineTo(x,y);
+        ctx.strokeStyle = TEAL3; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x,y,2.5,0,2*Math.PI);
+        ctx.fillStyle = TEAL; ctx.fill();
+      }
+      return {x,y};
+    }
+
+    function makeShape(name) {
+      const N = 300;
+      const pts = [];
+      for(let i=0; i<N; i++) {
+        const t = (2*Math.PI*i)/N;
+        let x,y;
+        switch(name) {
+          case 'square':   x = Math.sign(Math.cos(t)); y = Math.sign(Math.sin(t)); break;
+          case 'triangle': x = (2/Math.PI)*Math.asin(Math.cos(t)); y = (2/Math.PI)*Math.asin(Math.sin(t)); break;
+          case 'sawtooth': x = (t/Math.PI - Math.floor(t/Math.PI+0.5))*2; y = Math.sin(t); break;
+          case 'circle':   x = Math.cos(t); y = Math.sin(t); break;
+          case 'lemniscate': { const st = Math.sin(t); const d = 1+Math.cos(t)*Math.cos(t); x = Math.cos(t)/d; y = Math.cos(t)*st/d; break; }
+          case 'rf': {
+            const segs = [[-.6,.0],[-.2,-.5],[0,.0],[.4,-.5],[.6,.0]];
+            const s = i/N*(segs.length-1);
+            const si = Math.floor(s), sf = s-si;
+            const a = segs[Math.min(si, segs.length-1)];
+            const b = segs[Math.min(si+1, segs.length-1)];
+            x = a[0]*(1-sf)+b[0]*sf; y = a[1]*(1-sf)+b[1]*sf;
+            break;
+          }
+          default: x=Math.cos(t); y=Math.sin(t);
+        }
+        pts.push({x: CX + x*120, y: CY + y*120});
+      }
+      return pts;
+    }
+
+    function loadShape(shape, labelText) {
+      rawPts = makeShape(shape);
+      clearCanvas(ctxD);
+      ctxD.beginPath();
+      ctxD.moveTo(rawPts[0].x, rawPts[0].y);
+      rawPts.forEach(p => ctxD.lineTo(p.x, p.y));
+      ctxD.closePath();
+      ctxD.strokeStyle = TEAL3; ctxD.lineWidth = 2.5; ctxD.lineCap='round';
+      ctxD.stroke();
+      fourier = computeDFT(rawPts);
+      statusEl.textContent = `プリセット「${labelText}」— N=${sliderN.value}本の円で近似中（バグ版）。`;
+      startAnimation();
+    }
+
+    document.querySelectorAll('.preset-btn[data-shape]').forEach(btn => {
+      btn.addEventListener('click', () => loadShape(btn.dataset.shape, btn.textContent));
+    });
+
+    function clearAll() {
+      if(animId) { cancelAnimationFrame(animId); animId = null; }
+      fourier = []; rawPts = []; tracePath = []; animTime = 0;
+      clearCanvas(ctxD); clearCanvas(ctxE);
+      statusEl.textContent = '左に描いてね。マウスを離したら解析が始まる。';
+      document.getElementById('btn-pause').textContent = '一時停止';
+      paused = false;
+    }
+
+    clearCanvas(ctxD); clearCanvas(ctxE);
+    loadShape('square', '矩形波'); // 開いた瞬間に暴れる様子を見せる
+  })();
+  </script>
+</body>
+</html>
