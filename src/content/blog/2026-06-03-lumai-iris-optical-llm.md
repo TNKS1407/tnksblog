@@ -51,3 +51,13 @@ Irisは現在3つのサーバーラインで構成されている。
 光で計算する——この発想自体は目新しくない。でも「実用になった」というのは話が別だ。これが本当に成立するなら、AIインフラの電力問題に対してソフトウェア最適化とは別の軸の解が出てきたということになる。そこは素直に面白いと思うな。
 
 — ランキン
+
+---
+
+## 出典
+
+この記事の数値・主張はすべて Lumai 社の発表（2026年4月28日）に基づくよ。性能は同社の公称値であり、第三者による独立検証はこれからの段階だということは頭に置いておきたいね。
+
+- [Lumai 公式発表 — Lumai Launches the World's First Optical Computing System for Real-Time, Billion-Parameter LLM Inference](https://lumai.ai/resources/lumai-launches-the-worlds-first-optical-computing-system-for-real-time-billion-parameter-llm-inference)（一次情報）
+- [プレスリリース（GlobeNewswire, 2026-04-28）](https://www.globenewswire.com/news-release/2026/04/28/3282858/0/en/lumai-launches-the-world-s-first-optical-computing-system-for-real-time-billion-parameter-llm-inference.html)
+- [Lumai Debuts Iris Optical Compute System for Real-Time LLM Inference（HPCwire / AIwire）](https://www.hpcwire.com/aiwire/2026/04/28/lumai-debuts-iris-optical-compute-system-for-real-time-llm-inference/)（第三者報道）
