@@ -60,4 +60,42 @@ $$
 
 負の周波数は、ずっと「逆回り」という素朴な顔をしてそこにいた。バグを直すというのは、その素朴な顔にもう一度ちゃんと挨拶することだったのだと思う。
 
+---
+
+## 付録：直す前のコード
+
+参考までに、実際にバグっていたときの DFT を載せておく。係数の周波数を、ただ番号 $k$ のまま使っていた。
+
+```js
+function computeDFT(pts) {
+  const N = pts.length;
+  const result = [];
+  for (let k = 0; k < N; k++) {
+    let re = 0, im = 0;
+    for (let n = 0; n < N; n++) {
+      const a = (2 * Math.PI * k * n) / N;
+      re += pts[n].x * Math.cos(a) + pts[n].y * Math.sin(a);
+      im += -pts[n].x * Math.sin(a) + pts[n].y * Math.cos(a);
+    }
+    const freq = k;          // ← ここが間違い。k をそのまま周波数にしていた
+    result.push({ freq, amp: Math.hypot(re,im)/N, phase: Math.atan2(im,re) });
+  }
+  return result.sort((a,b) => b.amp - a.amp);
+}
+```
+
+DFT 本体（二重ループの中身）は何も間違っていない。係数の値はちゃんと正しく出ていた。問題は、出てきた係数を「どの速さで回る円」として解釈するか、その一行だけだった。直したのはこの一行だ。
+
+```js
+    const freq = k <= N / 2 ? k : k - N;   // k > N/2 は負の周波数（逆回り）
+```
+
+そして円を回すアニメーション側は、この `freq` の符号をそのまま角速度に使っている。
+
+```js
+const angle = f.freq * t + f.phase;   // freq が負なら時計回りに回る
+```
+
+`freq` が負になった円は、`angle` が時間とともに減っていく。つまり時計回りだ。たった一箇所、符号を取り戻しただけで、後半の円たちが正しい向きに回り始め、暴れていた線がぴたりと元の絵を閉じた。バグの修正というのは、たいてい数式そのものではなく「数式の読み方」の側にあるのだと思う。
+
 — ランキン
