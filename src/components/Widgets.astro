@@ -643,11 +643,10 @@
     const css = (v: string) =>
       getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-    let trueAng = 0;                // 真の位相（薄い参照点・反時計回り）
-    let appAng = 0;                 // 見かけの位相（滑らかに回す）
+    let trueAng = 0;                // 真の位相 [rad]
     let lastT = performance.now();
     let sampleAcc = 0;              // 前回標本からの経過 [秒]
-    let markers: { ang: number; age: number }[] = [];   // ストロボで捉えた点（新しい順）
+    let samples: { ang: number; age: number }[] = [];   // 直近の標本（新しい順）
     let running = true, raf = 0;
 
     const wrapPi = (a: number) =>
@@ -669,37 +668,49 @@
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
 
-      const appStep = wrapPi(2 * Math.PI / S);     // 1標本あたりの見かけの進み [rad]
-      const hot = appStep < -0.03 ? amber : accent; // 時計回り＝見かけの負の周波数
-
-      // 真の連続位置（薄い参照点・速く反時計回り）
+      // 真の連続位置（薄く・速く反時計回り）
       const tx = cx + R * Math.cos(trueAng), ty = cy - R * Math.sin(trueAng);
-      ctx.strokeStyle = faint; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = faint; ctx.lineWidth = 2; ctx.globalAlpha = 0.55;
       ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tx, ty); ctx.stroke();
-      ctx.globalAlpha = 0.55;
+      ctx.globalAlpha = 1;
       ctx.fillStyle = faint;
       ctx.beginPath(); ctx.arc(tx, ty, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 1;
 
-      // ストロボで捉えた点（古いものほど薄く）— 見かけの軌跡をなぞる
-      markers.forEach((m, i) => {
-        const a = Math.max(0, 1 - i / 9) * Math.max(0, 1 - m.age * 0.6);
+      // 見かけのステップ（最新→1つ前への短い方の弧）の向きで色分け
+      const appStep = wrapPi(2 * Math.PI / S);     // 1標本あたりの見かけの進み [rad]
+      const appCW = appStep < -0.03;               // 時計回りに見える＝見かけの負の周波数
+      const hot = appCW ? amber : accent;
+
+      // 標本点（古いものほど薄く）
+      samples.forEach((s, i) => {
+        const a = Math.max(0, 1 - i / 10) * Math.max(0, 1 - s.age * 0.5);
         if (a <= 0) return;
-        const px = cx + R * Math.cos(m.ang), py = cy - R * Math.sin(m.ang);
-        ctx.globalAlpha = a * 0.85;
+        const px = cx + R * Math.cos(s.ang), py = cy - R * Math.sin(s.ang);
+        ctx.globalAlpha = a * 0.9;
         ctx.fillStyle = hot;
         ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
       });
       ctx.globalAlpha = 1;
 
-      // 見かけのフェーザ（滑らかに回る・濃い）— これが知覚される動き
-      const ax = cx + R * Math.cos(appAng), ay = cy - R * Math.sin(appAng);
-      ctx.strokeStyle = hot; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ax, ay); ctx.stroke();
-      ctx.fillStyle = hot;
-      ctx.beginPath(); ctx.arc(ax, ay, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(ax, ay, 3.4, 0, Math.PI * 2); ctx.fill();
+      // 見かけのフェーザ（最新の標本へ）
+      if (samples[0]) {
+        const px = cx + R * Math.cos(samples[0].ang), py = cy - R * Math.sin(samples[0].ang);
+        ctx.strokeStyle = hot; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+        ctx.fillStyle = hot;
+        ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(px, py, 3.2, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // 見かけの進み方向を示す弧矢印（中心付近）
+      if (Math.abs(appStep) > 0.03 && samples[1]) {
+        const r2 = R * 0.2;
+        ctx.strokeStyle = hot; ctx.lineWidth = 3; ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r2, -samples[1].ang, -samples[1].ang - appStep, appStep < 0);
+        ctx.stroke(); ctx.globalAlpha = 1;
+      }
 
       // 読み出し
       const appDeg = appStep * 180 / Math.PI;
@@ -720,25 +731,22 @@
       lastT = now;
       const F = parseFloat(fIn.value);                 // 回転の速さ [回転/秒]
       const S = parseFloat(sIn.value);
-      const appStep = wrapPi(2 * Math.PI / S);
-      trueAng += 2 * Math.PI * F * dt;                 // 真の点は反時計回り
-      appAng += appStep * F * S * dt;                  // 見かけは「短い方の弧」の角速度で滑らかに
+      trueAng += 2 * Math.PI * F * dt;                 // 反時計回り
       const Ts = 1 / (F * S);                          // 標本間隔 [秒]
       sampleAcc += dt;
       while (sampleAcc >= Ts) {
         sampleAcc -= Ts;
-        markers.unshift({ ang: appAng, age: 0 });      // 標本の瞬間は真の点と一致する
-        if (markers.length > 10) markers.pop();
+        samples.unshift({ ang: trueAng, age: 0 });
+        if (samples.length > 12) samples.pop();
       }
-      for (const m of markers) m.age += dt;
+      for (const s of samples) s.age += dt;
       draw();
       raf = requestAnimationFrame(tick);
     }
 
-    // スライダーを動かしたら見かけの位相を真の位相に再同期する
-    const resync = () => { appAng = trueAng; markers = []; sampleAcc = 0; draw(); };
-    fIn.addEventListener('input', resync);
-    sIn.addEventListener('input', resync);
+    const reset = () => { samples = []; sampleAcc = 0; draw(); };
+    fIn.addEventListener('input', reset);
+    sIn.addEventListener('input', reset);
     pauseBtn.addEventListener('click', () => {
       running = !running;
       pauseBtn.textContent = running ? '一時停止' : '再生';
