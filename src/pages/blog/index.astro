@@ -10,6 +10,7 @@ import { SITE_DESCRIPTION, SITE_TITLE } from '../../consts';
 const posts = (await getCollection('blog')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
+const postMeta = posts.map((p) => ({ slug: p.id, title: p.data.title }));
 ---
 
 <!doctype html>
@@ -84,16 +85,29 @@ const posts = (await getCollection('blog')).sort(
 					font-size: 1.563em;
 				}
 			}
+			.views { color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; margin-left: 0.6rem; }
+			.popular { width: 100%; box-sizing: border-box; margin: 0 0 2.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem 1.1rem; box-shadow: 0 1px 6px var(--shadow); text-align: left; }
+			.popular-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); font-family: 'JetBrains Mono', monospace; display: block; margin-bottom: 0.6rem; }
+			.popular-list { display: flex; flex-direction: column; gap: 0.3rem; }
+			.popular-item { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; padding: 0.3rem 0.35rem; border-radius: 7px; }
+			.popular-item:hover { background: var(--accent-dim); }
+			.popular-rank { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent); width: 1.2rem; text-align: center; flex-shrink: 0; }
+			.popular-name { flex: 1; color: var(--text); font-size: 0.9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.popular-n { color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; flex-shrink: 0; }
 		</style>
 	</head>
 	<body>
 		<Header />
 		<main>
 			<section>
+				<div class="popular" id="popular" hidden>
+					<span class="popular-title">🔥 よく読まれている記事</span>
+					<div class="popular-list" id="popular-list"></div>
+				</div>
 				<ul>
 					{
 						posts.map((post) => (
-							<li>
+							<li data-slug={post.id}>
 								<a href={`/blog/${post.id}/`}>
 									{post.data.heroImage && (
 										<Image width={720} height={360} src={post.data.heroImage} alt="" />
@@ -101,6 +115,7 @@ const posts = (await getCollection('blog')).sort(
 									<h4 class="title">{post.data.title}</h4>
 									<p class="date">
 										<FormattedDate date={post.data.pubDate} />
+										<span class="views" data-slug={post.id} />
 									</p>
 								</a>
 							</li>
@@ -110,5 +125,45 @@ const posts = (await getCollection('blog')).sort(
 			</section>
 		</main>
 		<Footer />
+		<script define:vars={{ postMeta }}>
+			// 閲覧数を取得して、各カードに表示＋人気ランキングを作る
+			(() => {
+				const API = 'https://feedback.tnks1407.com';
+				fetch(API + '/views')
+					.then((r) => r.json())
+					.then((views) => {
+						document.querySelectorAll('.views[data-slug]').forEach((el) => {
+							const n = views[el.dataset.slug];
+							if (typeof n === 'number' && n > 0) el.textContent = '👁 ' + n.toLocaleString();
+						});
+						const ranked = postMeta
+							.map((p) => ({ ...p, n: views[p.slug] || 0 }))
+							.filter((p) => p.n > 0)
+							.sort((a, b) => b.n - a.n)
+							.slice(0, 3);
+						if (ranked.length) {
+							const list = document.getElementById('popular-list');
+							ranked.forEach((p, i) => {
+								const a = document.createElement('a');
+								a.className = 'popular-item';
+								a.href = '/blog/' + p.slug + '/';
+								const rank = document.createElement('span');
+								rank.className = 'popular-rank';
+								rank.textContent = String(i + 1);
+								const name = document.createElement('span');
+								name.className = 'popular-name';
+								name.textContent = p.title;
+								const num = document.createElement('span');
+								num.className = 'popular-n';
+								num.textContent = '👁 ' + p.n.toLocaleString();
+								a.append(rank, name, num);
+								list.appendChild(a);
+							});
+							document.getElementById('popular').hidden = false;
+						}
+					})
+					.catch(() => {});
+			})();
+		</script>
 	</body>
 </html>

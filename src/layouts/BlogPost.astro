@@ -31,6 +31,7 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
             <div class="date">
               <FormattedDate date={pubDate} />
               {updatedDate && <span class="updated">（更新: <FormattedDate date={updatedDate} />）</span>}
+              <span class="views" id="post-views" hidden>· 👁 <span id="post-views-n">…</span></span>
             </div>
             <h1>{title}</h1>
             <p class="description">{description}</p>
@@ -42,6 +43,27 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
     </main>
     <Footer />
     <Widgets />
+    <script>
+      // 閲覧数: セッションごとに1回だけ加算して表示する
+      (() => {
+        const API = 'https://feedback.tnks1407.com';
+        const slug = location.pathname.replace(/\/+$/, '').split('/').pop() || '';
+        if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(slug)) return;
+        const show = (n: number | undefined) => {
+          const el = document.getElementById('post-views');
+          const nn = document.getElementById('post-views-n');
+          if (el && nn && typeof n === 'number') { nn.textContent = n.toLocaleString(); el.hidden = false; }
+        };
+        const key = '_viewed_' + slug;
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, '1');
+          fetch(API + '/view?key=' + encodeURIComponent(slug), { method: 'POST' })
+            .then(r => r.json()).then(d => show(d.count)).catch(() => {});
+        } else {
+          fetch(API + '/views').then(r => r.json()).then(d => show(d[slug])).catch(() => {});
+        }
+      })();
+    </script>
   </body>
 </html>
 
