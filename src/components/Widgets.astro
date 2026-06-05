@@ -606,6 +606,149 @@
     frame();
   }
 
+  // ---- 標本化とエイリアシング（見かけの逆回り）widget ----
+  function mountAliasing(root: HTMLElement) {
+    root.classList.add('tw');
+    root.innerHTML = `
+      <div class="tw-title">サンプリングで逆回りに見える</div>
+      <div class="tw-stage"><canvas width="640" height="640"></canvas></div>
+      <div class="tw-controls">
+        <div class="tw-row">
+          <label>標本数 / 回転</label>
+          <input type="range" class="s" min="0.8" max="12" step="0.1" value="8" />
+        </div>
+        <div class="tw-readout">
+          <b class="sv">8.0</b> 点で1回転を刻む　・　ナイキスト = 2 点/回転
+          <br /><span class="state"></span>
+        </div>
+        <div class="tw-btns">
+          <button class="tw-btn pause">一時停止</button>
+        </div>
+      </div>`;
+
+    const canvas = root.querySelector('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const sIn = root.querySelector('input.s') as HTMLInputElement;
+    const sv = root.querySelector('.sv') as HTMLElement;
+    const stateEl = root.querySelector('.state') as HTMLElement;
+    const pauseBtn = root.querySelector('.pause') as HTMLElement;
+
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2, R = W * 0.38;
+    const css = (v: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+    const F = 0.26;                 // 真の回転周波数 [回転/秒]（反時計回り）
+    let trueAng = 0;                // 真の位相 [rad]
+    let lastT = performance.now();
+    let sampleAcc = 0;              // 前回標本からの経過 [秒]
+    let samples: { ang: number; age: number }[] = [];   // 直近の標本（新しい順）
+    let running = true, raf = 0;
+
+    const wrapPi = (a: number) =>
+      ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+
+    function draw() {
+      const S = parseFloat(sIn.value);
+      const accent = css('--accent') || '#3c7876';
+      const border = css('--border') || '#e3dbd0';
+      const faint = css('--text-faint') || '#aaa49b';
+      const amber = '#8c6d4f';
+      ctx.clearRect(0, 0, W, H);
+
+      // 軸・単位円
+      ctx.strokeStyle = border; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W - 20, cy);
+      ctx.moveTo(cx, 20); ctx.lineTo(cx, H - 20); ctx.stroke();
+      ctx.strokeStyle = faint; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // 真の連続位置（薄く・速く反時計回り）
+      const tx = cx + R * Math.cos(trueAng), ty = cy - R * Math.sin(trueAng);
+      ctx.strokeStyle = faint; ctx.lineWidth = 2; ctx.globalAlpha = 0.55;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = faint;
+      ctx.beginPath(); ctx.arc(tx, ty, 5, 0, Math.PI * 2); ctx.fill();
+
+      // 見かけのステップ（最新→1つ前への短い方の弧）の向きで色分け
+      const appStep = wrapPi(2 * Math.PI / S);     // 1標本あたりの見かけの進み [rad]
+      const appCW = appStep < -0.03;               // 時計回りに見える＝見かけの負の周波数
+      const hot = appCW ? amber : accent;
+
+      // 標本点（古いものほど薄く）
+      samples.forEach((s, i) => {
+        const a = Math.max(0, 1 - i / 10) * Math.max(0, 1 - s.age * 0.5);
+        if (a <= 0) return;
+        const px = cx + R * Math.cos(s.ang), py = cy - R * Math.sin(s.ang);
+        ctx.globalAlpha = a * 0.9;
+        ctx.fillStyle = hot;
+        ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      // 見かけのフェーザ（最新の標本へ）
+      if (samples[0]) {
+        const px = cx + R * Math.cos(samples[0].ang), py = cy - R * Math.sin(samples[0].ang);
+        ctx.strokeStyle = hot; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+        ctx.fillStyle = hot;
+        ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(px, py, 3.2, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // 見かけの進み方向を示す弧矢印（中心付近）
+      if (Math.abs(appStep) > 0.03 && samples[1]) {
+        const r2 = R * 0.2;
+        ctx.strokeStyle = hot; ctx.lineWidth = 3; ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r2, -samples[1].ang, -samples[1].ang - appStep, appStep < 0);
+        ctx.stroke(); ctx.globalAlpha = 1;
+      }
+
+      // 読み出し
+      const appDeg = appStep * 180 / Math.PI;
+      const dir = Math.abs(appDeg) < 3 ? '止まって見える'
+        : appDeg > 0 ? '反時計回り（本当の向き）'
+        : '時計回り＝見かけの負の周波数';
+      const ny = S >= 2
+        ? 'ナイキスト以上：本当の向きが見える'
+        : 'ナイキスト未満：折り返して逆に見える';
+      stateEl.innerHTML =
+        `本当は<b style="color:${faint}">反時計回り</b>、見かけは<b style="color:${hot}">${dir}</b><br>${ny}`;
+      sv.textContent = S.toFixed(1);
+    }
+
+    function tick(now: number) {
+      if (!running) return;
+      const dt = Math.min((now - lastT) / 1000, 0.05);
+      lastT = now;
+      const S = parseFloat(sIn.value);
+      trueAng += 2 * Math.PI * F * dt;                 // 反時計回り
+      const Ts = 1 / (F * S);                          // 標本間隔 [秒]
+      sampleAcc += dt;
+      while (sampleAcc >= Ts) {
+        sampleAcc -= Ts;
+        samples.unshift({ ang: trueAng, age: 0 });
+        if (samples.length > 12) samples.pop();
+      }
+      for (const s of samples) s.age += dt;
+      draw();
+      raf = requestAnimationFrame(tick);
+    }
+
+    sIn.addEventListener('input', () => { samples = []; sampleAcc = 0; draw(); });
+    pauseBtn.addEventListener('click', () => {
+      running = !running;
+      pauseBtn.textContent = running ? '一時停止' : '再生';
+      if (running) { lastT = performance.now(); raf = requestAnimationFrame(tick); }
+    });
+    draw();
+    raf = requestAnimationFrame(tick);
+  }
+
   // ---- マウンタ ----
   function mountAll() {
     document.querySelectorAll<HTMLElement>('[data-widget]').forEach((el) => {
@@ -617,6 +760,7 @@
         case 'counter-rotation': mountCounterRotation(el); break;
         case 'crystal-bug-compare': mountCrystalBugCompare(el); break;
         case 'fourier-bug-compare': mountFourierBugCompare(el); break;
+        case 'aliasing': mountAliasing(el); break;
       }
     });
   }
