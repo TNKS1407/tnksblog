@@ -302,6 +302,119 @@
     draw();
   }
 
+  // ---- 逆回りの2つの円 → 実振動（負周波数）widget ----
+  function mountCounterRotation(root: HTMLElement) {
+    root.classList.add('tw');
+    root.innerHTML = `
+      <div class="tw-title">逆回りの円が実振動になる</div>
+      <div class="tw-stage"><canvas width="680" height="520"></canvas></div>
+      <div class="tw-controls">
+        <div class="tw-readout">
+          ½e<sup>jθ</sup> + ½e<sup>−jθ</sup> = cos θ　<span class="deg"></span>
+          <br /><span class="state" style="color:var(--text-muted);font-size:0.78rem;">
+          反時計回りの円と時計回りの円。縦の動きは打ち消し合い、横だけが残る。</span>
+        </div>
+        <div class="tw-btns">
+          <button class="tw-btn pause">一時停止</button>
+        </div>
+      </div>`;
+
+    const canvas = root.querySelector('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const degEl = root.querySelector('.deg') as HTMLElement;
+    const pauseBtn = root.querySelector('.pause') as HTMLElement;
+
+    const W = canvas.width, H = canvas.height;
+    const cx = W * 0.34, cy = H * 0.5;   // 複素平面の中心（左寄せ）
+    const R = H * 0.32;                   // 単位円の半径(px)
+    const half = R / 2;                   // 各フェーザの長さ ½
+    const waveX = W * 0.62;               // 波形の開始x
+    const css = (v: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+    let theta = 0;
+    let running = true;
+    const trail: number[] = [];           // cosθ の履歴
+
+    function draw() {
+      const accent = css('--accent') || '#3c7876';
+      const border = css('--border') || '#e3dbd0';
+      const faint = css('--text-faint') || '#aaa49b';
+      ctx.clearRect(0, 0, W, H);
+
+      // 軸
+      ctx.strokeStyle = border; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx - R - 30, cy); ctx.lineTo(W - 20, cy);
+      ctx.moveTo(cx, cy - R - 30); ctx.lineTo(cx, cy + R + 30); ctx.stroke();
+
+      // 単位円
+      ctx.strokeStyle = faint; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      const c = Math.cos(theta), s = Math.sin(theta);
+      // 反時計回り ½e^{jθ}
+      const ax = cx + half * c, ay = cy - half * s;
+      // 時計回り ½e^{-jθ}
+      const bx = cx + half * c, by = cy + half * s;
+      // 和（実軸上）
+      const sx = cx + R * c, sy = cy;
+
+      // 平行四辺形（和の作図）
+      ctx.strokeStyle = faint; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay); ctx.lineTo(sx, sy); ctx.lineTo(bx, by);
+      ctx.stroke(); ctx.setLineDash([]);
+
+      // 2本のフェーザ
+      const arrow = (x: number, y: number, col: string) => {
+        ctx.strokeStyle = col; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+      };
+      arrow(ax, ay, accent);
+      arrow(bx, by, faint);
+
+      // 和ベクトル（実軸上）
+      ctx.strokeStyle = accent; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy); ctx.stroke();
+      ctx.fillStyle = accent;
+      ctx.beginPath(); ctx.arc(sx, sy, 7, 0, Math.PI * 2); ctx.fill();
+
+      // 右側に cosθ の波形（時間を右へ）
+      trail.unshift(c);
+      if (trail.length > 220) trail.pop();
+      // 和の点から波形開始へ結ぶガイド
+      ctx.strokeStyle = accent; ctx.lineWidth = 1; ctx.globalAlpha = 0.3; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(waveX, cy - R * c); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.strokeStyle = accent; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < trail.length; i++) {
+        const x = waveX + i * 0.5;
+        const y = cy - R * trail[i];
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+
+      degEl.textContent = `(θ = ${Math.round((theta * 180 / Math.PI) % 360)}°)`;
+    }
+
+    function tick() {
+      if (!running) return;
+      theta += 0.03;
+      draw();
+      requestAnimationFrame(tick);
+    }
+    pauseBtn.addEventListener('click', () => {
+      running = !running;
+      pauseBtn.textContent = running ? '一時停止' : '再生';
+      if (running) tick();
+    });
+    draw(); tick();
+  }
+
   // ---- マウンタ ----
   function mountAll() {
     document.querySelectorAll<HTMLElement>('[data-widget]').forEach((el) => {
@@ -310,6 +423,7 @@
       switch (el.dataset.widget) {
         case 'complex-rotation': mountComplexRotation(el); break;
         case 'spiral-iteration': mountSpiralIteration(el); break;
+        case 'counter-rotation': mountCounterRotation(el); break;
       }
     });
   }
