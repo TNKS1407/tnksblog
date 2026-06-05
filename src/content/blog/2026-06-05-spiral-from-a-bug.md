@@ -86,9 +86,9 @@ ops: [
 ],
 ```
 
-このコードが実際に何を描いていたか、左に並べてみる。240°のかけら（橙）だけ、面積が半分に縮んで歪み、六角形が閉じていないのが見えると思う。
+このコードが実際に何を描いていたか、当時の遊び場をそのまま貼っておく。点が回りながら6つの等価位置を生むのだけれど、240°のところだけ内側に寄って、六角形が閉じない。点群ボタンで 4 や 3 を選ぶときれいに閉じるのに、6 だけ崩れる——触って確かめてほしい。
 
-<div data-widget="crystal-bug-compare"></div>
+<iframe src="/embed/crystal-bug/" title="バグを入れたままの結晶対称操作の遊び場" loading="lazy" style="width:100%;border:1px solid var(--border);border-radius:14px;background:var(--card);min-height:430px;margin:2rem 0;"></iframe>
 
 240°回転の正しい行列は
 

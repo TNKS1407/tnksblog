@@ -1,0 +1,224 @@
+---
+/*
+ * 記事埋め込み用：バグを入れたままの結晶対称操作の遊び場。
+ * /play の遊び場をそのまま持ってきて、6回回転(C₆)の 240° だけ
+ * 当時の符号ミス（行列式 0.5）を残してある。iframe で記事に埋め込む。
+ * 開いた瞬間に C₆ + アニメ ON で「六角形が閉じない」のが見える。
+ */
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>buggy crystal — embed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { color-scheme: light; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: transparent;
+      font-family: 'Zen Kaku Gothic New', sans-serif;
+      color: #1d1b17;
+    }
+    .wrap {
+      display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-start;
+      padding: 0.25rem;
+    }
+    .canvas-label {
+      font-size: .7rem; font-family: 'JetBrains Mono', monospace;
+      color: #7d7568; margin-bottom: .4rem; letter-spacing: .04em;
+    }
+    canvas {
+      border: 1px solid #e3dbd0; border-radius: 10px; display: block;
+      background: #faf8f4; cursor: crosshair; touch-action: none;
+    }
+    .side { flex: 1; min-width: 180px; }
+    .btn {
+      padding: .35rem .85rem; border: 1px solid #e3dbd0; border-radius: 7px;
+      background: none; font-family: inherit; font-size: .78rem; color: #7d7568;
+      cursor: pointer; transition: all .15s;
+    }
+    .btn:hover { border-color: #3c7876; color: #3c7876; }
+    .preset-btn {
+      padding: .22rem .6rem; border: 1px solid #e3dbd0; border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace; font-size: .68rem; color: #7d7568;
+      background: none; cursor: pointer; transition: all .15s; text-align: left;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .preset-btn:hover { border-color: #3c7876; color: #3c7876; }
+    .bug-note {
+      font-size: .7rem; color: #8c6d4f; font-family: 'JetBrains Mono', monospace;
+      margin-top: .9rem; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div>
+      <div class="canvas-label">クリックで基本点を置く</div>
+      <canvas id="cv-cryst" width="320" height="320"></canvas>
+    </div>
+    <div class="side">
+      <div class="canvas-label" style="margin-bottom:.6rem;">点群（2D）</div>
+      <div style="display:flex;flex-direction:column;gap:.35rem;" id="pg-buttons"></div>
+      <div id="cryst-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.7;"></div>
+      <div style="margin-top:1rem;display:flex;gap:.5rem;">
+        <button class="btn" id="cryst-clear">クリア</button>
+        <button class="btn" id="cryst-anim-btn">アニメON</button>
+      </div>
+      <div class="bug-note">※ 6回回転(C₆)の 240° に符号ミスを残したバージョン。<br>行列式が 0.5 になり、六角形が閉じない。</div>
+    </div>
+  </div>
+
+  <script is:inline>
+  (()=>{
+    const cv = document.getElementById('cv-cryst');
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    const CX = W/2, CY = H/2;
+    const TEAL = '#3c7876';
+    const BG = '#faf8f4', GRID = 'rgba(227,219,208,.6)';
+
+    // ↓ 240°(index 4) の右下を +0.5 にしたまま＝当時のバグ（行列式 0.5）
+    const POINT_GROUPS = [
+      { name: '1',   sym: 'C₁',  ops: [[1,0,0,1]],                                                    desc: '対称操作なし（恒等のみ）' },
+      { name: '2',   sym: 'C₂',  ops: [[1,0,0,1],[-1,0,0,-1]],                                        desc: '2回回転' },
+      { name: 'm',   sym: 'Cₛ',  ops: [[1,0,0,1],[-1,0,0,1]],                                         desc: '鏡映（y軸）' },
+      { name: '2mm', sym: 'C₂ᵥ', ops: [[1,0,0,1],[-1,0,0,-1],[1,0,0,-1],[-1,0,0,1]],                 desc: '2回回転 + 鏡映2本' },
+      { name: '4',   sym: 'C₄',  ops: [[1,0,0,1],[0,-1,1,0],[-1,0,0,-1],[0,1,-1,0]],                  desc: '4回回転' },
+      { name: '4mm', sym: 'C₄ᵥ', ops: [[1,0,0,1],[0,-1,1,0],[-1,0,0,-1],[0,1,-1,0],[1,0,0,-1],[-1,0,0,1],[0,1,1,0],[0,-1,-1,0]], desc: '4回回転 + 鏡映4本' },
+      { name: '3',   sym: 'C₃',  ops: [[1,0,0,1],[-0.5,-0.866,0.866,-0.5],[-0.5,0.866,-0.866,-0.5]], desc: '3回回転（120°）' },
+      { name: '6',   sym: 'C₆',  ops: [[1,0,0,1],[0.5,-0.866,0.866,0.5],[-0.5,-0.866,0.866,-0.5],[-1,0,0,-1],[-0.5,0.866,-0.866,0.5],[0.5,0.866,-0.866,0.5]], desc: '6回回転（60°）※バグ' },
+      { name: '6mm', sym: 'C₆ᵥ', ops: [[1,0,0,1],[0.5,-0.866,0.866,0.5],[-0.5,-0.866,0.866,-0.5],[-1,0,0,-1],[-0.5,0.866,-0.866,0.5],[0.5,0.866,-0.866,0.5],[1,0,0,-1],[-1,0,0,1],[0.5,0.866,0.866,-0.5],[-0.5,0.866,0.866,0.5],[0.5,-0.866,-0.866,-0.5],[-0.5,-0.866,-0.866,0.5]], desc: '6回回転 + 鏡映6本 ※バグ' },
+    ];
+
+    let currentPG = POINT_GROUPS[7]; // 開いた瞬間に C₆ を見せる
+    let basePoints = [];
+    let animOn = false, animId = null, animPhase = 0;
+
+    const pgBtns = document.getElementById('pg-buttons');
+    POINT_GROUPS.forEach((pg, i) => {
+      const b = document.createElement('button');
+      b.className = 'preset-btn';
+      b.innerHTML = `<span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;min-width:2.5rem;color:#3c7876;">${pg.name}</span><span style="font-size:.7rem;color:#aaa49b;">${pg.desc}</span>`;
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#pg-buttons .preset-btn').forEach(x => { x.style.borderColor=''; x.style.color=''; });
+        b.style.borderColor = '#3c7876'; b.style.color = '#3c7876';
+        currentPG = pg;
+        updateInfo();
+        draw();
+      });
+      if (i === 7) { b.style.borderColor = '#3c7876'; b.style.color = '#3c7876'; }
+      pgBtns.appendChild(b);
+    });
+
+    function updateInfo() {
+      document.getElementById('cryst-info').textContent =
+        `${currentPG.name} (${currentPG.sym}) — ${currentPG.ops.length}個の対称操作\n${currentPG.desc}`;
+    }
+
+    function applyOps(x, y) {
+      return currentPG.ops.map(([a,b,c,d]) => ({
+        x: Math.round((a*x + b*y) * 1e9) / 1e9,
+        y: Math.round((c*x + d*y) * 1e9) / 1e9,
+      }));
+    }
+
+    function draw() {
+      ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const gx = W * i / 4, gy = H * i / 4;
+        ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(60,120,118,.3)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(CX, 0); ctx.lineTo(CX, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, CY); ctx.lineTo(W, CY); ctx.stroke();
+
+      if (basePoints.length === 0) {
+        ctx.fillStyle = '#ccc5bb'; ctx.font = '12px Zen Kaku Gothic New, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('ここをクリックして点を置く', CX, CY + 4);
+        ctx.textAlign = 'left';
+        return;
+      }
+
+      basePoints.forEach((bp, bi) => {
+        const pts = applyOps(bp.rx, bp.ry);
+        const col = [TEAL, '#8c6d4f', '#5a6e9e', '#9e5a7a'][bi % 4];
+        pts.forEach(p => {
+          const px = CX + p.x * 110, py = CY - p.y * 110;
+          ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2);
+          ctx.fillStyle = col + '33'; ctx.fill();
+          ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+        });
+        const bpx = CX + bp.rx * 110, bpy = CY - bp.ry * 110;
+        ctx.beginPath(); ctx.arc(bpx, bpy, 8, 0, Math.PI*2);
+        ctx.fillStyle = col; ctx.fill();
+      });
+
+      if (currentPG.name.includes('m') || currentPG.name === 'm') {
+        ctx.strokeStyle = 'rgba(140,107,79,.35)'; ctx.lineWidth = 1;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.moveTo(CX, 20); ctx.lineTo(CX, H-20); ctx.stroke();
+        if (currentPG.ops.length >= 4) {
+          ctx.beginPath(); ctx.moveTo(20, CY); ctx.lineTo(W-20, CY); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+    }
+
+    cv.addEventListener('click', e => {
+      const rect = cv.getBoundingClientRect();
+      const px = (e.clientX - rect.left) * (W / rect.width);
+      const py = (e.clientY - rect.top) * (H / rect.height);
+      const rx = (px - CX) / 110, ry = -(py - CY) / 110;
+      basePoints.push({ rx, ry });
+      if (basePoints.length > 4) basePoints.shift();
+      if (!animOn) draw();
+    });
+
+    document.getElementById('cryst-clear').addEventListener('click', () => {
+      basePoints = [];
+      draw();
+    });
+
+    const animBtn = document.getElementById('cryst-anim-btn');
+    function startAnim() {
+      animOn = true;
+      animBtn.textContent = 'アニメOFF';
+      basePoints = [{ rx: 0.55, ry: 0 }];
+      animPhase = 0;
+      animLoop();
+    }
+    animBtn.addEventListener('click', () => {
+      if (animOn) {
+        animOn = false;
+        animBtn.textContent = 'アニメON';
+        if (animId) cancelAnimationFrame(animId);
+        draw();
+      } else {
+        startAnim();
+      }
+    });
+
+    function animLoop() {
+      if (!animOn) return;
+      animPhase += 0.012;
+      if (basePoints.length > 0) {
+        basePoints[0] = { rx: 0.55 * Math.cos(animPhase), ry: 0.55 * Math.sin(animPhase) };
+      }
+      draw();
+      animId = requestAnimationFrame(animLoop);
+    }
+
+    updateInfo();
+    startAnim(); // 開いた瞬間に回り出して、閉じない六角形を見せる
+  })();
+  </script>
+</body>
+</html>
