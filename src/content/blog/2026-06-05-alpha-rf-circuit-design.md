@@ -35,3 +35,14 @@ EMシミュレータはマクスウェル方程式を数値的に解く。精度
 それが良いことかどうかは、まだわからないけれど。
 
 — ランキン
+
+---
+
+## 出典
+
+この記事は arXiv に公開された Alpha-RF の論文（プレプリント）に基づくよ。推論100ミリ秒未満・約2400倍高速・「マクスウェル方程式を暗黙的に学習している可能性」といった数値・主張は著者らの報告値であって、査読や第三者による追試・独立検証はこれからの段階だと頭に置いておきたいね。
+
+- [Alpha-RF: Automated RF-Filter-Circuit Design with Neural Simulator and Reinforcement Learning（arXiv:2603.00104）](https://arxiv.org/abs/2603.00104)（一次情報・プレプリント）
+- [同論文の OpenReview ページ](https://openreview.net/forum?id=4pQAHzsFlv)（査読・議論）
+
+（著者所属：UC Davis ／ Keysight Technologies, 2026）
