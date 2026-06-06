@@ -291,6 +291,55 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- 2D Gaussian Splatting -->
+    <div class="app-card">
+      <div class="app-title">2Dガウシアンスプラッティングの遊び場</div>
+      <div class="app-desc">
+        画像を「たくさんの“にじみ”（2次元ガウシアン）の重ね合わせ」で描き直す実験。これが最近のニューラルレンダリング ── 3Dガウシアンスプラッティングの心臓部の、2D版だよ。<br>
+        スプラット数を増やすほど元画像に近づく。「異方性」をオンにすると、各にじみがエッジに沿って楕円に伸びて、少ない数でも輪郭がシャープになる。なぜ“まんまる”より“楕円”のガウシアンが効くのかが見えるはず。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">RECONSTRUCTION — ガウシアンの重ね合わせ</div>
+          <canvas id="gs-out" width="320" height="320"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">TARGET — 元画像</div>
+          <canvas id="gs-target" width="150" height="150" style="width:150px;height:150px;"></canvas>
+          <div id="gs-stat" style="margin-top:.6rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.7;"></div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group">
+              <label>スプラット数</label>
+              <input type="range" id="gs-n" min="20" max="1500" value="300" step="10" style="width:130px;">
+              <span id="gs-n-val">300</span>
+            </div>
+            <div class="ctrl-group">
+              <label>にじみの大きさ</label>
+              <input type="range" id="gs-size" min="0.5" max="2.5" value="1" step="0.1" style="width:130px;">
+              <span id="gs-size-val">1.0</span>
+            </div>
+            <div class="ctrl-group">
+              <label>異方性（エッジに沿わせる）</label>
+              <input type="checkbox" id="gs-aniso" checked style="accent-color:#3c7876;width:auto;">
+            </div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">元画像:</span>
+            <button class="preset-btn" data-gs="sunset">夕焼け</button>
+            <button class="preset-btn" data-gs="shapes">図形</button>
+            <button class="preset-btn" data-gs="grad">グラデ</button>
+            <button class="preset-btn" data-gs="hikari">光</button>
+          </div>
+          <div style="margin-top:.8rem;">
+            <button class="btn" id="gs-anim">粗→細アニメ</button>
+          </div>
+          <div id="gs-note" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+    </div>
+
   </main>
   <Footer />
 </body>
@@ -1131,5 +1180,137 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   }));
 
   syncLabels(); compute();
+})();
+
+/* ═══════════════════════════════════════════════════
+   2D Gaussian Splatting
+═══════════════════════════════════════════════════ */
+(()=>{
+  const out=document.getElementById('gs-out'); const octx=out.getContext('2d');
+  const tgt=document.getElementById('gs-target'); const tctx=tgt.getContext('2d');
+  const OW=out.width, OH=out.height;
+  const SW=150, SH=150;
+  const samp=document.createElement('canvas'); samp.width=SW; samp.height=SH;
+  const sctx=samp.getContext('2d');
+  let tdata=null, avg=[230,225,215];
+  const MAXN=1500;
+  const pts=[]; for(let i=0;i<MAXN;i++) pts.push({x:Math.random(), y:Math.random()});
+
+  const slN=document.getElementById('gs-n'), vN=document.getElementById('gs-n-val');
+  const slS=document.getElementById('gs-size'), vS=document.getElementById('gs-size-val');
+  const cbA=document.getElementById('gs-aniso');
+  const statEl=document.getElementById('gs-stat'), noteEl=document.getElementById('gs-note');
+
+  function makeTarget(name){
+    sctx.clearRect(0,0,SW,SH);
+    if(name==='grad'){
+      const g=sctx.createLinearGradient(0,0,SW,SH);
+      g.addColorStop(0,'#ff6b6b'); g.addColorStop(0.5,'#ffd93d'); g.addColorStop(1,'#4d96ff');
+      sctx.fillStyle=g; sctx.fillRect(0,0,SW,SH);
+      const r=sctx.createRadialGradient(SW*0.5,SH*0.4,4,SW*0.5,SH*0.4,SW*0.6);
+      r.addColorStop(0,'rgba(255,255,255,.8)'); r.addColorStop(1,'rgba(255,255,255,0)');
+      sctx.fillStyle=r; sctx.fillRect(0,0,SW,SH);
+    } else if(name==='shapes'){
+      sctx.fillStyle='#1d3557'; sctx.fillRect(0,0,SW,SH);
+      sctx.fillStyle='#e63946'; sctx.beginPath(); sctx.arc(SW*0.35,SH*0.4,SW*0.22,0,7); sctx.fill();
+      sctx.fillStyle='#2a9d8f'; sctx.fillRect(SW*0.5,SH*0.48,SW*0.4,SH*0.4);
+      sctx.fillStyle='#f4a261'; sctx.beginPath(); sctx.moveTo(SW*0.18,SH*0.86); sctx.lineTo(SW*0.44,SH*0.55); sctx.lineTo(SW*0.7,SH*0.86); sctx.closePath(); sctx.fill();
+    } else if(name==='sunset'){
+      const g=sctx.createLinearGradient(0,0,0,SH*0.7);
+      g.addColorStop(0,'#2c1a4d'); g.addColorStop(0.55,'#e85d75'); g.addColorStop(1,'#ffce8a');
+      sctx.fillStyle=g; sctx.fillRect(0,0,SW,SH*0.7);
+      sctx.fillStyle='#fff3c4'; sctx.beginPath(); sctx.arc(SW*0.5,SH*0.5,SW*0.12,0,7); sctx.fill();
+      const s=sctx.createLinearGradient(0,SH*0.7,0,SH);
+      s.addColorStop(0,'#1a2f5a'); s.addColorStop(1,'#0d1b3a');
+      sctx.fillStyle=s; sctx.fillRect(0,SH*0.7,SW,SH*0.3);
+    } else {
+      sctx.fillStyle='#faf3e0'; sctx.fillRect(0,0,SW,SH);
+      sctx.fillStyle='#2b2118';
+      sctx.font='bold '+Math.round(SH*0.78)+'px serif';
+      sctx.textAlign='center'; sctx.textBaseline='middle';
+      sctx.fillText('光', SW/2, SH/2+SH*0.04);
+    }
+    tdata=sctx.getImageData(0,0,SW,SH);
+    let R=0,G=0,B=0; const d=tdata.data;
+    for(let i=0;i<d.length;i+=4){ R+=d[i]; G+=d[i+1]; B+=d[i+2]; }
+    const n=d.length/4; avg=[R/n|0,G/n|0,B/n|0];
+    tctx.imageSmoothingEnabled=true; tctx.clearRect(0,0,tgt.width,tgt.height);
+    tctx.drawImage(samp,0,0,tgt.width,tgt.height);
+  }
+
+  function idx(x,y){
+    let ix=x*(SW-1), iy=y*(SH-1);
+    ix=ix<0?0:ix>SW-1?SW-1:ix; iy=iy<0?0:iy>SH-1?SH-1:iy;
+    return ((iy|0)*SW+(ix|0))*4;
+  }
+  function lum(i){ const d=tdata.data; return 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; }
+  function gradAt(x,y){
+    const e=2/SW;
+    const gx=lum(idx(x+e,y))-lum(idx(x-e,y));
+    const gy=lum(idx(x,y+e))-lum(idx(x,y-e));
+    return { mag:Math.hypot(gx,gy), ang:Math.atan2(gy,gx) };
+  }
+
+  function splat(cx,cy,sx,sy,ang,col,a){
+    octx.save(); octx.translate(cx,cy); octx.rotate(ang); octx.scale(sx,sy);
+    const g=octx.createRadialGradient(0,0,0,0,0,1);
+    g.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+a+')');
+    g.addColorStop(0.5,'rgba('+col[0]+','+col[1]+','+col[2]+','+(a*0.5)+')');
+    g.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
+    octx.fillStyle=g; octx.beginPath(); octx.arc(0,0,1,0,7); octx.fill();
+    octx.restore();
+  }
+
+  function render(N){
+    if(!tdata) return;
+    const sizeMul=parseFloat(slS.value), aniso=cbA.checked;
+    octx.fillStyle='rgb('+avg[0]+','+avg[1]+','+avg[2]+')';
+    octx.fillRect(0,0,OW,OH);
+    const r0=OW*1.7/Math.sqrt(N)*sizeMul;
+    for(let k=0;k<N;k++){
+      const p=pts[k]; const i=idx(p.x,p.y);
+      const col=[tdata.data[i],tdata.data[i+1],tdata.data[i+2]];
+      let sx=r0, sy=r0, ang=0;
+      if(aniso){
+        const gr=gradAt(p.x,p.y);
+        const m=Math.min(1, gr.mag/60);
+        const e=1+3*m;
+        sx=r0/Math.sqrt(e);   // 勾配方向（エッジを横切る向き）に薄く
+        sy=r0*Math.sqrt(e);   // エッジに沿う向きに長く
+        ang=gr.ang;           // local-x = 勾配方向, local-y = エッジ方向
+      }
+      splat(p.x*OW, p.y*OH, sx, sy, ang, col, 0.55);
+    }
+    showStats(N);
+  }
+
+  function showStats(N){
+    const cmp=document.createElement('canvas'); cmp.width=SW; cmp.height=SH;
+    const cc=cmp.getContext('2d'); cc.drawImage(out,0,0,SW,SH);
+    const rd=cc.getImageData(0,0,SW,SH).data, td=tdata.data;
+    let se=0;
+    for(let i=0;i<td.length;i+=4){ for(let c=0;c<3;c++){ const dl=rd[i+c]-td[i+c]; se+=dl*dl; } }
+    const mse=se/(td.length/4*3), psnr=mse<=0?99:10*Math.log10(255*255/mse);
+    statEl.innerHTML='スプラット数: '+N+'<br>PSNR: '+psnr.toFixed(1)+' dB<br>'+(cbA.checked?'異方性: ON':'等方性: OFF');
+  }
+
+  function rerender(){ vN.textContent=slN.value; vS.textContent=parseFloat(slS.value).toFixed(1); render(parseInt(slN.value)); }
+  slN.addEventListener('input', rerender);
+  slS.addEventListener('input', rerender);
+  cbA.addEventListener('change', rerender);
+  document.querySelectorAll('[data-gs]').forEach(b=>b.addEventListener('click',()=>{ makeTarget(b.dataset.gs); render(parseInt(slN.value)); }));
+
+  let animId=null;
+  document.getElementById('gs-anim').addEventListener('click',()=>{
+    if(animId){ cancelAnimationFrame(animId); animId=null; }
+    const target=parseInt(slN.value); let n=10;
+    const step=()=>{ render(n); n=Math.round(n*1.18)+2; if(n<target){ animId=requestAnimationFrame(step); } else { render(target); animId=null; } };
+    step();
+  });
+
+  noteEl.innerHTML='豆知識：にじみ1つは「色 × 楕円の形」。重ねるほど画像が立ち上がる。エッジに沿った楕円は、輪郭を少ない数で表せる ── これが3D版で点群より効率よく見える絵が作れる理由の一つだよ。';
+
+  makeTarget('sunset');
+  rerender();
 })();
 </script>
