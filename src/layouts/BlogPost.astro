@@ -47,6 +47,20 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
           </div>
         </div>
       </article>
+      <section class="comments" id="comments">
+        <h2 class="comments-title">コメント <span class="comments-count" id="comments-count"></span></h2>
+        <div class="comments-list" id="comments-list">
+          <p class="comments-empty" id="comments-empty">まだコメントはないよ。最初のひとことをどうぞ。</p>
+        </div>
+        <form class="comment-form" id="comment-form">
+          <input type="text" id="comment-name" maxlength="40" placeholder="名前（任意）" autocomplete="off" />
+          <textarea id="comment-text" maxlength="1000" rows="3" placeholder="コメントを書く…（最大1000文字）" required></textarea>
+          <div class="comment-form-foot">
+            <span class="comment-msg" id="comment-msg"></span>
+            <button type="submit" class="comment-submit" id="comment-submit">送信</button>
+          </div>
+        </form>
+      </section>
     </main>
     <Footer />
     <Widgets />
@@ -99,6 +113,70 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
             .then(r => r.json()).then(d => render(d.count)).catch(() => {});
         });
       })();
+
+      // コメント欄: slug単位。表示は textContent で組み立て（XSS対策）
+      (() => {
+        const API = 'https://feedback.tnks1407.com';
+        const slug = location.pathname.replace(/\/+$/, '').split('/').pop() || '';
+        if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(slug)) return;
+        const listEl = document.getElementById('comments-list');
+        const emptyEl = document.getElementById('comments-empty');
+        const countEl = document.getElementById('comments-count');
+        const form = document.getElementById('comment-form') as HTMLFormElement | null;
+        const nameEl = document.getElementById('comment-name') as HTMLInputElement | null;
+        const textEl = document.getElementById('comment-text') as HTMLTextAreaElement | null;
+        const msgEl = document.getElementById('comment-msg');
+        const btn = document.getElementById('comment-submit') as HTMLButtonElement | null;
+        if (!listEl || !form || !nameEl || !textEl || !btn) return;
+
+        const fmtDate = (ts: string) => {
+          try { return new Date(ts).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+          catch { return ''; }
+        };
+        const renderOne = (c: { name?: string; text: string; ts: string }) => {
+          const item = document.createElement('div'); item.className = 'comment-item';
+          const head = document.createElement('div'); head.className = 'comment-head';
+          const nm = document.createElement('span'); nm.className = 'comment-name'; nm.textContent = c.name || '名無し';
+          const dt = document.createElement('span'); dt.className = 'comment-date'; dt.textContent = fmtDate(c.ts);
+          head.appendChild(nm); head.appendChild(dt);
+          const body = document.createElement('div'); body.className = 'comment-text'; body.textContent = c.text;
+          item.appendChild(head); item.appendChild(body);
+          return item;
+        };
+        const setCount = (n: number) => { if (countEl) countEl.textContent = n ? '(' + n + ')' : ''; };
+
+        fetch(API + '/comments?key=' + encodeURIComponent(slug)).then(r => r.json()).then((list) => {
+          if (!Array.isArray(list)) return;
+          if (list.length === 0) { if (emptyEl) (emptyEl as HTMLElement).hidden = false; }
+          else {
+            if (emptyEl) (emptyEl as HTMLElement).hidden = true;
+            list.forEach((c) => listEl.appendChild(renderOne(c)));
+          }
+          setCount(list.length);
+        }).catch(() => {});
+
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const text = (textEl.value || '').trim();
+          if (!text) return;
+          btn.disabled = true; if (msgEl) msgEl.textContent = '送信中…';
+          fetch(API + '/comment?key=' + encodeURIComponent(slug), {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: nameEl.value || '', text }),
+          }).then(r => r.json().then((d) => ({ ok: r.ok, d })))
+            .then(({ ok, d }) => {
+              if (ok && d.comment) {
+                if (emptyEl) (emptyEl as HTMLElement).hidden = true;
+                listEl.appendChild(renderOne(d.comment));
+                setCount(listEl.querySelectorAll('.comment-item').length);
+                textEl.value = ''; if (msgEl) msgEl.textContent = 'ありがとう、投稿したよ。';
+              } else if (msgEl) {
+                msgEl.textContent = (d && d.error) ? d.error : '送信できなかった…';
+              }
+            }).catch(() => { if (msgEl) msgEl.textContent = '送信できなかった…'; })
+            .finally(() => { btn.disabled = false; setTimeout(() => { if (msgEl) msgEl.textContent = ''; }, 4000); });
+        });
+      })();
     </script>
   </body>
 </html>
@@ -131,4 +209,24 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
   .fav-btn.faved { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); cursor: default; }
   .fav-btn.faved .fav-star { color: #e8b339; }
   .fav-count { font-weight: 600; min-width: 1ch; }
+
+  .comments { max-width: 740px; margin: 3.5rem auto 0; padding-top: 2rem; border-top: 1px solid var(--border); }
+  .comments-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 1.25rem; }
+  .comments-count { color: var(--text-faint); font-size: 0.9rem; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+  .comments-list { display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1.75rem; }
+  .comments-empty { color: var(--text-faint); font-size: 0.9rem; }
+  .comment-item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem; }
+  .comment-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; margin-bottom: 0.4rem; }
+  .comment-name { font-weight: 700; font-size: 0.9rem; color: var(--text); }
+  .comment-date { color: var(--text-faint); font-size: 0.72rem; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+  .comment-text { font-size: 0.92rem; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+  .comment-form { display: flex; flex-direction: column; gap: 0.6rem; }
+  .comment-form input, .comment-form textarea { width: 100%; font-family: inherit; font-size: 0.92rem; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.8rem; }
+  .comment-form input:focus, .comment-form textarea:focus { outline: none; border-color: var(--accent); }
+  .comment-form textarea { resize: vertical; min-height: 3.5rem; line-height: 1.7; }
+  .comment-form-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+  .comment-msg { font-size: 0.8rem; color: var(--text-muted); }
+  .comment-submit { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 600; color: #fff; background: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0.45rem 1.3rem; cursor: pointer; transition: opacity 0.15s; }
+  .comment-submit:hover { opacity: 0.85; }
+  .comment-submit:disabled { opacity: 0.5; cursor: default; }
 </style>
