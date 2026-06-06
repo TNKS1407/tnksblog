@@ -52,6 +52,7 @@ const posts = (await getCollection('blog')).sort(
                   <div class="post-body">
                     <div class="post-date">
                       <FormattedDate date={post.data.pubDate} />
+                      <span class="post-comments" data-slug={post.id} hidden>· 💬 <span class="pc-n">0</span></span>
                     </div>
                     <div class="post-title">{post.data.title}</div>
                     <div class="post-desc">{post.data.description}</div>
@@ -129,6 +130,7 @@ const posts = (await getCollection('blog')).sort(
   .post-img img { width: 96px; height: 68px; object-fit: cover; border-radius: 8px; }
   .post-body { flex: 1; min-width: 0; }
   .post-date { font-size: 0.75rem; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem; }
+  .post-comments { color: var(--accent); margin-left: 0.15rem; }
   .post-title { font-weight: 700; font-size: 0.97rem; margin-bottom: 0.35rem; color: var(--text); }
   .post-desc { font-size: 0.83rem; color: var(--text-muted); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -275,6 +277,20 @@ const posts = (await getCollection('blog')).sort(
     if (e.target === canvas) return;
     state = 'wave'; velX = 0; frame = 0; stateTimer = 60; showBubble(randQ(BLOG_QUIPS));
   });
+  // 記事ごとのコメント数バッジ（付いた記事だけ表示）
+  (() => {
+    fetch('https://feedback.tnks1407.com/comment-counts').then(r => r.json()).then((counts) => {
+      document.querySelectorAll('.post-comments').forEach((el) => {
+        const slug = el.getAttribute('data-slug') || '';
+        const n = (counts && counts[slug]) || 0;
+        if (n > 0) {
+          const nn = el.querySelector('.pc-n');
+          if (nn) nn.textContent = String(n);
+          (el as HTMLElement).hidden = false;
+        }
+      });
+    }).catch(() => {});
+  })();
   document.addEventListener('mousemove', e => {
     const cx = posX + DRAW_W/2, cy = window.innerHeight - DRAW_H/2;
     const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
