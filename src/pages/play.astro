@@ -240,6 +240,57 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- Phased Array / Wave Interference -->
+    <div class="app-card">
+      <div class="app-title">波の干渉とビームフォーミング</div>
+      <div class="app-desc">
+        一直線に並んだ複数の波源がつくる干渉場。素子の<b>間隔</b>と素子ごとの<b>位相差</b>を変えると、波が強め合う方向（ビーム）が向きを変える。アンテナを機械的に動かさずにビームを振る ── フェーズドアレイ（レーダーや5G基地局）の原理だよ。<br>
+        左が干渉場（明るいほど波が強い）、右が遠方でのビームパターン（アレイファクタ）。位相差を振ると主ビームがスッと首を振る。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">FIELD — 干渉場（波源は下辺）</div>
+          <canvas id="bf-field" width="300" height="300" style="background:#0d1614;"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">BEAM PATTERN — 遠方放射 [dB]</div>
+          <canvas id="bf-beam" width="300" height="300" style="background:#0d1614;"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group">
+              <label>素子数 N</label>
+              <input type="range" id="bf-n" min="1" max="16" value="6" step="1" style="width:120px;">
+              <span id="bf-n-val">6</span>
+            </div>
+            <div class="ctrl-group">
+              <label>間隔 d [λ]</label>
+              <input type="range" id="bf-d" min="0.1" max="1.5" value="0.5" step="0.05" style="width:120px;">
+              <span id="bf-d-val">0.50</span>
+            </div>
+            <div class="ctrl-group">
+              <label>位相差 Δφ [°]</label>
+              <input type="range" id="bf-p" min="-180" max="180" value="0" step="5" style="width:120px;">
+              <span id="bf-p-val">0</span>
+            </div>
+            <div class="ctrl-group">
+              <label>首振り</label>
+              <input type="checkbox" id="bf-sweep" style="accent-color:#3c7876;width:auto;">
+            </div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">プリセット:</span>
+            <button class="preset-btn" data-bf="6,0.5,0">正面</button>
+            <button class="preset-btn" data-bf="6,0.5,60">斜め</button>
+            <button class="preset-btn" data-bf="12,0.5,0">鋭いビーム</button>
+            <button class="preset-btn" data-bf="2,0.5,0">2素子</button>
+            <button class="preset-btn" data-bf="6,1.2,0">d&gt;λ</button>
+          </div>
+          <div id="bf-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+    </div>
+
   </main>
   <Footer />
 </body>
@@ -957,5 +1008,128 @@ clearCanvas(ctxD); clearCanvas(ctxE);
 
   // Start
   tick();
+})();
+
+/* ═══════════════════════════════════════════════════
+   Phased Array / Wave Interference + Beamforming
+═══════════════════════════════════════════════════ */
+(()=>{
+  const fc=document.getElementById('bf-field'); const fx=fc.getContext('2d');
+  const bc=document.getElementById('bf-beam');  const bx=bc.getContext('2d');
+  const FW=fc.width, FH=fc.height;
+  const GW=120, GH=120;                       // compute grid (scaled up for display)
+  const off=document.createElement('canvas'); off.width=GW; off.height=GH;
+  const ox=off.getContext('2d');
+  const img=ox.createImageData(GW,GH);
+  const buf=new Float32Array(GW*GH);
+
+  const TEAL='#3c7876', BG='#0d1614';
+  const slN=document.getElementById('bf-n'),  vN=document.getElementById('bf-n-val');
+  const slD=document.getElementById('bf-d'),  vD=document.getElementById('bf-d-val');
+  const slP=document.getElementById('bf-p'),  vP=document.getElementById('bf-p-val');
+  const cbS=document.getElementById('bf-sweep');
+  const info=document.getElementById('bf-info');
+
+  // teal→white colormap stops: [pos, r,g,b]
+  const STOPS=[[0,6,18,16],[0.35,14,59,57],[0.6,60,120,118],[0.82,127,208,201],[1,255,255,255]];
+  function cmap(t){
+    t=t<0?0:t>1?1:t;
+    for(let i=1;i<STOPS.length;i++){ if(t<=STOPS[i][0]){ const a=STOPS[i-1],b=STOPS[i],f=(t-a[0])/(b[0]-a[0]);
+      return [a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f, a[3]+(b[3]-a[3])*f]; } }
+    return [255,255,255];
+  }
+
+  function params(){
+    const N=parseInt(slN.value), d=parseFloat(slD.value), beta=parseFloat(slP.value)*Math.PI/180;
+    const lam=Math.min(13, (0.82*GW)/Math.max(1,(N-1)*d));   // shrink wavelength so the array always fits
+    const kw=2*Math.PI/lam, dpx=d*lam, cx=GW/2, cy=GH-5;
+    const src=[]; for(let k=0;k<N;k++) src.push({x:cx+(k-(N-1)/2)*dpx, y:cy, k});
+    return {N,d,beta,lam,kw,dpx,cx,cy,src};
+  }
+
+  function compute(){
+    const P=params();
+    let maxI=1e-9;
+    for(let yy=0;yy<GH;yy++) for(let xx=0;xx<GW;xx++){
+      let re=0,im=0;
+      for(const s of P.src){ let dx=xx-s.x, dy=yy-s.y, r=Math.sqrt(dx*dx+dy*dy); if(r<1)r=1;
+        const amp=1/Math.sqrt(r), ph=P.kw*r + s.k*P.beta; re+=amp*Math.cos(ph); im+=amp*Math.sin(ph); }
+      const I=re*re+im*im; buf[yy*GW+xx]=I; if(I>maxI)maxI=I;
+    }
+    const data=img.data;
+    for(let i=0;i<GW*GH;i++){ const t=Math.sqrt(buf[i]/maxI); const c=cmap(t), j=i*4;
+      data[j]=c[0]; data[j+1]=c[1]; data[j+2]=c[2]; data[j+3]=255; }
+    ox.putImageData(img,0,0);
+    fx.imageSmoothingEnabled=true; fx.clearRect(0,0,FW,FH); fx.drawImage(off,0,0,FW,FH);
+
+    // beam direction from the field itself: sample intensity along a far arc, pick the max
+    const sc=FW/GW, R=GH*0.82; let bestA=0, bestV=-1;
+    for(let a=-85;a<=85;a+=1){ const th=a*Math.PI/180;
+      const gx=P.cx+R*Math.sin(th), gy=P.cy-R*Math.cos(th);
+      const ix=Math.round(gx), iy=Math.round(gy);
+      if(ix<0||ix>=GW||iy<0||iy>=GH) continue;
+      const v=buf[iy*GW+ix]; if(v>bestV){bestV=v; bestA=th;}
+    }
+    // dashed beam line
+    const lcx=P.cx*sc, lcy=P.cy*sc, len=FH*0.92;
+    fx.strokeStyle='rgba(255,217,176,.85)'; fx.lineWidth=2; fx.setLineDash([6,5]);
+    fx.beginPath(); fx.moveTo(lcx,lcy); fx.lineTo(lcx+len*Math.sin(bestA), lcy-len*Math.cos(bestA)); fx.stroke(); fx.setLineDash([]);
+    // source dots
+    fx.fillStyle='#fff';
+    for(const s of P.src){ fx.beginPath(); fx.arc(s.x*sc, s.y*sc, 2.6, 0, 2*Math.PI); fx.fill(); }
+
+    drawBeam(P);
+
+    const deg=(bestA*180/Math.PI).toFixed(1);
+    info.innerHTML =
+      `主ビーム方向 θ ≈ <b>${deg}°</b> <span style="color:#9a8">（正面=0°）</span><br>`+
+      `素子 ${P.N} / 間隔 ${P.d.toFixed(2)}λ / 位相差 ${slP.value}°`+
+      (P.d>1 ? '<br><span style="color:#c98a4a;">⚠ d&gt;λ：グレーティングローブ（複数の主ビーム）</span>' : '');
+  }
+
+  function drawBeam(P){
+    const W=bc.width, H=bc.height, cx=W/2, cy=H-16, Rmax=Math.min(W/2-14, H-30);
+    bx.fillStyle=BG; bx.fillRect(0,0,W,H);
+    bx.font='8px JetBrains Mono, monospace';
+    // dB rings
+    [0,-10,-20,-30].forEach(db=>{ const r=Rmax*(1-(-db)/40);
+      bx.strokeStyle='rgba(127,208,201,.16)'; bx.beginPath(); bx.arc(cx,cy,r,Math.PI,2*Math.PI); bx.stroke();
+      bx.fillStyle='#5c6b68'; bx.fillText(db+'', cx+3, cy-r+9); });
+    // angle spokes
+    for(let a=-90;a<=90;a+=30){ const t=a*Math.PI/180;
+      bx.strokeStyle='rgba(127,208,201,.10)'; bx.beginPath(); bx.moveTo(cx,cy); bx.lineTo(cx+Rmax*Math.sin(t), cy-Rmax*Math.cos(t)); bx.stroke();
+      bx.fillStyle='#5c6b68'; bx.fillText(a+'°', cx+(Rmax+3)*Math.sin(t)-7, cy-(Rmax+3)*Math.cos(t)+3); }
+    // array factor: AF=|sin(Nψ/2)/sin(ψ/2)|, ψ=beta - 2π d sinθ  (same convention as the field)
+    bx.beginPath(); let started=false;
+    for(let a=-90;a<=90;a+=0.5){ const th=a*Math.PI/180; const psi=P.beta-2*Math.PI*P.d*Math.sin(th);
+      const den=Math.sin(psi/2); const af=Math.abs(den)<1e-6 ? P.N : Math.abs(Math.sin(P.N*psi/2)/den);
+      let db=20*Math.log10(af/P.N); if(db<-40)db=-40;
+      const r=Rmax*(1-(-db)/40), x=cx+r*Math.sin(th), y=cy-r*Math.cos(th);
+      started?bx.lineTo(x,y):bx.moveTo(x,y); started=true; }
+    bx.lineTo(cx,cy); bx.closePath(); bx.fillStyle='rgba(60,120,118,.22)'; bx.fill();
+    bx.strokeStyle=TEAL; bx.lineWidth=1.8; bx.stroke();
+  }
+
+  function syncLabels(){ vN.textContent=slN.value; vD.textContent=parseFloat(slD.value).toFixed(2); vP.textContent=slP.value; }
+  [slN,slD,slP].forEach(s=>s.addEventListener('input',()=>{ syncLabels(); if(!sweeping) compute(); }));
+
+  // sweep (首振り): animate Δφ back and forth
+  let sweeping=false, sweepDir=1, animId=null;
+  function sweepLoop(){
+    if(!sweeping) return;
+    let p=parseFloat(slP.value)+sweepDir*3;
+    if(p>=180){p=180;sweepDir=-1;} if(p<=-180){p=-180;sweepDir=1;}
+    slP.value=p; syncLabels(); compute();
+    animId=requestAnimationFrame(sweepLoop);
+  }
+  cbS.addEventListener('change',()=>{ sweeping=cbS.checked;
+    if(sweeping) sweepLoop(); else if(animId) cancelAnimationFrame(animId); });
+
+  document.querySelectorAll('[data-bf]').forEach(btn=>btn.addEventListener('click',()=>{
+    const [n,d,p]=btn.dataset.bf.split(',');
+    slN.value=n; slD.value=d; slP.value=p; syncLabels(); compute();
+  }));
+
+  syncLabels(); compute();
 })();
 </script>
