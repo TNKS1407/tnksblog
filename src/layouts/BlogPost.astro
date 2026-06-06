@@ -55,6 +55,10 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
         <form class="comment-form" id="comment-form">
           <input type="text" id="comment-name" maxlength="40" placeholder="名前（任意）" autocomplete="off" />
           <textarea id="comment-text" maxlength="1000" rows="3" placeholder="コメントを書く…（最大1000文字）" required></textarea>
+          <label class="comment-ask">
+            <input type="checkbox" id="comment-ask" />
+            <span>ランキンに質問する（あとで著者から返信がつくよ）</span>
+          </label>
           <div class="comment-form-foot">
             <span class="comment-msg" id="comment-msg"></span>
             <button type="submit" class="comment-submit" id="comment-submit">送信</button>
@@ -127,20 +131,35 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
         const textEl = document.getElementById('comment-text') as HTMLTextAreaElement | null;
         const msgEl = document.getElementById('comment-msg');
         const btn = document.getElementById('comment-submit') as HTMLButtonElement | null;
+        const askEl = document.getElementById('comment-ask') as HTMLInputElement | null;
         if (!listEl || !form || !nameEl || !textEl || !btn) return;
 
         const fmtDate = (ts: string) => {
           try { return new Date(ts).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
           catch { return ''; }
         };
-        const renderOne = (c: { name?: string; text: string; ts: string }) => {
-          const item = document.createElement('div'); item.className = 'comment-item';
+        const renderOne = (c: { name?: string; text: string; ts: string; q?: boolean; reply?: string | null; reply_ts?: string | null }) => {
+          const item = document.createElement('div'); item.className = 'comment-item' + (c.q ? ' is-q' : '');
           const head = document.createElement('div'); head.className = 'comment-head';
           const nm = document.createElement('span'); nm.className = 'comment-name'; nm.textContent = c.name || '名無し';
+          if (c.q) { const b = document.createElement('span'); b.className = 'comment-qbadge'; b.textContent = '質問'; nm.appendChild(document.createTextNode(' ')); nm.appendChild(b); }
           const dt = document.createElement('span'); dt.className = 'comment-date'; dt.textContent = fmtDate(c.ts);
           head.appendChild(nm); head.appendChild(dt);
           const body = document.createElement('div'); body.className = 'comment-text'; body.textContent = c.text;
           item.appendChild(head); item.appendChild(body);
+          if (c.reply) {
+            const rep = document.createElement('div'); rep.className = 'comment-reply';
+            const rh = document.createElement('div'); rh.className = 'comment-reply-head';
+            const rl = document.createElement('span'); rl.className = 'comment-reply-name'; rl.textContent = '★ ランキン';
+            rh.appendChild(rl);
+            if (c.reply_ts) { const rd = document.createElement('span'); rd.className = 'comment-date'; rd.textContent = fmtDate(c.reply_ts); rh.appendChild(rd); }
+            const rb = document.createElement('div'); rb.className = 'comment-text'; rb.textContent = c.reply;
+            rep.appendChild(rh); rep.appendChild(rb);
+            item.appendChild(rep);
+          } else if (c.q) {
+            const pend = document.createElement('div'); pend.className = 'comment-reply-pending'; pend.textContent = 'ランキンの返信を待っています…';
+            item.appendChild(pend);
+          }
           return item;
         };
         const setCount = (n: number) => { if (countEl) countEl.textContent = n ? '(' + n + ')' : ''; };
@@ -159,17 +178,19 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
           e.preventDefault();
           const text = (textEl.value || '').trim();
           if (!text) return;
+          const asked = !!(askEl && askEl.checked);
           btn.disabled = true; if (msgEl) msgEl.textContent = '送信中…';
           fetch(API + '/comment?key=' + encodeURIComponent(slug), {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: nameEl.value || '', text }),
+            body: JSON.stringify({ name: nameEl.value || '', text, question: asked }),
           }).then(r => r.json().then((d) => ({ ok: r.ok, d })))
             .then(({ ok, d }) => {
               if (ok && d.comment) {
                 if (emptyEl) (emptyEl as HTMLElement).hidden = true;
-                listEl.appendChild(renderOne(d.comment));
+                listEl.appendChild(renderOne({ ...d.comment, q: asked }));
                 setCount(listEl.querySelectorAll('.comment-item').length);
-                textEl.value = ''; if (msgEl) msgEl.textContent = 'ありがとう、投稿したよ。';
+                textEl.value = ''; if (askEl) askEl.checked = false;
+                if (msgEl) msgEl.textContent = asked ? 'ありがとう、質問を受け取ったよ。あとで返信がつくよ。' : 'ありがとう、投稿したよ。';
               } else if (msgEl) {
                 msgEl.textContent = (d && d.error) ? d.error : '送信できなかった…';
               }
@@ -229,4 +250,13 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
   .comment-submit { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 600; color: #fff; background: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0.45rem 1.3rem; cursor: pointer; transition: opacity 0.15s; }
   .comment-submit:hover { opacity: 0.85; }
   .comment-submit:disabled { opacity: 0.5; cursor: default; }
+  .comment-ask { display: flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+  .comment-ask input { accent-color: var(--accent); width: auto; }
+  .comment-item.is-q { border-color: rgba(60,120,118,0.4); }
+  .comment-qbadge { font-size: 0.66rem; font-weight: 700; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(60,120,118,0.3); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.1rem; font-family: 'JetBrains Mono', monospace; vertical-align: 1px; }
+  .comment-reply { margin-top: 0.7rem; padding: 0.7rem 0.85rem; background: var(--accent-dim); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; }
+  .comment-reply-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; margin-bottom: 0.3rem; }
+  .comment-reply-name { font-weight: 700; font-size: 0.85rem; color: var(--accent); }
+  .comment-reply .comment-text { font-size: 0.9rem; }
+  .comment-reply-pending { margin-top: 0.6rem; font-size: 0.78rem; color: var(--text-faint); font-style: italic; }
 </style>
