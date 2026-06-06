@@ -38,6 +38,13 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
             <hr />
           </div>
           <slot />
+          <div class="fav-wrap">
+            <button class="fav-btn" id="fav-btn" type="button" aria-pressed="false" title="気に入ったら星を（一人一回）">
+              <span class="fav-star">☆</span>
+              <span class="fav-label">お気に入り</span>
+              <span class="fav-count" id="fav-count">…</span>
+            </button>
+          </div>
         </div>
       </article>
     </main>
@@ -63,6 +70,35 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
           fetch(API + '/views').then(r => r.json()).then(d => show(d[slug])).catch(() => {});
         }
       })();
+
+      // お気に入り（★）: 一人一回。localStorage(端末)＋サーバIP重複チェックの二段
+      (() => {
+        const API = 'https://feedback.tnks1407.com';
+        const slug = location.pathname.replace(/\/+$/, '').split('/').pop() || '';
+        if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(slug)) return;
+        const btn = document.getElementById('fav-btn');
+        const countEl = document.getElementById('fav-count');
+        if (!btn || !countEl) return;
+        const starEl = btn.querySelector('.fav-star') as HTMLElement;
+        const favedKey = '_faved_' + slug;
+        let faved = !!localStorage.getItem(favedKey);
+        const render = (count?: number) => {
+          if (typeof count === 'number') countEl.textContent = count.toLocaleString();
+          if (faved) {
+            btn.classList.add('faved');
+            btn.setAttribute('aria-pressed', 'true');
+            if (starEl) starEl.textContent = '★';
+          }
+        };
+        render();
+        fetch(API + '/favs').then(r => r.json()).then(d => render(d[slug] || 0)).catch(() => { countEl.textContent = '0'; });
+        btn.addEventListener('click', () => {
+          if (faved) return;
+          faved = true; localStorage.setItem(favedKey, '1'); render();
+          fetch(API + '/fav?key=' + encodeURIComponent(slug), { method: 'POST' })
+            .then(r => r.json()).then(d => render(d.count)).catch(() => {});
+        });
+      })();
     </script>
   </body>
 </html>
@@ -83,4 +119,16 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
   }
   .prose h2::before { content: '# '; opacity: 0.35; font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
   .prose h3 { margin-top: 2rem; margin-bottom: 0.75rem; font-size: 1.15rem; color: var(--text); }
+  .fav-wrap { margin: 3rem 0 0.5rem; display: flex; justify-content: center; }
+  .fav-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted);
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    padding: 0.5rem 1.15rem; cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .fav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .fav-btn .fav-star { font-size: 1.15rem; line-height: 1; }
+  .fav-btn.faved { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); cursor: default; }
+  .fav-btn.faved .fav-star { color: #e8b339; }
+  .fav-count { font-weight: 600; min-width: 1ch; }
 </style>
