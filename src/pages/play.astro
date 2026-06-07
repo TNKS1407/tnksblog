@@ -351,10 +351,10 @@ import Footer from '../components/Footer.astro';
       </div>
       <div class="gs-math" id="gs-math">
         <div class="gs-math-title">MATH メモ</div>
-        <div class="gs-math-row"><span class="gs-math-lab">① にじみ1つ（2Dガウシアン）</span><span data-tex="G(\mathbf{x})=\exp\!\left(-\tfrac12(\mathbf{x}-\boldsymbol\mu)^{\top}\Sigma^{-1}(\mathbf{x}-\boldsymbol\mu)\right)"></span><span class="gs-math-cap">μ＝中心、Σ＝共分散（楕円の形）</span></div>
-        <div class="gs-math-row"><span class="gs-math-lab">② 楕円＝回転×拡大で作る</span><span data-tex="\Sigma=R(\theta)\,S\,S^{\top}R(\theta)^{\top},\quad S=\mathrm{diag}(\sigma_x,\sigma_y)"></span><span class="gs-math-cap">異方性＝σx≠σy。この遊び場ではσをエッジ強度、θを勾配方向で決めてる</span></div>
-        <div class="gs-math-row"><span class="gs-math-lab">③ 重ね合わせ（前からアルファ合成）</span><span data-tex="C=\sum_i c_i\,\alpha_i\prod_{j<i}(1-\alpha_j)"></span></div>
-        <div class="gs-math-row"><span class="gs-math-lab">④ 元画像との誤差＝“学習”で下げる量</span><span data-tex="\mathcal{L}=\tfrac1N\sum\lVert I_{\mathrm{pred}}-I_{\mathrm{tgt}}\rVert^2,\quad \mathrm{PSNR}=10\log_{10}\!\frac{255^2}{\mathrm{MSE}}"></span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">① にじみ1つ（2Dガウシアン）</span><span data-tex="G(\\mathbf{x})=\\exp\\!\\left(-\\tfrac12(\\mathbf{x}-\\boldsymbol{\\mu})^{\\top}\\Sigma^{-1}(\\mathbf{x}-\\boldsymbol{\\mu})\\right)"></span><span class="gs-math-cap">μ＝中心、Σ＝共分散（楕円の形）</span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">② 楕円＝回転×拡大で作る</span><span data-tex="\\Sigma=R(\\theta)\\,S\\,S^{\\top}R(\\theta)^{\\top},\\quad S=\\mathrm{diag}(\\sigma_x,\\sigma_y)"></span><span class="gs-math-cap">異方性＝σx≠σy。この遊び場ではσをエッジ強度、θを勾配方向で決めてる</span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">③ 重ね合わせ（前からアルファ合成）</span><span data-tex="C=\\sum_i c_i\\,\\alpha_i\\prod_{j<i}(1-\\alpha_j)"></span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">④ 元画像との誤差＝“学習”で下げる量</span><span data-tex="\\mathcal{L}=\\tfrac{1}{N}\\sum\\lVert I_{\\mathrm{pred}}-I_{\\mathrm{tgt}}\\rVert^2,\\quad \\mathrm{PSNR}=10\\log_{10}\\!\\frac{255^2}{\\mathrm{MSE}}"></span></div>
       </div>
     </div>
 
