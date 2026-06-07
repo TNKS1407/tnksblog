@@ -335,6 +335,10 @@ import Footer from '../components/Footer.astro';
               <label>異方性（エッジに沿わせる）</label>
               <input type="checkbox" id="gs-aniso" checked style="accent-color:#3c7876;width:auto;">
             </div>
+            <div class="ctrl-group">
+              <label>エッジに多く配置</label>
+              <input type="checkbox" id="gs-edge" style="accent-color:#3c7876;width:auto;">
+            </div>
           </div>
           <div class="presets" style="margin-top:1rem;">
             <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">元画像:</span>
@@ -343,8 +347,9 @@ import Footer from '../components/Footer.astro';
             <button class="preset-btn" data-gs="grad">グラデ</button>
             <button class="preset-btn" data-gs="hikari">光</button>
           </div>
-          <div style="margin-top:.8rem;">
+          <div style="margin-top:.8rem;display:flex;gap:.5rem;flex-wrap:wrap;">
             <button class="btn" id="gs-anim">粗→細アニメ</button>
+            <button class="btn" id="gs-compare">押すと等方性で比較</button>
           </div>
           <div id="gs-note" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
         </div>
@@ -1212,11 +1217,13 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   const sctx=samp.getContext('2d');
   let tdata=null, avg=[230,225,215];
   const MAXN=1500;
-  const pts=[]; for(let i=0;i<MAXN;i++) pts.push({x:Math.random(), y:Math.random()});
+  const pts=[];
+  let forceIso=false;
 
   const slN=document.getElementById('gs-n'), vN=document.getElementById('gs-n-val');
   const slS=document.getElementById('gs-size'), vS=document.getElementById('gs-size-val');
   const cbA=document.getElementById('gs-aniso');
+  const cbC=document.getElementById('gs-edge');
   const statEl=document.getElementById('gs-stat'), noteEl=document.getElementById('gs-note');
 
   function makeTarget(name){
@@ -1269,6 +1276,25 @@ clearCanvas(ctxD); clearCanvas(ctxE);
     return { mag:Math.hypot(gx,gy), ang:Math.atan2(gy,gx) };
   }
 
+  // スプラット中心の配置を作る。エッジ配置ONなら勾配の強い所ほど密に置く。
+  function makePoints(){
+    pts.length=0;
+    if(!(cbC && cbC.checked) || !tdata){
+      for(let i=0;i<MAXN;i++) pts.push({x:Math.random(), y:Math.random()});
+      return;
+    }
+    let maxM=1e-6;
+    for(let s=0;s<500;s++){ const m=gradAt(Math.random(),Math.random()).mag; if(m>maxM) maxM=m; }
+    let tries=0;
+    while(pts.length<MAXN && tries<MAXN*80){
+      tries++;
+      const x=Math.random(), y=Math.random();
+      const m=gradAt(x,y).mag/maxM;            // 0..1
+      if(Math.random() < 0.12 + 0.88*m) pts.push({x,y});   // 平坦部にも最低限の被覆
+    }
+    while(pts.length<MAXN) pts.push({x:Math.random(), y:Math.random()});
+  }
+
   function splat(cx,cy,sx,sy,ang,col,a){
     octx.save(); octx.translate(cx,cy); octx.rotate(ang); octx.scale(sx,sy);
     const g=octx.createRadialGradient(0,0,0,0,0,1);
@@ -1281,7 +1307,7 @@ clearCanvas(ctxD); clearCanvas(ctxE);
 
   function render(N){
     if(!tdata) return;
-    const sizeMul=parseFloat(slS.value), aniso=cbA.checked;
+    const sizeMul=parseFloat(slS.value), aniso=cbA.checked && !forceIso;
     octx.fillStyle='rgb('+avg[0]+','+avg[1]+','+avg[2]+')';
     octx.fillRect(0,0,OW,OH);
     const r0=OW*1.7/Math.sqrt(N)*sizeMul;
@@ -1316,7 +1342,15 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   slN.addEventListener('input', rerender);
   slS.addEventListener('input', rerender);
   cbA.addEventListener('change', rerender);
-  document.querySelectorAll('[data-gs]').forEach(b=>b.addEventListener('click',()=>{ makeTarget(b.dataset.gs); render(parseInt(slN.value)); }));
+  document.querySelectorAll('[data-gs]').forEach(b=>b.addEventListener('click',()=>{ makeTarget(b.dataset.gs); makePoints(); render(parseInt(slN.value)); }));
+  cbC.addEventListener('change', ()=>{ makePoints(); render(parseInt(slN.value)); });
+  (function(){
+    const btn=document.getElementById('gs-compare');
+    const down=(e)=>{ e.preventDefault(); forceIso=true; render(parseInt(slN.value)); };
+    const up=()=>{ if(forceIso){ forceIso=false; render(parseInt(slN.value)); } };
+    btn.addEventListener('mousedown',down); btn.addEventListener('mouseup',up); btn.addEventListener('mouseleave',up);
+    btn.addEventListener('touchstart',down,{passive:false}); btn.addEventListener('touchend',up); btn.addEventListener('touchcancel',up);
+  })();
 
   let animId=null;
   document.getElementById('gs-anim').addEventListener('click',()=>{
@@ -1338,6 +1372,7 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   renderTex();
 
   makeTarget('sunset');
+  makePoints();
   rerender();
 })();
 </script>
