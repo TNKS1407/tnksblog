@@ -397,6 +397,36 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- Phase noise spectrum (Leeson) -->
+    <div class="app-card">
+      <div class="app-title">位相雑音スペクトル — ℒ(f) を動かして掴む</div>
+      <div class="app-desc">
+        発振器の出力スペクトルは、キャリアの鋭いスパイクの両裾に雑音の「スカート」が広がってる。その下がり具合を表すのが <b>ℒ(f)</b>（dBc/Hz）── オフセット f で 1 Hz 幅を切り取ると、キャリアより何 dB 下か。<br>
+        Leeson のモデルでスライダーを動かすと、スカートの形が変わる。<b>Q を上げる</b>と一気に下がる（＝水晶発振器がクリーンな理由）。信号電力やフリッカーのコーナーも効く。グラフをドラッグすると、その offset の ℒ(f) が読める。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">ℒ(f) [dBc/Hz] vs オフセット周波数（log-log）</div>
+          <canvas id="pn-cv" width="380" height="300" style="cursor:ew-resize;"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group"><label>共振器 Q</label><input type="range" id="pn-q" min="1" max="6" value="3" step="0.05" style="width:130px;"><span id="pn-q-val">1e3</span></div>
+            <div class="ctrl-group"><label>キャリア f₀</label><input type="range" id="pn-f0" min="6" max="10" value="8" step="0.1" style="width:130px;"><span id="pn-f0-val">100 MHz</span></div>
+            <div class="ctrl-group"><label>信号電力 Pₛ</label><input type="range" id="pn-ps" min="-20" max="20" value="0" step="1" style="width:130px;"><span id="pn-ps-val">0 dBm</span></div>
+            <div class="ctrl-group"><label>1/f コーナー</label><input type="range" id="pn-fc" min="2" max="6" value="4" step="0.1" style="width:130px;"><span id="pn-fc-val">10 kHz</span></div>
+            <div class="ctrl-group"><label>雑音指数 F</label><input type="range" id="pn-nf" min="0" max="20" value="6" step="0.5" style="width:130px;"><span id="pn-nf-val">6 dB</span></div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">例:</span>
+            <button class="preset-btn" data-pn="crystal">水晶 (高Q)</button>
+            <button class="preset-btn" data-pn="lc">LC (低Q)</button>
+          </div>
+          <div id="pn-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+    </div>
+
   </main>
   <Footer />
 </body>
@@ -1453,5 +1483,70 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   document.getElementById('orb-play').addEventListener('click',e=>{ playing=!playing; e.target.textContent=playing?'⏸ 停止':'▶ 再生'; });
   document.getElementById('orb-clear').addEventListener('click',()=>{ trail=[]; });
   reset(false); verdict(); requestAnimationFrame(loop);
+})();
+
+/* ═══════════════════════════════════════════════════
+   位相雑音スペクトル（Leeson モデル）
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cv=document.getElementById('pn-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=380,H=300, P={l:46,r:12,t:14,b:30};
+  const kB=1.38e-23, T=300;
+  let q=3, f0e=8, psdbm=0, fce=4, nf=6, mfe=3; // mfe: マーカーのオフセット指数(10^3=1kHz)
+  const FLO=1, FHI=8, DTOP=-30, DBOT=-180;
+
+  function Ldbc(f){
+    const F=Math.pow(10,nf/10), Ps=Math.pow(10,(psdbm-30)/10), Q=Math.pow(10,q), f0=Math.pow(10,f0e), fc=Math.pow(10,fce);
+    const floor=2*F*kB*T/Ps;
+    const term=floor*(1+Math.pow(f0/(2*Q*f),2))*(1+fc/f);
+    return 10*Math.log10(term);
+  }
+  const X=fe=>P.l+(fe-FLO)/(FHI-FLO)*(W-P.l-P.r);
+  const Y=db=>P.t+(DTOP-db)/(DTOP-DBOT)*(H-P.t-P.b);
+
+  function draw(){
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fcfbf7'; ctx.fillRect(0,0,W,H);
+    // grid
+    ctx.strokeStyle='#ece6da'; ctx.lineWidth=1; ctx.fillStyle='#b0a99a'; ctx.font='9px system-ui';
+    for(let e=FLO;e<=FHI;e++){ const x=X(e); ctx.beginPath();ctx.moveTo(x,P.t);ctx.lineTo(x,H-P.b);ctx.stroke();
+      const lab=e<3?(Math.pow(10,e)+''):e<6?(Math.pow(10,e-3)+'k'):(Math.pow(10,e-6)+'M'); ctx.fillText(lab,x-6,H-P.b+11); }
+    for(let d=DTOP;d>=DBOT;d-=30){ const y=Y(d); ctx.beginPath();ctx.moveTo(P.l,y);ctx.lineTo(W-P.r,y);ctx.stroke(); ctx.fillText(d+'',4,y+3); }
+    // axes
+    ctx.strokeStyle='#cfc7b6'; ctx.beginPath();ctx.moveTo(P.l,P.t);ctx.lineTo(P.l,H-P.b);ctx.lineTo(W-P.r,H-P.b);ctx.stroke();
+    // curve
+    ctx.strokeStyle='#3c7876'; ctx.lineWidth=2.2; ctx.beginPath();
+    let first=true;
+    for(let px=0;px<=240;px++){ const fe=FLO+(FHI-FLO)*px/240; const db=Ldbc(Math.pow(10,fe)); const x=X(fe),y=Y(Math.max(DBOT,Math.min(DTOP,db))); first?(ctx.moveTo(x,y),first=false):ctx.lineTo(x,y); }
+    ctx.stroke();
+    // marker
+    const mdb=Ldbc(Math.pow(10,mfe));
+    ctx.strokeStyle='rgba(224,137,47,0.9)';ctx.lineWidth=1.6;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(X(mfe),H-P.b);ctx.lineTo(X(mfe),Y(Math.max(DBOT,Math.min(DTOP,mdb))));ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#e0892f';ctx.beginPath();ctx.arc(X(mfe),Y(Math.max(DBOT,Math.min(DTOP,mdb))),4,0,7);ctx.fill();
+  }
+  function fmtHz(fe){ const f=Math.pow(10,fe); return f>=1e6?(f/1e6).toFixed(f<1e7?1:0)+' MHz':f>=1e3?(f/1e3).toFixed(f<1e4?1:0)+' kHz':f.toFixed(0)+' Hz'; }
+  function refresh(){
+    document.getElementById('pn-q-val').textContent='1e'+q.toFixed(1).replace('.0','');
+    document.getElementById('pn-f0-val').textContent=fmtHz(f0e);
+    document.getElementById('pn-ps-val').textContent=psdbm+' dBm';
+    document.getElementById('pn-fc-val').textContent=fmtHz(fce);
+    document.getElementById('pn-nf-val').textContent=nf+' dB';
+    const mdb=Ldbc(Math.pow(10,mfe));
+    document.getElementById('pn-info').innerHTML=`ℒ(${fmtHz(mfe)}) ≈ <b>${mdb.toFixed(1)} dBc/Hz</b><br>ℒ(1kHz) ≈ ${Ldbc(1e3).toFixed(1)} ／ ℒ(100kHz) ≈ ${Ldbc(1e5).toFixed(1)}`;
+    draw();
+  }
+  function setMarker(e){ const r=cv.getBoundingClientRect(); const px=(e.touches?e.touches[0].clientX:e.clientX)-r.left; let fe=FLO+(px-P.l)/(W-P.l-P.r)*(FHI-FLO); mfe=Math.max(FLO,Math.min(FHI,fe)); refresh(); }
+  let drag=false;
+  cv.addEventListener('pointerdown',e=>{drag=true;cv.setPointerCapture(e.pointerId);setMarker(e);});
+  cv.addEventListener('pointermove',e=>{if(drag)setMarker(e);});
+  cv.addEventListener('pointerup',()=>{drag=false;});
+  const bind=(id,fn)=>document.getElementById(id).addEventListener('input',e=>{fn(parseFloat(e.target.value));refresh();});
+  bind('pn-q',v=>q=v); bind('pn-f0',v=>f0e=v); bind('pn-ps',v=>psdbm=v); bind('pn-fc',v=>fce=v); bind('pn-nf',v=>nf=v);
+  document.querySelectorAll('[data-pn]').forEach(b=>b.addEventListener('click',()=>{
+    if(b.dataset.pn==='crystal'){q=5;document.getElementById('pn-q').value=5;f0e=7;document.getElementById('pn-f0').value=7;}
+    else{q=2;document.getElementById('pn-q').value=2;f0e=8;document.getElementById('pn-f0').value=8;}
+    refresh();
+  }));
+  refresh();
 })();
 </script>
