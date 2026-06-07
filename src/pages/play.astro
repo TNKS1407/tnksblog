@@ -363,6 +363,40 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- Non-inverse-square gravity: how orbits close -->
+    <div class="app-card">
+      <div class="app-title">逆二乗じゃない重力 — 軌道はどう閉じる？</div>
+      <div class="app-desc">
+        中心からの引力を <b>F ∝ 1/r<sup>p</sup></b> として、冪 <b>p</b> を変えてみる。私たちの宇宙は p=2（逆二乗）。そこから少しずらすと、軌道は閉じずに回り続けて、バラのような歳差軌道を描く。<br>
+        じつは「p=2」は<b>空間が3次元だから</b>なんだ。点源から出た力の流束は、広がる球面（面積 ∝ r²）に薄まるので力は 1/r² になる ── これがガウスの法則の幾何的な中身だよ。N次元なら面積 ∝ r<sup>N−1</sup> で <b>F ∝ 1/r<sup>N−1</sup></b>（p=N−1）。そして閉じた軌道を作れるのは <b>p=2（3次元）とバネ p=−1 だけ</b>（ベルトランの定理）。安定してきれいに回る軌道は、3次元の宇宙でこそ自然に生まれる、とも読める。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">ORBIT — 中心力 F ∝ 1/r^p</div>
+          <canvas id="orb-cv" width="340" height="340"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group"><label>力の冪 p</label><input type="range" id="orb-p" min="-1.2" max="3.2" value="2" step="0.01" style="width:130px;"><span id="orb-p-val">2.00</span></div>
+            <div class="ctrl-group"><label>初速（円=1.00）</label><input type="range" id="orb-v" min="0.45" max="1.35" value="0.8" step="0.01" style="width:130px;"><span id="orb-v-val">0.80</span></div>
+            <div class="ctrl-group"><label>速さ</label><input type="range" id="orb-s" min="0.25" max="3" value="1" step="0.05" style="width:130px;"><span id="orb-s-val">1.0×</span></div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">次元:</span>
+            <button class="preset-btn" data-orbp="2">3次元 p=2</button>
+            <button class="preset-btn" data-orbp="1">2次元 p=1</button>
+            <button class="preset-btn" data-orbp="3">4次元 p=3</button>
+            <button class="preset-btn" data-orbp="-1">バネ p=−1</button>
+          </div>
+          <div class="presets" style="margin-top:.5rem;">
+            <button class="preset-btn" id="orb-play">⏸ 停止</button>
+            <button class="preset-btn" id="orb-clear">↺ 軌跡を消す</button>
+          </div>
+          <div id="orb-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+    </div>
+
   </main>
   <Footer />
 </body>
@@ -1374,5 +1408,50 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   makeTarget('sunset');
   makePoints();
   rerender();
+})();
+
+/* ═══════════════════════════════════════════════════
+   逆二乗じゃない重力 — 中心力 F ∝ 1/r^p の軌道
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cv=document.getElementById('orb-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=340,H=340;
+  const k=1, r0=1, VIEW=1.9, TMAX=5000;
+  let p=2, vfac=0.8, speed=1, playing=true;
+  let x,y,vx,vy,ax,ay, trail=[];
+  function accel(px,py){ const r=Math.hypot(px,py), re=Math.max(r,0.05), f=-k/Math.pow(re,p+1); return [f*px,f*py]; }
+  function reset(keep){ x=r0; y=0; vx=0; vy=vfac; [ax,ay]=accel(x,y); if(!keep) trail=[]; }
+  const wx=px=>W*(0.5+px/(2*VIEW)), wy=py=>H*(0.5-py/(2*VIEW));
+  function step(dt){
+    x+=vx*dt+0.5*ax*dt*dt; y+=vy*dt+0.5*ay*dt*dt;
+    const [nx,ny]=accel(x,y); vx+=0.5*(ax+nx)*dt; vy+=0.5*(ay+ny)*dt; ax=nx; ay=ny;
+    if(Math.hypot(x,y)>VIEW*1.6) reset(true);
+    trail.push([x,y]); if(trail.length>TMAX) trail.shift();
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fcfbf7'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#c98a2b'; ctx.beginPath(); ctx.arc(wx(0),wy(0),6,0,7); ctx.fill();
+    if(trail.length>1){ ctx.strokeStyle='rgba(60,120,118,0.45)'; ctx.lineWidth=1.3; ctx.beginPath();
+      for(let i=0;i<trail.length;i++){ const px=wx(trail[i][0]),py=wy(trail[i][1]); i?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.stroke(); }
+    ctx.fillStyle='#e0892f'; ctx.beginPath(); ctx.arc(wx(x),wy(y),4.5,0,7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.3; ctx.stroke();
+  }
+  function verdict(){
+    const el=document.getElementById('orb-info'); const closed=Math.abs(p-2)<0.005||Math.abs(p+1)<0.005;
+    if(Math.abs(vfac-1)<0.01) el.textContent='初速=1.00 → 円軌道（円はどの p でも作れる）';
+    else if(closed) el.textContent='p='+p.toFixed(2)+' → 閉じる（'+(Math.abs(p-2)<0.005?'逆二乗・3次元':'バネ')+'）';
+    else el.textContent='p='+p.toFixed(2)+' → 閉じない（歳差・バラ模様）';
+  }
+  let last=0;
+  function loop(ts){ const dtms=Math.min(40,ts-last||16); last=ts;
+    if(playing){ const dt=0.006*speed; for(let i=0;i<6;i++) step(dt); } draw(); requestAnimationFrame(loop); }
+  const pR=document.getElementById('orb-p'), vR=document.getElementById('orb-v'), sR=document.getElementById('orb-s');
+  pR.addEventListener('input',()=>{ p=parseFloat(pR.value); document.getElementById('orb-p-val').textContent=p.toFixed(2); reset(false); verdict(); });
+  vR.addEventListener('input',()=>{ vfac=parseFloat(vR.value); document.getElementById('orb-v-val').textContent=vfac.toFixed(2); reset(false); verdict(); });
+  sR.addEventListener('input',()=>{ speed=parseFloat(sR.value); document.getElementById('orb-s-val').textContent=speed.toFixed(2)+'×'; });
+  document.querySelectorAll('[data-orbp]').forEach(b=>b.addEventListener('click',()=>{ p=parseFloat(b.dataset.orbp); pR.value=p; document.getElementById('orb-p-val').textContent=p.toFixed(2); reset(false); verdict(); }));
+  document.getElementById('orb-play').addEventListener('click',e=>{ playing=!playing; e.target.textContent=playing?'⏸ 停止':'▶ 再生'; });
+  document.getElementById('orb-clear').addEventListener('click',()=>{ trail=[]; });
+  reset(false); verdict(); requestAnimationFrame(loop);
 })();
 </script>
