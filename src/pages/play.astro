@@ -112,8 +112,8 @@ import Footer from '../components/Footer.astro';
         </div>
         <div class="ctrl-group">
           <label>速度</label>
-          <input type="range" id="speed" min="1" max="10" value="3">
-          <span id="speed-val">3</span>
+          <input type="range" id="speed" min="1" max="20" value="6">
+          <span id="speed-val">6</span>
         </div>
         <button class="btn primary" id="btn-clear">クリア</button>
         <button class="btn" id="btn-pause">一時停止</button>
@@ -130,6 +130,61 @@ import Footer from '../components/Footer.astro';
       </div>
 
       <div class="status" id="fourier-status">左に描いてね。マウスを離したら解析が始まる。</div>
+    </div>
+
+    <!-- Convolution Slider -->
+    <div class="app-card">
+      <div class="app-title">畳み込みスライダ</div>
+      <div class="app-desc">
+        畳み込み <span style="font-family:'JetBrains Mono',monospace;">(f∗g)(t)</span> は「片方を反転して滑らせ、重なった面積をなぞる」操作。<br>
+        上段で <span style="color:#3c7876;font-weight:700;">f(τ)</span> は固定、<span style="color:#c9761f;font-weight:700;">g(t−τ)</span> が反転して動く。中段はその積（＝重なり）、下段がなぞった結果。スライダ <span style="font-family:'JetBrains Mono',monospace;">t</span> を動かすと、面積がそのまま出力になっていくのが見える。
+      </div>
+
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">① f(τ) と g(t−τ) — オレンジが反転して滑る</div>
+        <canvas id="cv-conv-a" width="700" height="120" style="width:100%;height:120px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">② 積 f(τ)·g(t−τ) — この塗りつぶし面積が出力の値</div>
+        <canvas id="cv-conv-b" width="700" height="120" style="width:100%;height:120px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">③ 結果 (f∗g)(t) — 面積をなぞった曲線</div>
+        <canvas id="cv-conv-c" width="700" height="120" style="width:100%;height:120px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:240px;">
+          <label>ずらし t</label>
+          <input type="range" id="conv-t" min="-4" max="4" value="-2.2" step="0.02" style="flex:1;">
+          <span id="conv-t-val" style="min-width:3.2rem;">-2.20</span>
+        </div>
+        <button class="btn primary" id="conv-play">▶ 再生</button>
+      </div>
+
+      <div class="presets">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">f(τ):</span>
+        <button class="preset-btn" data-conv-f="rect">矩形</button>
+        <button class="preset-btn" data-conv-f="tri">三角</button>
+        <button class="preset-btn" data-conv-f="exp">指数減衰</button>
+        <button class="preset-btn" data-conv-f="gauss">ガウス</button>
+        <button class="preset-btn" data-conv-f="two">二山</button>
+      </div>
+      <div class="presets" style="margin-top:.4rem;">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#c9761f;margin-right:.2rem;">g(τ):</span>
+        <button class="preset-btn" data-conv-g="rect">矩形</button>
+        <button class="preset-btn" data-conv-g="tri">三角</button>
+        <button class="preset-btn" data-conv-g="exp">指数減衰</button>
+        <button class="preset-btn" data-conv-g="gauss">ガウス</button>
+        <button class="preset-btn" data-conv-g="two">二山</button>
+      </div>
+
+      <div class="status" id="conv-status"></div>
+
+      <div class="gs-math" id="conv-math">
+        <div class="gs-math-title">DEFINITION</div>
+        <div class="gs-math-row"><span data-tex="(f*g)(t)=\\int_{-\\infty}^{\\infty} f(\\tau)\\,g(t-\\tau)\\,d\\tau"></span><span class="gs-math-cap">g を τ について反転 (g(−τ)) し、t だけ平行移動して重ね、積の面積をとる。t を動かすとその面積が出力になる。矩形×矩形 → 三角、何かとガウス → なめらかに、がよく効く例だよ。</span></div>
+      </div>
     </div>
 
     <!-- Sound Scope -->
@@ -797,7 +852,7 @@ function loop() {
   const speed = parseInt(sliderSpeed.value);
   // dtは見せる円の本数Nではなく総サンプル数で決める。
   // こうしないとNを増減するたびに一周の速さが変わってしまう。
-  const dt = (2*Math.PI / fourier.length) * speed * 0.004;
+  const dt = (2*Math.PI / fourier.length) * speed * 0.01;
 
   // Draw epicycles and get tip — start from (0,0): DC component carries us to centroid
   const tip = drawEpicycles(ctxE, 0, 0, animTime, fourier.slice(0,N));
@@ -1600,5 +1655,147 @@ clearCanvas(ctxD); clearCanvas(ctxE);
     refresh();
   }));
   refresh();
+})();
+
+/* ═══════════════════════════════════════════════════
+   畳み込みスライダ
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cvA=document.getElementById('cv-conv-a'); if(!cvA) return;
+  const cvB=document.getElementById('cv-conv-b'), cvC=document.getElementById('cv-conv-c');
+  const ctxA=cvA.getContext('2d'), ctxB=cvB.getContext('2d'), ctxC=cvC.getContext('2d');
+  const W=cvA.width, H=cvA.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.7)';
+  const TEALF='rgba(60,120,118,.20)', AMBERF='rgba(201,118,31,.16)';
+
+  const D=4;                 // τ の範囲 [-D, D]
+  const M=480;               // 積分グリッド数
+  const dτ=2*D/M;
+  const taus=[]; for(let i=0;i<=M;i++) taus.push(-D + i*dτ);
+
+  // 各信号は面積≈1になるよう正規化してある（畳み込みの高さが見やすい）
+  const SHAPES={
+    rect:  x=> (Math.abs(x)<=0.5 ? 1 : 0),                 // 幅1・高さ1
+    tri:   x=> Math.max(0, 1-Math.abs(x)),                 // 底辺2・面積1
+    exp:   x=> (x>=0 ? Math.exp(-x) : 0),                  // 面積≈1
+    gauss: x=> Math.exp(-x*x/(2*0.4*0.4))/(0.4*Math.sqrt(2*Math.PI)), // σ=0.4・面積1
+    two:   x=> 0.6*(Math.exp(-((x+1)**2)/(2*0.25*0.25))+Math.exp(-((x-1)**2)/(2*0.25*0.25)))/(0.25*Math.sqrt(2*Math.PI)),
+  };
+  let fName='rect', gName='rect';
+  let fArr=[], gAtTau=[];     // gAtTau: g(τ) を τ グリッドで持つ（反転は描画時に t-τ で評価）
+  let result=[], resMax=1;    // 結果 (f*g)(t) を t グリッドで
+  let t=-2.2, playing=false, rafId=null;
+
+  const slT=document.getElementById('conv-t');
+  const elTV=document.getElementById('conv-t-val');
+  const statusEl=document.getElementById('conv-status');
+
+  function gfn(x){ return SHAPES[gName](x); }
+  function ffn(x){ return SHAPES[fName](x); }
+
+  function recompute(){
+    fArr=taus.map(ffn);
+    // 結果を t グリッド全体で先に計算（下段の曲線用）
+    result=taus.map(tt=>{
+      let s=0;
+      for(let i=0;i<=M;i++) s+=ffn(taus[i])*gfn(tt-taus[i]);
+      return s*dτ;
+    });
+    resMax=Math.max(...result.map(Math.abs),1e-6);
+  }
+
+  // 座標変換
+  const xPx=(x,pad=14)=> pad + (x+D)/(2*D)*(W-2*pad);
+  function yPx(v,vmax,h,top=8,bot=18){ return h-bot - (v/vmax)*(h-top-bot); }
+
+  function axes(ctx,h){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,h);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1;
+    // 縦グリッド（整数 τ）
+    for(let x=-D;x<=D;x++){ const px=xPx(x); ctx.beginPath(); ctx.moveTo(px,4); ctx.lineTo(px,h-14); ctx.stroke(); }
+    // x軸（v=0）
+    const y0=yPx(0,1,h);
+    ctx.strokeStyle='rgba(60,120,118,.35)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(8,y0); ctx.lineTo(W-8,y0); ctx.stroke();
+    // 0 と t の目盛り
+    ctx.fillStyle='#bbb5ac'; ctx.font='8px JetBrains Mono, monospace';
+    ctx.fillText('0', xPx(0)+2, h-3);
+    ctx.fillText('τ→', W-22, h-3);
+  }
+
+  function plotFn(ctx,fn,vmax,h,col,fill){
+    ctx.beginPath();
+    for(let i=0;i<=M;i++){ const px=xPx(taus[i]), py=yPx(fn(taus[i]),vmax,h); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    if(fill){ ctx.lineTo(xPx(D),yPx(0,vmax,h)); ctx.lineTo(xPx(-D),yPx(0,vmax,h)); ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); ctx.beginPath();
+      for(let i=0;i<=M;i++){ const px=xPx(taus[i]), py=yPx(fn(taus[i]),vmax,h); i?ctx.lineTo(px,py):ctx.moveTo(px,py); } }
+    ctx.strokeStyle=col; ctx.lineWidth=1.8; ctx.stroke();
+  }
+
+  function draw(){
+    const vmaxFG=Math.max(...fArr, ...taus.map(x=>gfn(x)), 0.5)*1.1;
+
+    // ① f(τ) 固定 ＋ g(t−τ) 反転して移動
+    axes(ctxA,H);
+    plotFn(ctxA, ffn, vmaxFG, H, TEAL, null);
+    plotFn(ctxA, τ=>gfn(t-τ), vmaxFG, H, AMBER, null);
+    // t の位置に縦線
+    ctxA.strokeStyle='rgba(201,118,31,.5)'; ctxA.setLineDash([4,3]); ctxA.lineWidth=1;
+    ctxA.beginPath(); ctxA.moveTo(xPx(t),4); ctxA.lineTo(xPx(t),H-14); ctxA.stroke(); ctxA.setLineDash([]);
+    ctxA.fillStyle=TEAL; ctxA.font='9px JetBrains Mono, monospace'; ctxA.fillText('f(τ)',12,12);
+    ctxA.fillStyle=AMBER; ctxA.fillText('g(t−τ)',46,12);
+
+    // ② 積 = 重なり面積
+    const prod=τ=>ffn(τ)*gfn(t-τ);
+    const vmaxP=Math.max(...taus.map(prod),0.3)*1.1;
+    axes(ctxB,H);
+    plotFn(ctxB, prod, vmaxP, H, TEAL, TEALF);
+    let area=0; for(let i=0;i<=M;i++) area+=prod(taus[i])*dτ;
+    ctxB.fillStyle=TEAL; ctxB.font='9px JetBrains Mono, monospace';
+    ctxB.fillText('面積 = '+area.toFixed(3), 12, 12);
+
+    // ③ 結果曲線 ＋ 現在位置の点
+    axes(ctxC,H);
+    ctxC.beginPath();
+    for(let i=0;i<=M;i++){ const px=xPx(taus[i]), py=yPx(result[i],resMax*1.1,H); i?ctxC.lineTo(px,py):ctxC.moveTo(px,py); }
+    ctxC.strokeStyle='rgba(60,120,118,.55)'; ctxC.lineWidth=1.6; ctxC.stroke();
+    // 既になぞった所まで濃く
+    ctxC.beginPath(); let started=false;
+    for(let i=0;i<=M;i++){ if(taus[i]>t) break; const px=xPx(taus[i]), py=yPx(result[i],resMax*1.1,H); started?ctxC.lineTo(px,py):(ctxC.moveTo(px,py),started=true); }
+    ctxC.strokeStyle=TEAL; ctxC.lineWidth=2.4; ctxC.stroke();
+    // 現在点（＝②の面積と同じ値）
+    let curArea=0; for(let i=0;i<=M;i++) curArea+=ffn(taus[i])*gfn(t-taus[i])*dτ;
+    ctxC.fillStyle=AMBER; ctxC.beginPath(); ctxC.arc(xPx(t), yPx(curArea,resMax*1.1,H), 4.5, 0, 7); ctxC.fill();
+    ctxC.strokeStyle='#fff'; ctxC.lineWidth=1.2; ctxC.stroke();
+    ctxC.fillStyle=TEAL; ctxC.font='9px JetBrains Mono, monospace'; ctxC.fillText('(f∗g)(t)',12,12);
+
+    elTV.textContent=t.toFixed(2);
+    statusEl.textContent=`f=${jp(fName)} ／ g=${jp(gName)} ／ t=${t.toFixed(2)} のとき (f∗g)(t)=${curArea.toFixed(3)}`;
+  }
+
+  function jp(n){ return {rect:'矩形',tri:'三角',exp:'指数減衰',gauss:'ガウス',two:'二山'}[n]; }
+
+  function setActive(){
+    document.querySelectorAll('[data-conv-f]').forEach(b=>{ const on=b.dataset.convF===fName; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    document.querySelectorAll('[data-conv-g]').forEach(b=>{ const on=b.dataset.convG===gName; b.style.borderColor=on?AMBER:''; b.style.color=on?AMBER:''; });
+  }
+
+  slT.addEventListener('input',()=>{ t=parseFloat(slT.value); draw(); });
+  document.querySelectorAll('[data-conv-f]').forEach(b=>b.addEventListener('click',()=>{ fName=b.dataset.convF; recompute(); setActive(); draw(); }));
+  document.querySelectorAll('[data-conv-g]').forEach(b=>b.addEventListener('click',()=>{ gName=b.dataset.convG; recompute(); setActive(); draw(); }));
+
+  const playBtn=document.getElementById('conv-play');
+  function loop(){ if(!playing) return; t+=0.02; if(t>D){ t=-D; } slT.value=t; draw(); rafId=requestAnimationFrame(loop); }
+  playBtn.addEventListener('click',()=>{ playing=!playing; playBtn.textContent=playing?'⏸ 停止':'▶ 再生'; if(playing){ if(t>=D) t=-D; loop(); } else if(rafId) cancelAnimationFrame(rafId); });
+
+  // KaTeX（読み込み済みなら）
+  function renderMath(){
+    if(!window.katex){ setTimeout(renderMath,120); return; }
+    document.querySelectorAll('#conv-math [data-tex]').forEach(el=>{
+      try{ window.katex.render(el.getAttribute('data-tex'), el, {throwOnError:false, displayMode:true}); }catch(e){}
+    });
+  }
+  renderMath();
+
+  recompute(); setActive(); draw();
 })();
 </script>
