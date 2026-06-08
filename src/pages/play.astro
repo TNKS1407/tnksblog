@@ -187,6 +187,50 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- Central Limit Theorem -->
+    <div class="app-card">
+      <div class="app-title">中心極限定理</div>
+      <div class="app-desc">
+        どんな分布から取った値でも、<b>n 個の平均</b>を何度も作ってヒストグラムにすると、n が大きいほど正規分布（ガウス）に近づく。<br>
+        元の分布がサイコロでも二山でも指数でも関係ない、というのが面白い所。スライダで n を上げて、▶再生で試行をためていくと、形がガウス曲線（点線）に吸い寄せられていくのが見える。
+      </div>
+
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">① 元の分布（ここから1個ずつ引く）</div>
+        <canvas id="cv-clt-src" width="700" height="90" style="width:100%;height:90px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">② n 個の平均のヒストグラム ＋ 理論ガウス（点線）</div>
+        <canvas id="cv-clt-hist" width="700" height="220" style="width:100%;height:220px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:220px;">
+          <label>平均する個数 n</label>
+          <input type="range" id="clt-n" min="1" max="30" value="1" step="1" style="flex:1;">
+          <span id="clt-n-val" style="min-width:2rem;">1</span>
+        </div>
+        <button class="btn primary" id="clt-play">▶ 再生</button>
+        <button class="btn" id="clt-reset">リセット</button>
+      </div>
+
+      <div class="presets">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">元の分布:</span>
+        <button class="preset-btn" data-clt="uniform">一様</button>
+        <button class="preset-btn" data-clt="die">サイコロ</button>
+        <button class="preset-btn" data-clt="exp">指数</button>
+        <button class="preset-btn" data-clt="bimodal">二山</button>
+        <button class="preset-btn" data-clt="coin">コイン</button>
+      </div>
+
+      <div class="status" id="clt-status"></div>
+
+      <div class="gs-math" id="clt-math">
+        <div class="gs-math-title">DEFINITION</div>
+        <div class="gs-math-row"><span data-tex="\\bar X_n=\\frac1n\\sum_{i=1}^{n}X_i \\;\\xrightarrow[n\\to\\infty]{}\\; \\mathcal N\\!\\left(\\mu,\\ \\frac{\\sigma^2}{n}\\right)"></span><span class="gs-math-cap">平均は μ のまま、ばらつき（標準偏差）は σ/√n で縮む。だから n を4倍にすると山の幅は半分になる。元の分布の形にはほとんど依らない、というのが中心極限定理だよ。</span></div>
+      </div>
+    </div>
+
     <!-- Sound Scope -->
     <div class="app-card">
       <div class="app-title">Sound Scope</div>
@@ -1797,5 +1841,136 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   renderMath();
 
   recompute(); setActive(); draw();
+})();
+
+/* ═══════════════════════════════════════════════════
+   中心極限定理
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cvS=document.getElementById('cv-clt-src'); if(!cvS) return;
+  const cvH=document.getElementById('cv-clt-hist');
+  const ctxS=cvS.getContext('2d'), ctxH=cvH.getContext('2d');
+  const W=cvS.width, HS=cvS.height, HH=cvH.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.7)';
+  const TEALF='rgba(60,120,118,.22)';
+
+  // 各分布: 平均μ・標準偏差σ・表示範囲[lo,hi]・サンプラ・形(描画用)
+  const SRC={
+    uniform:{ jp:'一様',   mu:0.5, sd:Math.sqrt(1/12), lo:0,   hi:1,   samp:()=>Math.random(),
+              pdf:x=>(x>=0&&x<=1?1:0) },
+    die:    { jp:'サイコロ', mu:3.5, sd:Math.sqrt(35/12), lo:0.5, hi:6.5, samp:()=>Math.floor(Math.random()*6)+1,
+              pmf:[1,2,3,4,5,6].map(v=>({v,p:1/6})) },
+    exp:    { jp:'指数',   mu:1,   sd:1,   lo:0,   hi:5,   samp:()=>-Math.log(1-Math.random()),
+              pdf:x=>(x>=0?Math.exp(-x):0) },
+    bimodal:{ jp:'二山',   mu:0.5, sd:0.35, lo:0,  hi:1,   samp:()=>Math.random()<0.5?0.15:0.85,
+              pmf:[{v:0.15,p:0.5},{v:0.85,p:0.5}] },
+    coin:   { jp:'コイン', mu:0.5, sd:0.5, lo:0,   hi:1,   samp:()=>Math.random()<0.5?0:1,
+              pmf:[{v:0,p:0.5},{v:1,p:0.5}] },
+  };
+  let name='uniform', S=SRC[name];
+  let n=1, BINS=64;
+  let counts=new Array(BINS).fill(0), total=0, sumM=0, sumM2=0;
+  let playing=false, rafId=null;
+
+  const slN=document.getElementById('clt-n'), elNV=document.getElementById('clt-n-val');
+  const statusEl=document.getElementById('clt-status');
+
+  const xPx=(x,pad=14)=> pad + (x-S.lo)/(S.hi-S.lo)*(W-2*pad);
+
+  function reset(){ counts=new Array(BINS).fill(0); total=0; sumM=0; sumM2=0; }
+
+  function addTrials(k){
+    const w=(S.hi-S.lo)/BINS;
+    for(let t=0;t<k;t++){
+      let s=0; for(let i=0;i<n;i++) s+=S.samp();
+      const m=s/n;
+      let b=Math.floor((m-S.lo)/w); if(b<0)b=0; if(b>=BINS)b=BINS-1;
+      counts[b]++; total++; sumM+=m; sumM2+=m*m;
+    }
+  }
+
+  function gridBox(ctx,h){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,h);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1;
+    const lo=Math.ceil(S.lo), hi=Math.floor(S.hi);
+    for(let x=lo;x<=hi;x++){ const px=xPx(x); ctx.beginPath(); ctx.moveTo(px,4); ctx.lineTo(px,h-14); ctx.stroke();
+      ctx.fillStyle='#bbb5ac'; ctx.font='8px JetBrains Mono, monospace'; ctx.fillText(x,px+2,h-3); }
+  }
+
+  function drawSource(){
+    gridBox(ctxS,HS);
+    const top=24, bot=16, hh=HS-top-bot;  // ラベル(y=12付近)と分布の塗りが重ならないよう上を空ける
+    if(S.pmf){
+      const pmax=Math.max(...S.pmf.map(d=>d.p));
+      S.pmf.forEach(d=>{
+        const px=xPx(d.v), bh=(d.p/pmax)*hh;
+        ctxS.fillStyle=TEALF; ctxS.fillRect(px-7,HS-bot-bh,14,bh);
+        ctxS.strokeStyle=TEAL; ctxS.lineWidth=1.6; ctxS.strokeRect(px-7,HS-bot-bh,14,bh);
+      });
+    } else {
+      let pmax=0; for(let i=0;i<=120;i++){ const x=S.lo+(S.hi-S.lo)*i/120; pmax=Math.max(pmax,S.pdf(x)); }
+      ctxS.beginPath();
+      for(let i=0;i<=120;i++){ const x=S.lo+(S.hi-S.lo)*i/120; const px=xPx(x), py=HS-bot-(S.pdf(x)/pmax)*hh; i?ctxS.lineTo(px,py):ctxS.moveTo(px,py); }
+      ctxS.lineTo(xPx(S.hi),HS-bot); ctxS.lineTo(xPx(S.lo),HS-bot); ctxS.closePath();
+      ctxS.fillStyle=TEALF; ctxS.fill();
+      ctxS.strokeStyle=TEAL; ctxS.lineWidth=1.8; ctxS.stroke();
+    }
+    ctxS.fillStyle=TEAL; ctxS.font='9px JetBrains Mono, monospace';
+    ctxS.fillText(`${S.jp}  μ=${S.mu.toFixed(2)}  σ=${S.sd.toFixed(2)}`, 12, 12);
+  }
+
+  function drawHist(){
+    gridBox(ctxH,HH);
+    const top=10, bot=16, hh=HH-top-bot;
+    const w=(S.hi-S.lo)/BINS;
+    const s=S.sd/Math.sqrt(n);                 // 理論標準偏差
+    const gPeak=1/(s*Math.sqrt(2*Math.PI));
+    // ヒストグラムは密度に正規化
+    let dmax=gPeak;
+    const dens=counts.map(c=> total? c/(total*w) : 0);
+    dmax=Math.max(dmax, ...dens)*1.1 || 1;
+
+    // bars
+    for(let i=0;i<BINS;i++){
+      if(!dens[i]) continue;
+      const x0=xPx(S.lo+i*w), x1=xPx(S.lo+(i+1)*w);
+      const bh=(dens[i]/dmax)*hh;
+      ctxH.fillStyle=TEALF; ctxH.fillRect(x0, HH-bot-bh, Math.max(1,x1-x0-0.5), bh);
+    }
+    // 理論ガウス（点線）
+    ctxH.strokeStyle=AMBER; ctxH.lineWidth=2; ctxH.setLineDash([5,4]);
+    ctxH.beginPath();
+    for(let i=0;i<=160;i++){ const x=S.lo+(S.hi-S.lo)*i/160;
+      const g=Math.exp(-((x-S.mu)**2)/(2*s*s))/(s*Math.sqrt(2*Math.PI));
+      const px=xPx(x), py=HH-bot-(g/dmax)*hh; i?ctxH.lineTo(px,py):ctxH.moveTo(px,py); }
+    ctxH.stroke(); ctxH.setLineDash([]);
+    // μ の縦線
+    ctxH.strokeStyle='rgba(60,120,118,.45)'; ctxH.lineWidth=1.2;
+    ctxH.beginPath(); ctxH.moveTo(xPx(S.mu),4); ctxH.lineTo(xPx(S.mu),HH-14); ctxH.stroke();
+
+    const measSD= total>1 ? Math.sqrt(Math.max(0, sumM2/total-(sumM/total)**2)) : 0;
+    ctxH.fillStyle=TEAL; ctxH.font='9px JetBrains Mono, monospace';
+    ctxH.fillText(`試行 ${total}回   n=${n}`, 12, 12);
+    statusEl.textContent=`${S.jp} ／ n=${n} ／ 試行 ${total}回 ｜ 理論σ=${s.toFixed(3)}（σ/√n）／ 実測σ=${measSD.toFixed(3)}`;
+  }
+
+  function draw(){ drawSource(); drawHist(); }
+
+  slN.addEventListener('input',()=>{ n=parseInt(slN.value); elNV.textContent=n; reset(); draw(); });
+  document.querySelectorAll('[data-clt]').forEach(b=>b.addEventListener('click',()=>{
+    name=b.dataset.clt; S=SRC[name]; reset(); setActive(); draw();
+  }));
+  function setActive(){ document.querySelectorAll('[data-clt]').forEach(b=>{ const on=b.dataset.clt===name; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; }); }
+
+  const playBtn=document.getElementById('clt-play');
+  function loop(){ if(!playing) return; addTrials(60); draw(); if(total>=40000){ playing=false; playBtn.textContent='▶ 再生'; return; } rafId=requestAnimationFrame(loop); }
+  playBtn.addEventListener('click',()=>{ playing=!playing; playBtn.textContent=playing?'⏸ 停止':'▶ 再生'; if(playing) loop(); else if(rafId) cancelAnimationFrame(rafId); });
+  document.getElementById('clt-reset').addEventListener('click',()=>{ reset(); draw(); });
+
+  function renderMath(){ if(!window.katex){ setTimeout(renderMath,120); return; }
+    document.querySelectorAll('#clt-math [data-tex]').forEach(el=>{ try{ window.katex.render(el.getAttribute('data-tex'),el,{throwOnError:false,displayMode:true}); }catch(e){} }); }
+  renderMath();
+
+  setActive(); draw();
 })();
 </script>
