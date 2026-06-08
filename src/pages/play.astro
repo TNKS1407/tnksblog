@@ -532,7 +532,9 @@ import Footer from '../components/Footer.astro';
 
     // Spectrum
     const sampleRate=audioCtx.sampleRate;
-    const maxBin=Math.floor(maxF/(sampleRate/2)*bufLen);
+    // maxFがNyquist(sampleRate/2)を超える環境(低サンプルレートのマイク等)では
+    // binがバッファ外を指してスペクトルが壊れる。bufLenでクランプする。
+    const maxBin=Math.max(1, Math.min(bufLen, Math.floor(maxF/(sampleRate/2)*bufLen)));
     drawGrid(ctxS,W,H);
     ctxS.fillStyle=TEAL2;
     ctxS.beginPath(); ctxS.moveTo(0,H);
@@ -551,8 +553,9 @@ import Footer from '../components/Footer.astro';
     }
     ctxS.stroke();
 
-    // Note markers overlay
-    drawNoteMarkers(ctxS, W, H, sampleRate, bufLen, maxF);
+    // Note markers overlay（クランプ後の実表示上限に合わせる）
+    const dispMaxF = maxBin/bufLen*(sampleRate/2);
+    drawNoteMarkers(ctxS, W, H, sampleRate, bufLen, dispMaxF);
 
     rafId=requestAnimationFrame(loop);
   }
@@ -622,7 +625,9 @@ document.getElementById('btn-pause').addEventListener('click', togglePause);
 function pos(e, cv) {
   const r = cv.getBoundingClientRect();
   const src = e.touches ? e.touches[0] : e;
-  return { x: src.clientX - r.left, y: src.clientY - r.top };
+  // CSSで縮小表示されている時は内部座標(cv.width/height)へ換算しないとズレる
+  const sx = cv.width / r.width, sy = cv.height / r.height;
+  return { x: (src.clientX - r.left) * sx, y: (src.clientY - r.top) * sy };
 }
 
 cvDraw.addEventListener('mousedown',  e => startDraw(pos(e, cvDraw)));
@@ -672,10 +677,26 @@ function computeDFT(pts) {
 }
 
 function sampleEvenly(pts, target=256) {
-  if(pts.length <= target) return pts;
+  if(pts.length < 2) return pts;
+  // 点数ではなく弧長で等間隔に取り直す。
+  // 手描きは速い所ほど点がまばらになるので、点数ベースだと曲線上で粗密ができてしまう。
+  const cum = [0];
+  for(let i=1; i<pts.length; i++) {
+    cum.push(cum[i-1] + Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y));
+  }
+  const total = cum[cum.length-1];
+  if(total === 0) return [pts[0]];
   const result = [];
+  let j = 0;
   for(let i=0; i<target; i++) {
-    result.push(pts[Math.round(i*(pts.length-1)/(target-1))]);
+    const d = total * i / target; // 一周ぶんを等分（終点=始点側は含めない）
+    while(j < cum.length-1 && cum[j+1] < d) j++;
+    const span = cum[j+1] - cum[j] || 1;
+    const t = (d - cum[j]) / span;
+    result.push({
+      x: pts[j].x + (pts[j+1].x - pts[j].x) * t,
+      y: pts[j].y + (pts[j+1].y - pts[j].y) * t,
+    });
   }
   return result;
 }
@@ -694,6 +715,11 @@ function analyze() {
 // ── Animation ─────────────────────────────────────
 function startAnimation() {
   if(animId) cancelAnimationFrame(animId);
+  // 一時停止中に新しい図形を解析しても動き出すように、ここで解除する
+  if(paused) {
+    paused = false;
+    document.getElementById('btn-pause').textContent = '一時停止';
+  }
   animTime = 0; tracePath = [];
   clearCanvas(ctxE);
   loop();
@@ -721,14 +747,29 @@ function drawSpectrum(activeN) {
   ctxSF.fillStyle = '#faf8f4';
   ctxSF.fillRect(0,0,sw,sh);
 
-  // Sort by frequency order (not amplitude) and skip n=0 (DC)
-  const byFreq = [...fourier].sort((a,b) => a.freq - b.freq).filter(f => f.freq > 0);
-  const show = Math.min(byFreq.length, 40);
-  const maxAmp = Math.max(...byFreq.slice(0,show).map(f=>f.amp), 0.001);
+  // 周波数順に並べDC(n=0)だけ除く。負周波数(時計回りに回る円)も両側に出す。
+  const LIM = 20; // 表示する |freq| の上限
+  const byFreq = [...fourier]
+    .filter(f => f.freq !== 0 && Math.abs(f.freq) <= LIM)
+    .sort((a,b) => a.freq - b.freq);
+  const show = byFreq.length;
+  if(!show) return;
+  const maxAmp = Math.max(...byFreq.map(f=>f.amp), 0.001);
   const barW = sw / show;
 
   // Active set: which freqs are in the top activeN by amplitude
   const activeFreqs = new Set(fourier.slice(0, activeN).map(f=>f.freq));
+
+  // f=0 の境目（負周波数と正周波数の区切り）を薄く示す
+  const zeroIdx = byFreq.findIndex(f => f.freq > 0);
+  if(zeroIdx > 0) {
+    ctxSF.strokeStyle = 'rgba(140,107,79,.4)';
+    ctxSF.setLineDash([3,3]);
+    ctxSF.beginPath();
+    ctxSF.moveTo(zeroIdx*barW, 2); ctxSF.lineTo(zeroIdx*barW, sh-14);
+    ctxSF.stroke();
+    ctxSF.setLineDash([]);
+  }
 
   for(let i=0; i<show; i++) {
     const {freq, amp} = byFreq[i];
@@ -736,8 +777,8 @@ function drawSpectrum(activeN) {
     const active = activeFreqs.has(freq);
     ctxSF.fillStyle = active ? TEAL : 'rgba(60,120,118,.18)';
     ctxSF.fillRect(i*barW + 1, sh - h - 14, Math.max(1, barW - 2), h);
-    // tick label every 5
-    if(i % 5 === 0) {
+    // tick label every 5本（0を含むよう間引き）
+    if(freq % 5 === 0) {
       ctxSF.fillStyle = '#bbb5ac';
       ctxSF.font = '8px JetBrains Mono, monospace';
       ctxSF.fillText(freq, i*barW + 1, sh - 2);
@@ -746,7 +787,7 @@ function drawSpectrum(activeN) {
 
   ctxSF.fillStyle = '#aaa49b';
   ctxSF.font = '8px JetBrains Mono, monospace';
-  ctxSF.fillText('harmonic n →', 2, 10);
+  ctxSF.fillText('← 負  周波数 freq  正 →', 2, 10);
 }
 
 function loop() {
@@ -754,7 +795,9 @@ function loop() {
   clearCanvas(ctxE);
   const N = Math.min(parseInt(sliderN.value), fourier.length);
   const speed = parseInt(sliderSpeed.value);
-  const dt = (2*Math.PI / fourier.slice(0,N).length) * speed * 0.004;
+  // dtは見せる円の本数Nではなく総サンプル数で決める。
+  // こうしないとNを増減するたびに一周の速さが変わってしまう。
+  const dt = (2*Math.PI / fourier.length) * speed * 0.004;
 
   // Draw epicycles and get tip — start from (0,0): DC component carries us to centroid
   const tip = drawEpicycles(ctxE, 0, 0, animTime, fourier.slice(0,N));
@@ -985,14 +1028,23 @@ clearCanvas(ctxD); clearCanvas(ctxE);
     });
 
     // Draw symmetry axes / mirror lines
-    if (currentPG.name.includes('m') || currentPG.name === 'm') {
+    // Nmm 群は鏡映面が N 本ある（2mm:2, 4mm:4, 6mm:6）。m は1本だけ。
+    if (currentPG.name.includes('m')) {
+      // 'm','2mm','4mm','6mm' から回転次数 N を取り出す（先頭の数字、無ければ1）
+      const N = parseInt(currentPG.name) || 1;
+      const count = N >= 2 ? N : 1;               // 鏡映軸の本数
+      const step = N >= 2 ? Math.PI / N : 0;      // 軸の角度間隔
+      const baseAng = N >= 2 ? 0 : Math.PI/2;     // m は縦軸(90°)のみ
+      const len = Math.hypot(W, H);               // 端まで届く長さ
       ctx.strokeStyle = 'rgba(140,107,79,.35)'; ctx.lineWidth = 1;
       ctx.setLineDash([6, 4]);
-      // vertical mirror
-      ctx.beginPath(); ctx.moveTo(CX, 20); ctx.lineTo(CX, H-20); ctx.stroke();
-      // horizontal mirror if 2mm
-      if (currentPG.ops.length >= 4) {
-        ctx.beginPath(); ctx.moveTo(20, CY); ctx.lineTo(W-20, CY); ctx.stroke();
+      for (let k = 0; k < count; k++) {
+        const a = baseAng + k * step;
+        const dx = Math.cos(a) * len, dy = Math.sin(a) * len;
+        ctx.beginPath();
+        ctx.moveTo(CX - dx, CY - dy);
+        ctx.lineTo(CX + dx, CY + dy);
+        ctx.stroke();
       }
       ctx.setLineDash([]);
     }
@@ -1535,7 +1587,7 @@ clearCanvas(ctxD); clearCanvas(ctxE);
     document.getElementById('pn-info').innerHTML=`ℒ(${fmtHz(mfe)}) ≈ <b>${mdb.toFixed(1)} dBc/Hz</b><br>ℒ(1kHz) ≈ ${Ldbc(1e3).toFixed(1)} ／ ℒ(100kHz) ≈ ${Ldbc(1e5).toFixed(1)}`;
     draw();
   }
-  function setMarker(e){ const r=cv.getBoundingClientRect(); const px=(e.touches?e.touches[0].clientX:e.clientX)-r.left; let fe=FLO+(px-P.l)/(W-P.l-P.r)*(FHI-FLO); mfe=Math.max(FLO,Math.min(FHI,fe)); refresh(); }
+  function setMarker(e){ const r=cv.getBoundingClientRect(); const px=((e.touches?e.touches[0].clientX:e.clientX)-r.left)*(W/r.width); let fe=FLO+(px-P.l)/(W-P.l-P.r)*(FHI-FLO); mfe=Math.max(FLO,Math.min(FHI,fe)); refresh(); }
   let drag=false;
   cv.addEventListener('pointerdown',e=>{drag=true;cv.setPointerCapture(e.pointerId);setMarker(e);});
   cv.addEventListener('pointermove',e=>{if(drag)setMarker(e);});
