@@ -108,9 +108,11 @@ hr {
 .katex-display { overflow-x: auto; overflow-y: hidden; padding: .5rem 0; }
 .katex span, .katex * {
   background: transparent !important;
-  border: none !important;
   color: inherit;
 }
+/* 注意: .katex の子に border:none を一括指定しないこと。
+   KaTeXは分数の罫線・√の横線・行列の罫を border で描くので、消すと「分数感が出ない」崩れになる。 */
+.katex .frac-line { border-bottom-color: currentColor; }
 
 .sr-only {
   border: 0; padding: 0; margin: 0;
