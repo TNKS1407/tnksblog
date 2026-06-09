@@ -4,7 +4,7 @@ const today = new Date();
 
 <footer>
   <div class="inner">
-    <span>© {today.getFullYear()} tnksblog</span>
+    <span>© {today.getFullYear()} tnksblog <span class="count" id="hit-counter" hidden>· 👁 <span id="hit-n">—</span></span></span>
     <div class="links">
       <a href="https://tnks1407.com" target="_blank">Works</a>
       <a href="https://github.com/TNKS1407" target="_blank">GitHub</a>
@@ -13,6 +13,20 @@ const today = new Date();
   </div>
   <div class="credit">curated by ランキン</div>
 </footer>
+
+<script is:inline>
+  (function(){
+    var path = location.pathname.replace(/\/index\.html$/,'').replace(/\/$/,'') || '/';
+    var key = path === '/' ? 'home' : path.replace(/^\//,'').replace(/\//g,'-');
+    var hit = 'hit_' + key;
+    var doHit = !sessionStorage.getItem(hit);
+    if (doHit) sessionStorage.setItem(hit, '1');
+    fetch('/api/hit?p=' + encodeURIComponent(key) + (doHit ? '&hit=1' : ''))
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if (d && d.count != null){ document.getElementById('hit-n').textContent = d.count.toLocaleString(); document.getElementById('hit-counter').hidden=false; } })
+      .catch(function(){});
+  })();
+</script>
 
 <style>
   footer {
