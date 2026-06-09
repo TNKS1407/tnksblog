@@ -206,7 +206,10 @@ import Footer from '../components/Footer.astro';
 
       <div class="controls" style="margin-top:1rem;">
         <div class="ctrl-group" style="flex:1;min-width:220px;">
-          <label>平均する個数 n</label>
+          <label>平均する個数 n
+            <button type="button" id="clt-n-info" aria-label="平均する個数 n とは"
+              style="margin-left:.3rem;width:1.15rem;height:1.15rem;line-height:1;border-radius:50%;border:1px solid var(--accent,#3c7876);background:none;color:var(--accent,#3c7876);font-size:.72rem;font-weight:700;cursor:pointer;vertical-align:middle;">?</button>
+          </label>
           <input type="range" id="clt-n" min="1" max="30" value="1" step="1" style="flex:1;">
           <span id="clt-n-val" style="min-width:2rem;">1</span>
         </div>
@@ -218,6 +221,16 @@ import Footer from '../components/Footer.astro';
         <button class="btn primary" id="clt-play">▶ 再生</button>
         <button class="btn" id="clt-step">+1試行</button>
         <button class="btn" id="clt-reset">リセット</button>
+      </div>
+
+      <div id="clt-n-pop" hidden style="margin-top:.6rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);border-radius:10px;padding:.8rem 1rem;font-size:.8rem;line-height:1.7;color:var(--text,#1d1b17);position:relative;">
+        <button type="button" id="clt-n-pop-close" aria-label="閉じる" style="position:absolute;top:.4rem;right:.6rem;border:none;background:none;color:var(--text-muted,#7d7568);font-size:1rem;cursor:pointer;">×</button>
+        <b>n＝1回の試行で、元の分布から何個引いて平均するか。</b><br>
+        サイコロで言うと——<br>
+        ・<b>n=1</b>：1個振って出た目そのものを1点として積む（たくさんやれば 1〜6 が平ら）。<br>
+        ・<b>n=2</b>：2個振った平均（3と6なら4.5）を1点に。<br>
+        ・<b>n=10</b>：10個の平均を1点に。<br>
+        n が大きいほど、その“平均”が真ん中（μ）に集まって形がガウスに近づく——これが中心極限定理。だから n を上げると山が細く高くなる。▶再生でためる点は、ぜんぶ「n個の平均」だよ。
       </div>
 
       <div class="presets">
@@ -2040,6 +2053,10 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   playBtn.addEventListener('click',()=>{ playing=!playing; playBtn.textContent=playing?'⏸ 停止':'▶ 再生'; if(playing) loop(); else if(rafId) cancelAnimationFrame(rafId); });
   document.getElementById('clt-step').addEventListener('click',()=>{ addTrials(1); draw(); });
   document.getElementById('clt-reset').addEventListener('click',()=>{ reset(); draw(); });
+  // 「平均する個数 n」の説明ポップアップ
+  const nPop=document.getElementById('clt-n-pop');
+  document.getElementById('clt-n-info').addEventListener('click',()=>{ nPop.hidden=!nPop.hidden; });
+  document.getElementById('clt-n-pop-close').addEventListener('click',()=>{ nPop.hidden=true; });
 
   function renderMath(){ if(!window.katex){ setTimeout(renderMath,120); return; }
     document.querySelectorAll('#clt-math [data-tex]').forEach(el=>{ try{ window.katex.render(el.getAttribute('data-tex'),el,{throwOnError:false,displayMode:true}); }catch(e){} }); }
