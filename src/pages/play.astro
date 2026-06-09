@@ -361,6 +361,48 @@ import Footer from '../components/Footer.astro';
       <div class="status" id="lc-status"></div>
     </div>
 
+    <!-- Thermodynamic Cycles -->
+    <div class="app-card">
+      <div class="app-title">熱力学サイクル（PV線図・TS線図）</div>
+      <div class="app-desc">
+        熱機関のサイクルを PV線図（仕事＝囲む面積）と TS線図（熱＝囲む面積）で並べて見る。<br>
+        Carnot・Otto・Brayton を切り替え、圧縮比や温度比を動かすと、ループの形と<b>熱効率 η</b>がどう変わるかが掴める。理想気体（γ=1.4）で計算。
+      </div>
+
+      <div class="fourier-wrap" style="margin-top:.5rem;">
+        <div>
+          <div class="canvas-label">PV線図（圧力 - 体積）／ 囲む面積 = 正味仕事</div>
+          <canvas id="cv-th-pv" width="340" height="280" style="height:280px;"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">TS線図（温度 - エントロピー）／ 囲む面積 = 正味熱</div>
+          <canvas id="cv-th-ts" width="340" height="280" style="height:280px;"></canvas>
+        </div>
+      </div>
+
+      <div class="presets" style="margin-top:.8rem;">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">サイクル:</span>
+        <button class="preset-btn" data-th="carnot">Carnot</button>
+        <button class="preset-btn" data-th="otto">Otto（ガソリン）</button>
+        <button class="preset-btn" data-th="brayton">Brayton（ガスタービン）</button>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:260px;">
+          <label id="th-p1-label">パラメータ</label>
+          <input type="range" id="th-p1" min="2" max="14" value="8" step="0.1" style="flex:1;">
+          <span id="th-p1-val" style="min-width:4rem;">—</span>
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:220px;">
+          <label id="th-p2-label">加熱比</label>
+          <input type="range" id="th-p2" min="1.5" max="5" value="3" step="0.05" style="flex:1;">
+          <span id="th-p2-val" style="min-width:3rem;">—</span>
+        </div>
+      </div>
+
+      <div class="status" id="th-status"></div>
+    </div>
+
     <!-- Sound Scope -->
     <div class="app-card">
       <div class="app-title">Sound Scope</div>
@@ -2446,6 +2488,123 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   document.querySelectorAll('[data-lc-order]').forEach(b=>b.addEventListener('click',()=>{ order=+b.dataset.lcOrder; setActive(); draw(); }));
 
   slR.value=2.65; slL.value=-2; slC.value=-7;
+  setActive(); draw();
+})();
+
+/* ===================================================
+   熱力学サイクル（PV線図・TS線図）
+   =================================================== */
+(function(){
+  const cvPV=document.getElementById('cv-th-pv'); if(!cvPV) return;
+  const cvTS=document.getElementById('cv-th-ts');
+  const ctxPV=cvPV.getContext('2d'), ctxTS=cvTS.getContext('2d');
+  const W=cvPV.width, H=cvPV.height;
+  const TEAL='#3c7876', FILL='rgba(60,120,118,.13)', AMBER='#c9761f', BLUE='#5a6e9e', BG='#faf8f4', GRID='rgba(227,219,208,.8)', INK='#4a463f';
+  const g=1.4, cv=1/(g-1), cp=g/(g-1);
+
+  let cyc='otto', p1=8, p2=3;
+  const slP1=document.getElementById('th-p1'), elP1=document.getElementById('th-p1-val'), labP1=document.getElementById('th-p1-label');
+  const slP2=document.getElementById('th-p2'), elP2=document.getElementById('th-p2-val'), labP2=document.getElementById('th-p2-label');
+  const p2group=slP2.closest('.ctrl-group');
+  const statusEl=document.getElementById('th-status');
+
+  function sampleProc(a,b,type,M){
+    const out=[];
+    for(let k=0;k<=M;k++){ const t=k/M; let V,P,T,S;
+      if(type==='adiab'){ V=a.V+(b.V-a.V)*t; P=a.P*Math.pow(a.V/V,g); T=P*V; S=a.S; }
+      else if(type==='isot'){ V=a.V+(b.V-a.V)*t; T=a.T; P=T/V; S=a.S+Math.log(V/a.V); }
+      else if(type==='isov'){ V=a.V; T=a.T+(b.T-a.T)*t; P=T/V; S=a.S+cv*Math.log(T/a.T); }
+      else { P=a.P; T=a.T+(b.T-a.T)*t; V=T/P; S=a.S+cp*Math.log(T/a.T); }
+      out.push({V,P,T,S}); }
+    return out;
+  }
+
+  function build(){
+    let st=[], procs=[], eta=0, name='', formula='';
+    if(cyc==='carnot'){
+      const Tc=300, Th=Tc*p1; const Vexp=2;
+      const s1={V:1,T:Th,P:Th}; const s2={V:Vexp,T:Th,P:Th/Vexp};
+      const rr=Math.pow(Th/Tc,1/(g-1));
+      const s3={V:Vexp*rr,T:Tc,P:Tc/(Vexp*rr)};
+      const s4={V:1*rr,T:Tc,P:Tc/(1*rr)};
+      st=[s1,s2,s3,s4]; procs=['isot','adiab','isot','adiab']; eta=1-Tc/Th;
+      name='Carnot'; formula='η = 1 − Tc/Th';
+    } else if(cyc==='otto'){
+      const r=p1, T1=300; const s1={V:r,T:T1,P:T1/r};
+      const T2=T1*Math.pow(r,g-1); const s2={V:1,T:T2,P:T2};
+      const T3=T2*p2; const s3={V:1,T:T3,P:T3};
+      const T4=T3*Math.pow(r,1-g); const s4={V:r,T:T4,P:T4/r};
+      st=[s1,s2,s3,s4]; procs=['adiab','isov','adiab','isov']; eta=1-Math.pow(r,1-g);
+      name='Otto'; formula='η = 1 − r^(1−γ)';
+    } else {
+      const rp=p1, T1=300; const s1={V:T1,T:T1,P:1};
+      const T2=T1*Math.pow(rp,(g-1)/g); const s2={V:T2/rp,T:T2,P:rp};
+      const T3=T2*p2; const s3={V:T3/rp,T:T3,P:rp};
+      const T4=T3*Math.pow(rp,(1-g)/g); const s4={V:T4,T:T4,P:1};
+      st=[s1,s2,s3,s4]; procs=['adiab','isop','adiab','isop']; eta=1-Math.pow(rp,(1-g)/g);
+      name='Brayton'; formula='η = 1 − rp^((1−γ)/γ)';
+    }
+    // エントロピーを s1.S=1 から巡って割り当て
+    st[0].S=1;
+    for(let i=0;i<4;i++){ const a=st[i], b=st[(i+1)%4], ty=procs[i];
+      let dS=0;
+      if(ty==='adiab') dS=0;
+      else if(ty==='isot') dS=Math.log(b.V/a.V);
+      else if(ty==='isov') dS=cv*Math.log(b.T/a.T);
+      else dS=cp*Math.log(b.T/a.T);
+      if(i<3) st[i+1].S=a.S+dS;
+    }
+    // サンプリング
+    const pv=[], ts=[], marks=[];
+    for(let i=0;i<4;i++){ const a=st[i], b=st[(i+1)%4]; const seg=sampleProc(a,b,procs[i],36);
+      marks.push({V:a.V,P:a.P,S:a.S,T:a.T,n:i+1});
+      for(let k=(i===0?0:1);k<seg.length;k++){ pv.push({x:seg[k].V,y:seg[k].P}); ts.push({x:seg[k].S,y:seg[k].T}); } }
+    return {pv,ts,marks,eta,name,formula};
+  }
+
+  function plot(ctx,pts,marks,key,xlab,ylab){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+    const P={l:38,r:14,t:14,b:26};
+    let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+    pts.forEach(p=>{ xmin=Math.min(xmin,p.x); xmax=Math.max(xmax,p.x); ymin=Math.min(ymin,p.y); ymax=Math.max(ymax,p.y); });
+    const dx=(xmax-xmin)||1, dy=(ymax-ymin)||1; xmin-=dx*0.08; xmax+=dx*0.08; ymin-=dy*0.10; ymax+=dy*0.10;
+    const X=v=>P.l+(v-xmin)/(xmax-xmin)*(W-P.l-P.r);
+    const Y=v=>H-P.b-(v-ymin)/(ymax-ymin)*(H-P.t-P.b);
+    // 枠
+    ctx.strokeStyle=GRID; ctx.lineWidth=1; ctx.strokeRect(P.l,P.t,W-P.l-P.r,H-P.t-P.b);
+    // ループ塗り＋線
+    ctx.beginPath(); pts.forEach((p,i)=>{ const x=X(p.x),y=Y(p.y); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.closePath();
+    ctx.fillStyle=FILL; ctx.fill();
+    ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.stroke();
+    // 状態点
+    ctx.font='bold 10px JetBrains Mono, monospace';
+    marks.forEach(m=>{ const x=X(m[key==='pv'?'V':'S']), y=Y(m[key==='pv'?'P':'T']);
+      ctx.fillStyle=TEAL; ctx.beginPath(); ctx.arc(x,y,3.5,0,7); ctx.fill();
+      ctx.fillStyle=INK; ctx.fillText(m.n, x+5, y-4); });
+    // 軸ラベル
+    ctx.fillStyle='#9a9384'; ctx.font='9px JetBrains Mono, monospace';
+    ctx.fillText(xlab, W-P.r-34, H-6); ctx.save(); ctx.translate(10,P.t+30); ctx.rotate(-Math.PI/2); ctx.fillText(ylab,0,0); ctx.restore();
+  }
+
+  function draw(){
+    const d=build();
+    plot(ctxPV, d.pv, d.marks, 'pv', 'V →', 'P →');
+    plot(ctxTS, d.ts, d.marks, 'ts', 'S →', 'T →');
+    elP1.textContent = cyc==='carnot'? p1.toFixed(1)+'×' : p1.toFixed(1);
+    elP2.textContent = p2.toFixed(2)+'×';
+    statusEl.textContent = `${d.name} ／ ${d.formula} ／ 熱効率 η ≈ ${(d.eta*100).toFixed(1)}%`;
+  }
+
+  function setActive(){
+    document.querySelectorAll('[data-th]').forEach(b=>{ const on=b.dataset.th===cyc; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    if(cyc==='carnot'){ labP1.textContent='温度比 Th/Tc'; p2group.style.display='none'; }
+    else if(cyc==='otto'){ labP1.textContent='圧縮比 r'; labP2.textContent='加熱比 T3/T2'; p2group.style.display='flex'; }
+    else { labP1.textContent='圧力比 rp'; labP2.textContent='加熱比 T3/T2'; p2group.style.display='flex'; }
+  }
+  slP1.addEventListener('input',()=>{ p1=parseFloat(slP1.value); draw(); });
+  slP2.addEventListener('input',()=>{ p2=parseFloat(slP2.value); draw(); });
+  document.querySelectorAll('[data-th]').forEach(b=>b.addEventListener('click',()=>{ cyc=b.dataset.th; setActive(); draw(); }));
+
   setActive(); draw();
 })();
 
