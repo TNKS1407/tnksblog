@@ -275,6 +275,18 @@ import Footer from '../components/Footer.astro';
         </label>
       </div>
 
+      <div style="margin-top:.9rem;border-top:1px solid var(--border,#e3dbd0);padding-top:.8rem;">
+        <div class="canvas-label">インタラクティブ：直列 RLC を手で動かす（50Ωの先に R—L—C が直列）</div>
+        <div class="controls" style="margin-top:.4rem;">
+          <div class="ctrl-group"><label>R</label><input type="range" id="vna-R" min="0" max="200" value="35" step="1"><span id="vna-R-val">35 Ω</span></div>
+          <div class="ctrl-group"><label>L</label><input type="range" id="vna-L" min="10" max="500" value="120" step="1"><span id="vna-L-val">120 nH</span></div>
+          <div class="ctrl-group"><label>C</label><input type="range" id="vna-C" min="1" max="100" value="10" step="0.5"><span id="vna-C-val">10 pF</span></div>
+        </div>
+        <div style="font-size:.7rem;color:var(--text-faint,#aaa49b);margin-top:.3rem;line-height:1.6;">
+          R＝中心への近さ（整合）、L↔C＝共振周波数の谷が左右に動く。R=0 にすると無損失で外周に貼り付く。
+        </div>
+      </div>
+
       <div id="vna-drop" style="margin-top:.8rem;border:1.5px dashed var(--border,#e3dbd0);border-radius:12px;padding:1rem;text-align:center;color:var(--text-muted,#7d7568);font-size:.8rem;cursor:pointer;transition:border-color .2s,background .2s;">
         ここに <b>.s1p</b> ファイルをドラッグ＆ドロップ、またはクリックして選択
         <input type="file" id="vna-file" accept=".s1p,.s2p,.txt" style="display:none;">
@@ -2199,7 +2211,7 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   }
 
   function redraw(){ drawSmith(); drawRL(); readout(); }
-  function setData(d){ data=d; mk=50; slMk.value=50; statusEl.textContent=d.name+`（${d.re.length}点, ${fmtHz(d.f[0])}〜${fmtHz(d.f[d.f.length-1])}）`; redraw(); }
+  function setData(d,keepMk){ data=d; if(!keepMk){ mk=50; slMk.value=50; } statusEl.textContent=d.name+`（${d.re.length}点, ${fmtHz(d.f[0])}〜${fmtHz(d.f[d.f.length-1])}）`; redraw(); }
 
   slMk.addEventListener('input',()=>{ mk=parseFloat(slMk.value); redraw(); });
   const DEMOS={ antenna:demoAntenna, parallel:demoParallel, pureC:demoPureC, pureL:demoPureL, coax:demoCoax, line:demoLineLossless, load:demoLoad };
@@ -2208,6 +2220,18 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   }));
   const cbVswr=document.getElementById('vna-vswr');
   cbVswr.addEventListener('change',redraw);
+
+  // インタラクティブ直列RLC（バーで素子値を動かす）
+  const slR=document.getElementById('vna-R'), slL=document.getElementById('vna-L'), slC=document.getElementById('vna-C');
+  function buildRLC(){
+    const R=+slR.value, Lh=+slL.value, Cp=+slC.value, L=Lh*1e-9, C=Cp*1e-12;
+    document.getElementById('vna-R-val').textContent=R+' Ω';
+    document.getElementById('vna-L-val').textContent=Lh+' nH';
+    document.getElementById('vna-C-val').textContent=Cp+' pF';
+    const f0=1/(2*Math.PI*Math.sqrt(L*C));
+    return sweepFromZ(1e6,900e6,201,(fi,w)=>[R, w*L-1/(w*C)], `直列RLC: R=${R}Ω L=${Lh}nH C=${Cp}pF（共振 f0≈${fmtHz(f0)}）`);
+  }
+  [slR,slL,slC].forEach(s=>s.addEventListener('input',()=>setData(buildRLC(),true)));
 
   // ファイル読み込み（ドロップ＆選択）
   const drop=document.getElementById('vna-drop'), fileIn=document.getElementById('vna-file');
