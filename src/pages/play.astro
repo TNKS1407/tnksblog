@@ -210,7 +210,13 @@ import Footer from '../components/Footer.astro';
           <input type="range" id="clt-n" min="1" max="30" value="1" step="1" style="flex:1;">
           <span id="clt-n-val" style="min-width:2rem;">1</span>
         </div>
+        <div class="ctrl-group" style="flex:1;min-width:220px;">
+          <label>試行速度</label>
+          <input type="range" id="clt-speed" min="1" max="200" value="20" step="1" style="flex:1;">
+          <span id="clt-speed-val" style="min-width:5.5rem;">20 回/フレーム</span>
+        </div>
         <button class="btn primary" id="clt-play">▶ 再生</button>
+        <button class="btn" id="clt-step">+1試行</button>
         <button class="btn" id="clt-reset">リセット</button>
       </div>
 
@@ -2027,8 +2033,12 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   function setActive(){ document.querySelectorAll('[data-clt]').forEach(b=>{ const on=b.dataset.clt===name; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; }); }
 
   const playBtn=document.getElementById('clt-play');
-  function loop(){ if(!playing) return; addTrials(60); draw(); if(total>=40000){ playing=false; playBtn.textContent='▶ 再生'; return; } rafId=requestAnimationFrame(loop); }
+  const slSpeed=document.getElementById('clt-speed'), elSpV=document.getElementById('clt-speed-val');
+  let perFrame=20;
+  slSpeed.addEventListener('input',()=>{ perFrame=parseInt(slSpeed.value); elSpV.textContent=perFrame+' 回/フレーム'; });
+  function loop(){ if(!playing) return; addTrials(perFrame); draw(); if(total>=40000){ playing=false; playBtn.textContent='▶ 再生'; return; } rafId=requestAnimationFrame(loop); }
   playBtn.addEventListener('click',()=>{ playing=!playing; playBtn.textContent=playing?'⏸ 停止':'▶ 再生'; if(playing) loop(); else if(rafId) cancelAnimationFrame(rafId); });
+  document.getElementById('clt-step').addEventListener('click',()=>{ addTrials(1); draw(); });
   document.getElementById('clt-reset').addEventListener('click',()=>{ reset(); draw(); });
 
   function renderMath(){ if(!window.katex){ setTimeout(renderMath,120); return; }
