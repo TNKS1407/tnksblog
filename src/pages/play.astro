@@ -262,8 +262,17 @@ import Footer from '../components/Footer.astro';
       <div class="presets" style="margin-top:.8rem;">
         <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">デモ:</span>
         <button class="preset-btn" data-vna-demo="antenna">アンテナ共振</button>
-        <button class="preset-btn" data-vna-demo="coax">開放同軸（渦巻き）</button>
-        <button class="preset-btn" data-vna-demo="load">標準器（50Ω負荷）</button>
+        <button class="preset-btn" data-vna-demo="parallel">並列共振</button>
+        <button class="preset-btn" data-vna-demo="pureC">純C</button>
+        <button class="preset-btn" data-vna-demo="pureL">純L</button>
+        <button class="preset-btn" data-vna-demo="coax">開放同軸（損失で渦）</button>
+        <button class="preset-btn" data-vna-demo="line">無損失線路</button>
+        <button class="preset-btn" data-vna-demo="load">標準器（50Ω）</button>
+      </div>
+      <div style="margin-top:.5rem;display:flex;align-items:center;gap:.5rem;">
+        <label style="font-size:.72rem;color:var(--text-muted,#7d7568);display:flex;align-items:center;gap:.35rem;cursor:pointer;">
+          <input type="checkbox" id="vna-vswr" checked> VSWR=2 の円を表示（整合の目安）
+        </label>
       </div>
 
       <div id="vna-drop" style="margin-top:.8rem;border:1.5px dashed var(--border,#e3dbd0);border-radius:12px;padding:1rem;text-align:center;color:var(--text-muted,#7d7568);font-size:.8rem;cursor:pointer;transition:border-color .2s,background .2s;">
@@ -2061,6 +2070,23 @@ clearCanvas(ctxD); clearCanvas(ctxE);
       f.push(fi); re.push(0.01*Math.cos(fi/3e8)); im.push(0.01*Math.sin(fi/3e8)); }
     return {f,re,im,name:'デモ: 標準器 50Ω負荷（中心に集まる）'};
   }
+  // Z(複素) から Γ を作るヘルパ
+  function zToGamma(zr,zi){ const dr=zr-Z0, di=zi, er=zr+Z0, ei=zi, den=er*er+ei*ei;
+    return [(dr*er+di*ei)/den,(di*er-dr*ei)/den]; }
+  function sweepFromZ(lo,hi,N,Zf,name){ const f=[],re=[],im=[];
+    for(let i=0;i<N;i++){ const fi=lo+(hi-lo)*i/(N-1); const w=2*Math.PI*fi; const z=Zf(fi,w); const g=zToGamma(z[0],z[1]); f.push(fi); re.push(g[0]); im.push(g[1]); }
+    return {f,re,im,name}; }
+  function demoPureC(){ const C=10e-12; // 10pF: 低周波で開放→高周波で短絡、外周の下半分(容量性)を動く
+    return sweepFromZ(1e6,900e6,201,(fi,w)=>[0,-1/(w*C)],'デモ: 純C（10pF）— 無損失で外周の下半分（容量性）'); }
+  function demoPureL(){ const L=100e-9; // 100nH: 低周波で短絡→高周波で開放、外周の上半分(誘導性)
+    return sweepFromZ(1e6,900e6,201,(fi,w)=>[0,w*L],'デモ: 純L（100nH）— 無損失で外周の上半分（誘導性）'); }
+  function demoParallel(){ // 並列共振 R∥L∥C: f0で高Z→中心付近、外れると外周へ（直列共振の逆）
+    const f0=145e6, w0=2*Math.PI*f0, L=120e-9, C=1/(w0*w0*L), Rp=300;
+    return sweepFromZ(100e6,200e6,201,(fi,w)=>{ const G=1/Rp, B=w*C-1/(w*L), yy=G*G+B*B; return [G/yy,-B/yy]; },'デモ: 並列共振（バンドストップ, f0≈145MHz）'); }
+  function demoLineLossless(){ const v=2e8, Lc=1.0; const f=[],re=[],im=[]; const N=401, lo=1e6, hi=900e6;
+    for(let i=0;i<N;i++){ const fi=lo+(hi-lo)*i/(N-1); const ph=-2*(2*Math.PI*fi/v)*Lc; // 先端開放・無損失: |Γ|=1のまま外周を回り続ける
+      f.push(fi); re.push(Math.cos(ph)); im.push(Math.sin(ph)); }
+    return {f,re,im,name:'デモ: 無損失線路 1m（先端開放）— 外周を回り続ける（損失版と対比）'}; }
 
   // ── Touchstone .s1p パーサ ──────────────────────
   function parseTouchstone(text){
@@ -2108,6 +2134,11 @@ clearCanvas(ctxD); clearCanvas(ctxE);
     ctxS.strokeStyle='rgba(60,120,118,.5)'; ctxS.lineWidth=1.4;
     ctxS.beginPath(); ctxS.arc(CX,CY,RAD,0,2*Math.PI); ctxS.stroke();
     ctxS.beginPath(); ctxS.moveTo(gx(-1),gy(0)); ctxS.lineTo(gx(1),gy(0)); ctxS.stroke();
+    // VSWR=2 の円（整合の目安）: |Γ|=(VSWR-1)/(VSWR+1)=1/3
+    const cbv=document.getElementById('vna-vswr');
+    if(cbv && cbv.checked){ ctxS.strokeStyle='rgba(201,118,31,.55)'; ctxS.lineWidth=1.2; ctxS.setLineDash([4,3]);
+      ctxS.beginPath(); ctxS.arc(CX,CY,RAD/3,0,2*Math.PI); ctxS.stroke(); ctxS.setLineDash([]);
+      ctxS.fillStyle='rgba(201,118,31,.8)'; ctxS.font='8px JetBrains Mono, monospace'; ctxS.fillText('VSWR=2',CX+RAD/3+3,CY-3); }
     // ラベル
     ctxS.fillStyle='#bbb5ac'; ctxS.font='9px JetBrains Mono, monospace';
     ctxS.fillText('短絡',gx(-1)+3,CY-5); ctxS.fillText('開放',gx(1)-26,CY-5);
@@ -2171,9 +2202,12 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   function setData(d){ data=d; mk=50; slMk.value=50; statusEl.textContent=d.name+`（${d.re.length}点, ${fmtHz(d.f[0])}〜${fmtHz(d.f[d.f.length-1])}）`; redraw(); }
 
   slMk.addEventListener('input',()=>{ mk=parseFloat(slMk.value); redraw(); });
+  const DEMOS={ antenna:demoAntenna, parallel:demoParallel, pureC:demoPureC, pureL:demoPureL, coax:demoCoax, line:demoLineLossless, load:demoLoad };
   document.querySelectorAll('[data-vna-demo]').forEach(b=>b.addEventListener('click',()=>{
-    const k=b.dataset.vnaDemo; setData(k==='antenna'?demoAntenna():k==='coax'?demoCoax():demoLoad());
+    const fn=DEMOS[b.dataset.vnaDemo]||demoLoad; setData(fn());
   }));
+  const cbVswr=document.getElementById('vna-vswr');
+  cbVswr.addEventListener('change',redraw);
 
   // ファイル読み込み（ドロップ＆選択）
   const drop=document.getElementById('vna-drop'), fileIn=document.getElementById('vna-file');
