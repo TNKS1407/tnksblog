@@ -15,16 +15,24 @@ const today = new Date();
 </footer>
 
 <script is:inline>
+  // 母艦(feedback.tnks1407.com)のビューカウンターを使う。tnkblogは実験相なので
+  // tnks1407への参照はOK。キーは "tnkblog-<page>"。tnks1407側の集計とは混ざらない。
   (function(){
+    var API = 'https://feedback.tnks1407.com';
     var path = location.pathname.replace(/\/index\.html$/,'').replace(/\/$/,'') || '/';
-    var key = path === '/' ? 'home' : path.replace(/^\//,'').replace(/\//g,'-');
-    var hit = 'hit_' + key;
-    var doHit = !sessionStorage.getItem(hit);
-    if (doHit) sessionStorage.setItem(hit, '1');
-    fetch('/api/hit?p=' + encodeURIComponent(key) + (doHit ? '&hit=1' : ''))
-      .then(function(r){ return r.json(); })
-      .then(function(d){ if (d && d.count != null){ document.getElementById('hit-n').textContent = d.count.toLocaleString(); document.getElementById('hit-counter').hidden=false; } })
-      .catch(function(){});
+    var sub = path === '/' ? 'home' : path.replace(/^\//,'').replace(/\//g,'-').toLowerCase().replace(/[^a-z0-9-]/g,'');
+    var key = 'tnkblog-' + sub;
+    var flag = 'hit_' + key;
+    var el = document.getElementById('hit-counter');
+    function show(n){ if (n != null){ document.getElementById('hit-n').textContent = Number(n).toLocaleString(); el.hidden = false; } }
+    function read(){ fetch(API + '/views').then(function(r){ return r.json(); }).then(function(v){ show((v && v[key]) || 0); }).catch(function(){}); }
+    if (!sessionStorage.getItem(flag)) {
+      sessionStorage.setItem(flag, '1');
+      fetch(API + '/view?key=' + encodeURIComponent(key), { method: 'POST' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ show(d.count); })
+        .catch(read);
+    } else { read(); }
   })();
 </script>
 
