@@ -314,6 +314,51 @@ import Footer from '../components/Footer.astro';
       <div class="status" id="vna-status"></div>
     </div>
 
+    <!-- LC Filter Designer -->
+    <div class="app-card">
+      <div class="app-title">LCフィルタ設計（ボード線図）</div>
+      <div class="app-desc">
+        ローパス／ハイパス／バンドパスを、1次・2次で切り替えてボード線図（振幅と位相）で見る。<br>
+        カットオフ <span style="font-family:'JetBrains Mono',monospace;">f<sub>c</sub></span> と、2次では <b>Q</b>（鋭さ）を動かすと、−3dB点・傾き（−20/−40 dB/dec）・共振の山がどう動くかが掴める。
+      </div>
+
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">振幅 |H| [dB]</div>
+        <canvas id="cv-lc-mag" width="700" height="200" style="width:100%;height:200px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">位相 ∠H [deg]</div>
+        <canvas id="cv-lc-phase" width="700" height="140" style="width:100%;height:140px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+
+      <div class="presets" style="margin-top:.8rem;">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">種類:</span>
+        <button class="preset-btn" data-lc-type="lpf">ローパス</button>
+        <button class="preset-btn" data-lc-type="hpf">ハイパス</button>
+        <button class="preset-btn" data-lc-type="bpf">バンドパス</button>
+      </div>
+      <div class="presets" style="margin-top:.4rem;">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">次数:</span>
+        <button class="preset-btn" data-lc-order="1">1次</button>
+        <button class="preset-btn" data-lc-order="2">2次</button>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:240px;">
+          <label>カットオフ f_c</label>
+          <input type="range" id="lc-fc" min="2" max="5" value="3" step="0.01" style="flex:1;">
+          <span id="lc-fc-val" style="min-width:5rem;">1.0 kHz</span>
+        </div>
+        <div class="ctrl-group" id="lc-q-group" style="flex:1;min-width:240px;">
+          <label>Q（鋭さ）</label>
+          <input type="range" id="lc-q" min="0.3" max="10" value="0.71" step="0.01" style="flex:1;">
+          <span id="lc-q-val" style="min-width:3rem;">0.71</span>
+        </div>
+      </div>
+
+      <div class="status" id="lc-status"></div>
+    </div>
+
     <!-- Sound Scope -->
     <div class="app-card">
       <div class="app-title">Sound Scope</div>
@@ -2273,5 +2318,105 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) loadFile(f); });
 
   setData(demoAntenna());
+})();
+
+/* ═══════════════════════════════════════════════════
+   LCフィルタ設計（ボード線図）
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cvM=document.getElementById('cv-lc-mag'); if(!cvM) return;
+  const cvP=document.getElementById('cv-lc-phase');
+  const ctxM=cvM.getContext('2d'), ctxP=cvP.getContext('2d');
+  const MW=cvM.width, MH=cvM.height, PW=cvP.width, PH=cvP.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.8)';
+  const FLO=10, FHI=1e6;                 // 表示帯域 10Hz–1MHz（log）
+  const DBTOP=20, DBBOT=-80;
+  const P={l:40,r:12,t:10,b:22};
+
+  let type='lpf', order=2, fc=1000, Q=0.7071;
+  const slFc=document.getElementById('lc-fc'), elFc=document.getElementById('lc-fc-val');
+  const slQ=document.getElementById('lc-q'),  elQ=document.getElementById('lc-q-val');
+  const qGroup=document.getElementById('lc-q-group');
+  const statusEl=document.getElementById('lc-status');
+
+  // 複素H(f) を返す [re,im]
+  function H(f){
+    const x=f/fc;
+    if(order===1){
+      if(type==='lpf'){ const d=1+x*x; return [1/d, -x/d]; }            // 1/(1+jx)
+      if(type==='hpf'){ const d=1+x*x; return [x*x/d, x/d]; }           // jx/(1+jx)
+      // bpf(1次は2次扱いが自然だが、ここでは1次BPFは未定義→LPF*HPF的に簡易: 中心fcの素朴BP）
+      const d=1+x*x; return [x*x/d, x/d];
+    }
+    // 2次: 分母 D = (1-x²) + j(x/Q)
+    const dr=1-x*x, di=x/Q, dd=dr*dr+di*di;
+    if(type==='lpf'){ // 1/D
+      return [dr/dd, -di/dd];
+    } else if(type==='hpf'){ // -x²/D
+      const nr=-x*x; return [nr*dr/dd, -nr*di/dd];
+    } else { // bpf: (j x/Q)/D = (jx/Q)*(conj D)/|D|²
+      const nr=0, ni=x/Q;
+      return [(nr*dr+ni*di)/dd, (ni*dr-nr*di)/dd];
+    }
+  }
+  const mag=([re,im])=>Math.hypot(re,im);
+  const db=v=>20*Math.log10(Math.max(v,1e-9));
+  const ph=([re,im])=>Math.atan2(im,re)*180/Math.PI;
+
+  const fx=f=>P.l+(Math.log10(f)-Math.log10(FLO))/(Math.log10(FHI)-Math.log10(FLO))*(MW-P.l-P.r);
+  const my=d=>P.t+(DBTOP-Math.max(DBBOT,Math.min(DBTOP,d)))/(DBTOP-DBBOT)*(MH-P.t-P.b);
+  const py=p=>P.t+(180-Math.max(-180,Math.min(180,p)))/360*(PH-P.t-P.b);
+
+  function gridMag(){
+    ctxM.fillStyle=BG; ctxM.fillRect(0,0,MW,MH);
+    ctxM.strokeStyle=GRID; ctxM.lineWidth=1; ctxM.fillStyle='#bbb5ac'; ctxM.font='8px JetBrains Mono, monospace';
+    for(let d=DBTOP;d>=DBBOT;d-=20){ const y=my(d); ctxM.beginPath(); ctxM.moveTo(P.l,y); ctxM.lineTo(MW-P.r,y); ctxM.stroke(); ctxM.fillText(d,3,y+3); }
+    for(let e=1;e<=6;e++){ const f=Math.pow(10,e); if(f<FLO||f>FHI) continue; const x=fx(f); ctxM.strokeStyle='rgba(227,219,208,.6)'; ctxM.beginPath(); ctxM.moveTo(x,P.t); ctxM.lineTo(x,MH-P.b); ctxM.stroke();
+      ctxM.fillStyle='#bbb5ac'; ctxM.fillText(f>=1000?(f/1000)+'k':f+'', x+1, MH-3); }
+  }
+  function gridPhase(){
+    ctxP.fillStyle=BG; ctxP.fillRect(0,0,PW,PH);
+    ctxP.strokeStyle=GRID; ctxP.lineWidth=1; ctxP.fillStyle='#bbb5ac'; ctxP.font='8px JetBrains Mono, monospace';
+    for(let p=180;p>=-180;p-=90){ const y=py(p); ctxP.beginPath(); ctxP.moveTo(P.l,y); ctxP.lineTo(PW-P.r,y); ctxP.stroke(); ctxP.fillText(p,3,y+3); }
+    for(let e=1;e<=6;e++){ const f=Math.pow(10,e); if(f<FLO||f>FHI) continue; const x=fx(f); ctxP.beginPath(); ctxP.moveTo(x,P.t); ctxP.lineTo(x,PH-P.b); ctxP.stroke(); }
+  }
+
+  function draw(){
+    gridMag(); gridPhase();
+    // 曲線
+    ctxM.beginPath(); ctxP.beginPath();
+    const N=400; let first=true;
+    for(let i=0;i<=N;i++){
+      const f=Math.pow(10, Math.log10(FLO)+(Math.log10(FHI)-Math.log10(FLO))*i/N);
+      const h=H(f); const mx=fx(f), mY=my(db(mag(h))), pY=py(ph(h));
+      if(first){ ctxM.moveTo(mx,mY); ctxP.moveTo(mx,pY); first=false; } else { ctxM.lineTo(mx,mY); ctxP.lineTo(mx,pY); }
+    }
+    ctxM.strokeStyle=TEAL; ctxM.lineWidth=2; ctxM.stroke();
+    ctxP.strokeStyle=TEAL; ctxP.lineWidth=2; ctxP.stroke();
+    // fc 縦線
+    [[ctxM,MH],[ctxP,PH]].forEach(([c,h])=>{ c.strokeStyle='rgba(201,118,31,.6)'; c.setLineDash([4,3]); c.lineWidth=1; c.beginPath(); c.moveTo(fx(fc),P.t); c.lineTo(fx(fc),h-P.b); c.stroke(); c.setLineDash([]); });
+    ctxM.fillStyle=AMBER; ctxM.font='9px JetBrains Mono, monospace'; ctxM.fillText('fc',fx(fc)+2,P.t+10);
+
+    // 読み取り
+    const tname={lpf:'ローパス',hpf:'ハイパス',bpf:'バンドパス'}[type];
+    const slope = order===1?'±20':'±40';
+    let extra='';
+    if(order===2 && type!=='bpf' && Q>0.7072){ const up=Math.sqrt(Math.max(0,1-1/(2*Q*Q))); const peak=db(1/((1/Q)*Math.sqrt(Math.max(1e-9,1-1/(4*Q*Q))))); extra=` ／ 共振ピーク ≈ +${peak.toFixed(1)}dB @ ${(fc*up>=1000?(fc*up/1000).toFixed(2)+'kHz':(fc*up).toFixed(0)+'Hz')}`; }
+    if(order===2 && type==='bpf'){ extra=` ／ 帯域幅 BW=fc/Q≈${(fc/Q>=1000?(fc/Q/1000).toFixed(2)+'kHz':(fc/Q).toFixed(0)+'Hz')}`; }
+    statusEl.textContent=`${tname}・${order}次 ／ fc=${fc>=1000?(fc/1000).toFixed(2)+'kHz':fc.toFixed(0)+'Hz'}${order===2?` ／ Q=${Q.toFixed(2)}`:''} ／ 漸近傾き ${slope}dB/dec${extra}`;
+  }
+
+  function setActive(){
+    document.querySelectorAll('[data-lc-type]').forEach(b=>{ const on=b.dataset.lcType===type; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    document.querySelectorAll('[data-lc-order]').forEach(b=>{ const on=+b.dataset.lcOrder===order; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    qGroup.style.opacity = order===2?'1':'.4';
+    slQ.disabled = order!==2;
+  }
+  slFc.addEventListener('input',()=>{ fc=Math.pow(10,parseFloat(slFc.value)); elFc.textContent = fc>=1000?(fc/1000).toFixed(2)+' kHz':fc.toFixed(0)+' Hz'; draw(); });
+  slQ.addEventListener('input',()=>{ Q=parseFloat(slQ.value); elQ.textContent=Q.toFixed(2); draw(); });
+  document.querySelectorAll('[data-lc-type]').forEach(b=>b.addEventListener('click',()=>{ type=b.dataset.lcType; setActive(); draw(); }));
+  document.querySelectorAll('[data-lc-order]').forEach(b=>b.addEventListener('click',()=>{ order=+b.dataset.lcOrder; setActive(); draw(); }));
+
+  setActive(); elFc.textContent='1.00 kHz'; draw();
 })();
 </script>
