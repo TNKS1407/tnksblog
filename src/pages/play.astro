@@ -403,6 +403,45 @@ import Footer from '../components/Footer.astro';
       <div class="status" id="th-status"></div>
     </div>
 
+    <!-- PLL Simulator -->
+    <div class="app-card">
+      <div class="app-title">PLLシミュレータ（引き込み・整定）</div>
+      <div class="app-desc">
+        位相比較器→ループフィルタ→VCO の2次PLL（type-II）。基準周波数をステップ変化させたとき、VCOがどう<b>引き込んで整定</b>するかを時間で見る。<br>
+        ループ帯域 <span style="font-family:'JetBrains Mono',monospace;">f<sub>n</sub></span> と 減衰 <b>ζ</b> を動かすと、行き過ぎ（オーバーシュート）と整定時間のトレードオフが掴める。
+      </div>
+
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">VCO周波数の追従（目標＝点線）</div>
+        <canvas id="cv-pll-f" width="700" height="180" style="width:100%;height:180px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">位相誤差 θe（→ 0 に収束）</div>
+        <canvas id="cv-pll-e" width="700" height="140" style="width:100%;height:140px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:220px;">
+          <label>ループ帯域 f_n</label>
+          <input type="range" id="pll-fn" min="1" max="3" value="2" step="0.01" style="flex:1;">
+          <span id="pll-fn-val" style="min-width:5rem;">100 Hz</span>
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:200px;">
+          <label>減衰 ζ</label>
+          <input type="range" id="pll-z" min="0.1" max="2" value="0.707" step="0.01" style="flex:1;">
+          <span id="pll-z-val" style="min-width:3rem;">0.71</span>
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:200px;">
+          <label>周波数ステップ Δf</label>
+          <input type="range" id="pll-df" min="2" max="4" value="3" step="0.01" style="flex:1;">
+          <span id="pll-df-val" style="min-width:5rem;">1 kHz</span>
+        </div>
+        <button class="btn primary" id="pll-play">▶ 引き込み再生</button>
+      </div>
+
+      <div class="status" id="pll-status"></div>
+    </div>
+
     <!-- Sound Scope -->
     <div class="app-card">
       <div class="app-title">Sound Scope</div>
@@ -2606,6 +2645,101 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   document.querySelectorAll('[data-th]').forEach(b=>b.addEventListener('click',()=>{ cyc=b.dataset.th; setActive(); draw(); }));
 
   setActive(); draw();
+})();
+
+/* ===================================================
+   PLLシミュレータ（引き込み・整定）
+   =================================================== */
+(function(){
+  const cvF=document.getElementById('cv-pll-f'); if(!cvF) return;
+  const cvE=document.getElementById('cv-pll-e');
+  const ctxF=cvF.getContext('2d'), ctxE=cvE.getContext('2d');
+  const FW=cvF.width, FH=cvF.height, EW=cvE.width, EH=cvE.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.8)';
+  const P={l:46,r:12,t:12,b:22};
+
+  let fn=100, z=0.707, df=1000;
+  let sim=null, playing=false, rafId=null, frac=1;
+  const slFn=document.getElementById('pll-fn'), elFn=document.getElementById('pll-fn-val');
+  const slZ=document.getElementById('pll-z'), elZ=document.getElementById('pll-z-val');
+  const slDf=document.getElementById('pll-df'), elDf=document.getElementById('pll-df-val');
+  const statusEl=document.getElementById('pll-status');
+  const playBtn=document.getElementById('pll-play');
+
+  const fHz=f=> f>=1000?(f/1000).toFixed(2)+' kHz':f.toFixed(0)+' Hz';
+
+  function simulate(){
+    const wn=2*Math.PI*fn, a=2*z*wn, b=wn*wn, win=2*Math.PI*df;
+    const Tmax=Math.max(8/(z*wn), 6/wn);
+    const N=1500, dt=Tmax/N;
+    // 状態: θe(x), I(積分). ω_vco = a*θe + b*I
+    let th=0, I=0;
+    const t=[], fv=[], te=[];
+    function deriv(th,I){ const wv=a*th+b*I; return [win-wv, th, wv]; }
+    for(let k=0;k<=N;k++){
+      const tk=k*dt;
+      const wv=a*th+b*I;
+      t.push(tk); fv.push(wv/(2*Math.PI)); te.push(th);
+      // RK4
+      const k1=deriv(th,I);
+      const k2=deriv(th+0.5*dt*k1[0], I+0.5*dt*k1[1]);
+      const k3=deriv(th+0.5*dt*k2[0], I+0.5*dt*k2[1]);
+      const k4=deriv(th+dt*k3[0], I+dt*k3[1]);
+      th += dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+      I  += dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    }
+    const fpeak=Math.max(...fv), tepeak=Math.max(...te.map(Math.abs));
+    const Mp = z<1? Math.exp(-Math.PI*z/Math.sqrt(1-z*z)) : 0;
+    const ts = 4/(z*wn);
+    return {t,fv,te,Tmax,fpeak,tepeak,Mp,ts};
+  }
+
+  function axes(ctx,W,Hh,ymin,ymax,Tmax,ylab,zeroLine){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,Hh);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1; ctx.strokeRect(P.l,P.t,W-P.l-P.r,Hh-P.t-P.b);
+    ctx.fillStyle='#9a9384'; ctx.font='8px JetBrains Mono, monospace';
+    // y目盛り（上端/下端/0）
+    const Y=v=>P.t+(ymax-v)/(ymax-ymin)*(Hh-P.t-P.b);
+    [ymax,(ymax+ymin)/2,ymin].forEach(v=>{ const y=Y(v); ctx.fillText(v.toPrecision(2),2,y+3); });
+    if(zeroLine && ymin<0 && ymax>0){ const y0=Y(0); ctx.strokeStyle='rgba(60,120,118,.35)'; ctx.beginPath(); ctx.moveTo(P.l,y0); ctx.lineTo(W-P.r,y0); ctx.stroke(); }
+    ctx.fillStyle='#9a9384'; ctx.fillText('time →',W-P.r-40,Hh-4); ctx.save(); ctx.translate(10,P.t+34); ctx.rotate(-Math.PI/2); ctx.fillText(ylab,0,0); ctx.restore();
+    return Y;
+  }
+
+  function render(){
+    if(!sim) return;
+    const upto=Math.max(2,Math.floor(sim.t.length*frac));
+    const Tmax=sim.Tmax;
+    const fX=t=>P.l+t/Tmax*(FW-P.l-P.r);
+    const fmax=Math.max(df*1.05, sim.fpeak*1.05);
+    const fY=axes(ctxF,FW,FH,0,fmax,Tmax,'f [Hz]',false);
+    // 目標線
+    ctxF.strokeStyle='rgba(201,118,31,.7)'; ctxF.setLineDash([5,4]); ctxF.lineWidth=1.2;
+    ctxF.beginPath(); ctxF.moveTo(P.l,fY(df)); ctxF.lineTo(FW-P.r,fY(df)); ctxF.stroke(); ctxF.setLineDash([]);
+    ctxF.fillStyle='#c9761f'; ctxF.font='8px JetBrains Mono, monospace'; ctxF.fillText('目標 '+fHz(df),P.l+3,fY(df)-3);
+    ctxF.beginPath(); for(let k=0;k<upto;k++){ const x=fX(sim.t[k]),y=fY(sim.fv[k]); k?ctxF.lineTo(x,y):ctxF.moveTo(x,y); }
+    ctxF.strokeStyle=TEAL; ctxF.lineWidth=2; ctxF.stroke();
+
+    const eX=t=>P.l+t/Tmax*(EW-P.l-P.r);
+    const em=Math.max(0.05, sim.tepeak*1.15);
+    const eY=axes(ctxE,EW,EH,-em*0.2,em,Tmax,'θe [rad]',true);
+    ctxE.beginPath(); for(let k=0;k<upto;k++){ const x=eX(sim.t[k]),y=eY(sim.te[k]); k?ctxE.lineTo(x,y):ctxE.moveTo(x,y); }
+    ctxE.strokeStyle=TEAL; ctxE.lineWidth=2; ctxE.stroke();
+  }
+
+  function refresh(){
+    fn=Math.pow(10,parseFloat(slFn.value)); z=parseFloat(slZ.value); df=Math.pow(10,parseFloat(slDf.value));
+    elFn.textContent=fHz(fn); elZ.textContent=z.toFixed(2); elDf.textContent=fHz(df);
+    sim=simulate(); frac=1; render();
+    const regime = z<0.98?'不足減衰（リンギング）': z>1.02?'過減衰（ゆっくり）':'臨界減衰ぎみ';
+    statusEl.textContent=`fn=${fHz(fn)} ／ ζ=${z.toFixed(2)}（${regime}）／ オーバーシュート ${(sim.Mp*100).toFixed(0)}% ／ 整定時間 ≈ ${(sim.ts*1000).toFixed(2)} ms`;
+  }
+
+  slFn.addEventListener('input',refresh); slZ.addEventListener('input',refresh); slDf.addEventListener('input',refresh);
+  function loop(){ if(!playing) return; frac+=0.02; if(frac>=1){ frac=1; playing=false; playBtn.textContent='▶ 引き込み再生'; render(); return; } render(); rafId=requestAnimationFrame(loop); }
+  playBtn.addEventListener('click',()=>{ if(playing){ playing=false; playBtn.textContent='▶ 引き込み再生'; if(rafId)cancelAnimationFrame(rafId); return; } playing=true; frac=0; playBtn.textContent='⏸ 停止'; loop(); });
+
+  refresh();
 })();
 
 </script>
