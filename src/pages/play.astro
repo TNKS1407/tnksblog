@@ -272,6 +272,137 @@ import Footer from '../components/Footer.astro';
     })();
     </script>
 
+    <!-- Movable pulley: force / distance / work -->
+    <div class="app-card">
+      <div class="app-title">動滑車 — 「力が半分」はどこで崩れる？</div>
+      <div class="app-desc">
+        動滑車は「力が半分・距離が2倍」。でもそれはロープが平行（θ=0）のときだけ。ロープが角度 θ で開くと、上向きに効くのは 2T·cosθ ぶん。<br>
+        だから必要な力は W/(2cosθ) に増える。なのに「した仕事」は W×(持ち上げ高さ) のまま変わらない —— 力と距離は崩れても、仕事＝位置エネルギーの増加は崩れない。θ を動かして確かめて。
+      </div>
+      <div class="canvas-label">θ を動かす ／ 緑 = あなたが引く張力 T, 赤 = 重さ W</div>
+      <canvas id="pul-cv" width="720" height="300" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>ロープの角度 θ</label>
+          <input type="range" id="pul-th" min="0" max="75" value="0">
+          <span id="pul-th-v">0°</span>
+        </div>
+      </div>
+      <div class="status" id="pul-status"></div>
+    </div>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('pul-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var W = cv.width, H = cv.height;
+      var th = 0;                       // 角度(度)
+      var TEAL = '#3c7876', RED = '#c2543d', GREEN = '#2f9e6e', INK = '#1d1b17';
+
+      function arrow(x0, y0, x1, y1, col, lw){
+        ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+        var a = Math.atan2(y1-y0, x1-x0), h = 7;
+        ctx.beginPath(); ctx.moveTo(x1,y1);
+        ctx.lineTo(x1 - h*Math.cos(a - 0.4), y1 - h*Math.sin(a - 0.4));
+        ctx.lineTo(x1 - h*Math.cos(a + 0.4), y1 - h*Math.sin(a + 0.4));
+        ctx.closePath(); ctx.fill();
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,W,H);
+        var rad = th * Math.PI/180, c = Math.cos(rad);
+        // 比率
+        var forceR = 1/(2*c);    // T/W
+        var distR  = 2*c;        // 引くロープ / 持ち上げ
+        var workR  = forceR * distR; // = 1
+
+        // --- 図(左) ---
+        var ceil = 46, cx = 200, py = 180, r = 22;
+        var dx = r + (py - ceil) * Math.tan(rad);
+        var aL = cx - dx, aR = cx + dx;
+        // 天井
+        ctx.strokeStyle = INK; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(60, ceil); ctx.lineTo(360, ceil); ctx.stroke();
+        for(var hx = 66; hx < 360; hx += 14){ ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(hx, ceil); ctx.lineTo(hx-7, ceil-8); ctx.stroke(); }
+        // ロープ(緑) + 張力ラベル
+        ctx.strokeStyle = GREEN; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(aL, ceil); ctx.lineTo(cx - r, py); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(aR, ceil); ctx.lineTo(cx + r, py); ctx.stroke();
+        // 張力の矢印(ロープ方向・上向き)
+        arrow(cx - r, py, cx - r + (aL-(cx-r))*0.35, py + (ceil-py)*0.35, GREEN, 2.5);
+        arrow(cx + r, py, cx + r + (aR-(cx+r))*0.35, py + (ceil-py)*0.35, GREEN, 2.5);
+        // 動滑車
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, py, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, py, 4, 0, Math.PI*2); ctx.fillStyle = INK; ctx.fill();
+        // 荷重
+        ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(cx, py + r); ctx.lineTo(cx, py + r + 14); ctx.stroke();
+        ctx.fillStyle = '#f0ece6'; ctx.strokeStyle = INK;
+        ctx.fillRect(cx-20, py+r+14, 40, 28); ctx.strokeRect(cx-20, py+r+14, 40, 28);
+        // 重さ W(赤・下向き)
+        arrow(cx, py+r+42, cx, py+r+66, RED, 2.5);
+        ctx.fillStyle = RED; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('W', cx + 14, py+r+60);
+        ctx.fillStyle = GREEN; ctx.textAlign = 'left';
+        ctx.fillText('T', cx - r - 16, py - 4);
+        ctx.fillText('T', cx + r + 6, py - 4);
+        // θ 表示（鉛直からの角度）
+        ctx.strokeStyle = '#aaa49b'; ctx.setLineDash([4,3]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx + r, py); ctx.lineTo(cx + r, ceil); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#7d7568'; ctx.fillText('θ=' + th + '°', cx + r + 6, ceil + 26);
+
+        // --- 棒グラフ(右) ---
+        var bx = 430, bw = 230, by = 70, bg = 46, maxV = 2;
+        function bar(y, label, val, col){
+          ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+          ctx.fillText(label, bx, y - 6);
+          ctx.fillStyle = '#ece7df'; ctx.fillRect(bx, y, bw, 16);
+          ctx.fillStyle = col; ctx.fillRect(bx, y, bw * Math.min(1, val/maxV), 16);
+          ctx.fillStyle = INK; ctx.textAlign = 'right';
+          ctx.fillText('×' + val.toFixed(2), bx + bw, y - 6);
+        }
+        bar(by,        '必要な力  T/W = 1/(2cosθ)', forceR, RED);
+        bar(by + bg,   '引く距離  (ロープ/持ち上げ) = 2cosθ', distR, TEAL);
+        bar(by + 2*bg, '仕事  = 力 × 距離', workR, GREEN);
+        // 仕事バーに「一定」マーク
+        ctx.strokeStyle = GREEN; ctx.setLineDash([4,3]); ctx.lineWidth = 1.5;
+        var x1 = bx + bw * (1/maxV);
+        ctx.beginPath(); ctx.moveTo(x1, by + 2*bg - 8); ctx.lineTo(x1, by + 2*bg + 24); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = GREEN; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('いつもここ（一定）', x1, by + 2*bg + 38);
+      }
+
+      function status(){
+        var el = document.getElementById('pul-status');
+        var rad = th*Math.PI/180, c = Math.cos(rad);
+        var fr = (1/(2*c));
+        if(th === 0){
+          el.textContent = 'ロープが平行（θ=0）。力は半分 T=W/2、引く距離は2倍、仕事＝W×高さ。これが教科書の動滑車。';
+          el.style.color = TEAL;
+        } else if(th >= 60){
+          el.textContent = 'θ=' + th + '°。cosθ が小さく、必要な力 T=W/(2cosθ)=' + fr.toFixed(2) + '×W。θ=60°では T=W —— 動滑車の利得はゼロ。でも引く距離も同じだけ減って、仕事は W×高さ のまま。「力が半分」は崩れても、仕事＝位置エネルギーの増加は崩れない。';
+          el.style.color = RED;
+        } else {
+          el.textContent = 'θ=' + th + '°。上向きに効くのは 2T·cosθ。必要な力 T=W/(2cosθ)=' + fr.toFixed(2) + '×W に増えた。けれど引くロープは 2cosθ 倍に減り、積（仕事）は W×高さ で一定。力×距離＝位置エネルギーの増加、が不変量。';
+          el.style.color = '#7d7568';
+        }
+      }
+
+      function render(){ draw(); status(); }
+      document.getElementById('pul-th').addEventListener('input', function(e){
+        th = parseInt(e.target.value, 10);
+        document.getElementById('pul-th-v').textContent = th + '°';
+        render();
+      });
+      render();
+    })();
+    </script>
+
     <!-- Fourier Sketchbook -->
     <div class="app-card">
       <div class="app-title">Fourier スケッチブック</div>
