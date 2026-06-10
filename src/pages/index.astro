@@ -32,6 +32,27 @@ const posts = (await getCollection('blog')).sort(
 
       <DailyQuip />
 
+      <section class="play-promo">
+        <h2 class="section-title">遊び場</h2>
+        <a href="/play" class="play-card">
+          <div class="play-card-main">
+            <div class="play-card-title">/play — 触って動かす実験場</div>
+            <div class="play-card-desc">記事より気楽に、手で動かせるものを置いてる。描く・回す・壊す、で何かが分かるやつ。</div>
+            <div class="play-chips">
+              <span class="play-chip">Fourier</span>
+              <span class="play-chip">畳み込み</span>
+              <span class="play-chip">中心極限定理</span>
+              <span class="play-chip">Smith chart</span>
+              <span class="play-chip">LCフィルタ</span>
+              <span class="play-chip">熱力学</span>
+              <span class="play-chip">PLL</span>
+              <span class="play-chip">+ more</span>
+            </div>
+          </div>
+          <span class="play-card-arrow">→</span>
+        </a>
+      </section>
+
       <section class="posts">
         <h2 class="section-title">最新の記事</h2>
         {posts.length === 0 ? (
@@ -136,6 +157,34 @@ const posts = (await getCollection('blog')).sort(
 
   .empty { text-align: center; padding: 3rem; background: var(--card); border: 1px dashed var(--border); border-radius: 14px; color: var(--text-muted); }
   .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+  /* 遊び場(/play)への導線 */
+  .play-promo { margin-bottom: 2.5rem; }
+  .play-card {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.3rem 1.4rem;
+    text-decoration: none; color: var(--text);
+    box-shadow: 0 1px 6px var(--shadow);
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .play-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--accent-soft) 0%, transparent 60%);
+    opacity: 0.5; pointer-events: none;
+  }
+  .play-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 5px 18px var(--shadow); opacity: 1; }
+  .play-card-main { position: relative; z-index: 1; flex: 1; min-width: 0; }
+  .play-card-title { font-weight: 700; font-size: 0.97rem; margin-bottom: 0.35rem; color: var(--text); }
+  .play-card-desc { font-size: 0.83rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 0.7rem; }
+  .play-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .play-chip {
+    background: var(--surface2, #f0ece6); border: 1px solid var(--border-dim, #ede8e0);
+    color: var(--text-muted); padding: 0.1rem 0.5rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 500; font-family: 'JetBrains Mono', monospace;
+  }
+  .play-card-arrow { position: relative; z-index: 1; font-size: 1.3rem; color: var(--accent); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
 </style>
 
 <canvas id="tinks" style="position:fixed;bottom:0;left:0;pointer-events:none;z-index:999;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
