@@ -592,6 +592,140 @@ import Footer from '../components/Footer.astro';
     })();
     </script>
 
+    <!-- Hue: line to circle (S^1) -->
+    <div class="app-card">
+      <div class="app-title">色相は円になる — 物理の「線」が知覚の「輪」へ</div>
+      <div class="app-desc">
+        物理の波長は、紫(380nm)から赤(700nm)までの<b>一本の線</b>でしかない。両端は別の色で、つながっていない。<br>
+        でも知覚は、スペクトルに無い<b>紫（マゼンタ＝赤と青紫の混色）</b>で両端を糊づけして、<b>輪（色相環 S¹）</b>に閉じてしまう。スライダーを動かすと、線が曲がって円になり、間を非スペクトルの紫が埋めるのが見える。位相が「物理」から「知覚」へ移るときに変わる、いい例だよ。
+      </div>
+      <div class="canvas-label">スライダー：線（波長） → 円（色相環）</div>
+      <canvas id="hue-cv" width="720" height="380" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>線 → 円</label>
+          <input type="range" id="hue-m" min="0" max="100" value="0">
+          <span id="hue-m-v">0%</span>
+        </div>
+        <button class="btn" id="hue-go" type="button">アニメ ▶</button>
+      </div>
+      <div class="status" id="hue-status"></div>
+    </div>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('hue-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var m = 0, timer = null;
+      var cx = 235, cy = 205, R = 135, xLeft = 80, Lw = 310, yLine = 205;
+      var FS = 0.80, UCUT = (FS + 1) / 2;   // 紫の真ん中で切って線にする
+
+      function wl2rgb(wl){
+        var r=0,g=0,b=0;
+        if(wl>=380&&wl<440){r=-(wl-440)/60;b=1;}
+        else if(wl<490){g=(wl-440)/50;b=1;}
+        else if(wl<510){g=1;b=-(wl-510)/20;}
+        else if(wl<580){r=(wl-510)/70;g=1;}
+        else if(wl<645){r=1;g=-(wl-645)/65;}
+        else {r=1;}
+        var f=1;
+        if(wl<420)f=0.3+0.7*(wl-380)/40;
+        else if(wl>700)f=0.3+0.7*(780-wl)/80;
+        return [r*f,g*f,b*f];
+      }
+      function colOfU(u){
+        if(u < FS){ var wl = 700 - (u/FS)*320; return wl2rgb(wl); }
+        var t = (u-FS)/(1-FS);                 // 0(紫端)→1(赤端)
+        var v = wl2rgb(410), rr = wl2rgb(680);
+        return [v[0]+(rr[0]-v[0])*t, v[1]+(rr[1]-v[1])*t, v[2]+(rr[2]-v[2])*t];
+      }
+      function ease(x){ return x*x*(3-2*x); }
+
+      function posLine(s){ return [xLeft + s*Lw, yLine]; }
+      function posCircle(s){ var a = s*2*Math.PI - Math.PI/2; return [cx + R*Math.cos(a), cy + R*Math.sin(a)]; }
+      function pos(s){
+        var e = ease(m), L = posLine(s), C = posCircle(s);
+        return [L[0]+(C[0]-L[0])*e, L[1]+(C[1]-L[1])*e];
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,cv.width,cv.height);
+        var N = 260;
+        ctx.lineWidth = 16; ctx.lineCap = 'round';
+        for(var i=0;i<N;i++){
+          var s0=i/N, s1=(i+1)/N;
+          var u=(s0+UCUT)%1;
+          var isPurple = u >= FS;
+          var rgb = colOfU(u);
+          var p0=pos(s0), p1=pos(s1);
+          ctx.globalAlpha = isPurple ? (0.18 + 0.82*ease(m)) : 1;  // 紫は知覚が足す→mで濃くなる
+          ctx.strokeStyle = 'rgb('+(rgb[0]*255|0)+','+(rgb[1]*255|0)+','+(rgb[2]*255|0)+')';
+          ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        // 端のラベル（赤端・紫端）
+        function uToS(u){ return ((u-UCUT+1)%1); }
+        function labelAt(u, text, col){
+          var p = pos(uToS(u));
+          ctx.fillStyle = col; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(text, p[0], p[1] - 16);
+        }
+        labelAt(0.001, '赤 700nm', '#b03020');
+        labelAt(FS-0.001, '紫 380nm', '#5030a0');
+
+        // 非スペクトルの紫の注記
+        var pmid = pos(uToS((FS+1)/2 % 1));
+        ctx.fillStyle = '#9030a0'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('非スペクトルの紫', pmid[0], pmid[1] + (m>0.5? -22 : 30));
+        ctx.fillText('（知覚が足す）', pmid[0], pmid[1] + (m>0.5? -10 : 42));
+
+        // 中央の注記
+        ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+        if(m < 0.05) ctx.fillText('線（区間）', cx, 360);
+        else if(m > 0.95) ctx.fillText('輪（S¹）', cx, cy);
+      }
+
+      function status(){
+        var el = document.getElementById('hue-status');
+        if(m < 0.05){
+          el.textContent = '物理の波長：紫(380nm)から赤(700nm)までの一本の線。両端は別の色で、つながっていない。区間（線）だよ。';
+          el.style.color = '#7d7568';
+        } else if(m > 0.95){
+          el.textContent = '知覚：赤端と紫端を「非スペクトルの紫（マゼンタ）」で糊づけして、輪に閉じた。これが色相環＝S¹。物理には無い紫が、線を円に変えてる —— 位相そのものが、物理から知覚へ移るときに変わった例だよ。';
+          el.style.color = '#9030a0';
+        } else {
+          el.textContent = '曲げているところ…赤端と紫端が近づいて、その間を「物理には無い紫」が埋めていく。線が輪になる途中。';
+          el.style.color = '#7d7568';
+        }
+      }
+
+      function render(){ draw(); status(); }
+      function setM(v){
+        m = v;
+        document.getElementById('hue-m').value = Math.round(v*100);
+        document.getElementById('hue-m-v').textContent = Math.round(v*100) + '%';
+        render();
+      }
+      document.getElementById('hue-m').addEventListener('input', function(e){
+        if(timer){ clearInterval(timer); timer=null; }
+        setM(parseInt(e.target.value,10)/100);
+      });
+      document.getElementById('hue-go').addEventListener('click', function(){
+        if(timer){ clearInterval(timer); timer=null; return; }
+        var dir = (m >= 0.99) ? -1 : 1;
+        timer = setInterval(function(){
+          var nv = m + dir*0.02;
+          if(nv >= 1){ nv = 1; clearInterval(timer); timer=null; }
+          if(nv <= 0){ nv = 0; clearInterval(timer); timer=null; }
+          setM(nv);
+        }, 30);
+      });
+      render();
+    })();
+    </script>
+
     <!-- Fourier Sketchbook -->
     <div class="app-card">
       <div class="app-title">Fourier スケッチブック</div>
