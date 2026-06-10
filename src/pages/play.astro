@@ -280,7 +280,7 @@ import Footer from '../components/Footer.astro';
         だから必要な力は W/(2cosθ) に増える。なのに「した仕事」は W×(持ち上げ高さ) のまま変わらない —— 力と距離は崩れても、仕事＝位置エネルギーの増加は崩れない。θ を動かして確かめて。
       </div>
       <div class="canvas-label">θ を動かす ／ 緑 = あなたが引く張力 T, 赤 = 重さ W</div>
-      <canvas id="pul-cv" width="720" height="300" style="width:100%;height:auto;cursor:default;"></canvas>
+      <canvas id="pul-cv" width="720" height="360" style="width:100%;height:auto;cursor:default;"></canvas>
       <div class="controls">
         <div class="ctrl-group">
           <label>ロープの角度 θ</label>
@@ -312,69 +312,98 @@ import Footer from '../components/Footer.astro';
 
       function draw(){
         ctx.clearRect(0,0,W,H);
-        var rad = th * Math.PI/180, c = Math.cos(rad);
+        var rad = th * Math.PI/180, c = Math.cos(rad), s = Math.sin(rad);
         // 比率
         var forceR = 1/(2*c);    // T/W
         var distR  = 2*c;        // 引くロープ / 持ち上げ
         var workR  = forceR * distR; // = 1
 
         // --- 図(左) ---
-        var ceil = 46, cx = 200, py = 180, r = 22;
+        var ceil = 44, cx = 190, py = 150, r = 20;
         var dx = r + (py - ceil) * Math.tan(rad);
         var aL = cx - dx, aR = cx + dx;
         // 天井
         ctx.strokeStyle = INK; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(60, ceil); ctx.lineTo(360, ceil); ctx.stroke();
-        for(var hx = 66; hx < 360; hx += 14){ ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(hx, ceil); ctx.lineTo(hx-7, ceil-8); ctx.stroke(); }
-        // ロープ(緑) + 張力ラベル
+        ctx.beginPath(); ctx.moveTo(40, ceil); ctx.lineTo(360, ceil); ctx.stroke();
+        for(var hx = 46; hx < 360; hx += 14){ ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(hx, ceil); ctx.lineTo(hx-7, ceil-8); ctx.stroke(); }
+        // ロープ(緑)
         ctx.strokeStyle = GREEN; ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.moveTo(aL, ceil); ctx.lineTo(cx - r, py); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(aR, ceil); ctx.lineTo(cx + r, py); ctx.stroke();
-        // 張力の矢印(ロープ方向・上向き)
-        arrow(cx - r, py, cx - r + (aL-(cx-r))*0.35, py + (ceil-py)*0.35, GREEN, 2.5);
-        arrow(cx + r, py, cx + r + (aR-(cx+r))*0.35, py + (ceil-py)*0.35, GREEN, 2.5);
         // 動滑車
         ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(cx, py, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.arc(cx, py, 4, 0, Math.PI*2); ctx.fillStyle = INK; ctx.fill();
         // 荷重
         ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath();
-        ctx.moveTo(cx, py + r); ctx.lineTo(cx, py + r + 14); ctx.stroke();
+        ctx.moveTo(cx, py + r); ctx.lineTo(cx, py + r + 12); ctx.stroke();
         ctx.fillStyle = '#f0ece6'; ctx.strokeStyle = INK;
-        ctx.fillRect(cx-20, py+r+14, 40, 28); ctx.strokeRect(cx-20, py+r+14, 40, 28);
-        // 重さ W(赤・下向き)
-        arrow(cx, py+r+42, cx, py+r+66, RED, 2.5);
-        ctx.fillStyle = RED; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('W', cx + 14, py+r+60);
-        ctx.fillStyle = GREEN; ctx.textAlign = 'left';
-        ctx.fillText('T', cx - r - 16, py - 4);
-        ctx.fillText('T', cx + r + 6, py - 4);
-        // θ 表示（鉛直からの角度）
-        ctx.strokeStyle = '#aaa49b'; ctx.setLineDash([4,3]); ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(cx + r, py); ctx.lineTo(cx + r, ceil); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#7d7568'; ctx.fillText('θ=' + th + '°', cx + r + 6, ceil + 26);
+        ctx.fillRect(cx-18, py+r+12, 36, 24); ctx.strokeRect(cx-18, py+r+12, 36, 24);
 
-        // --- 棒グラフ(右) ---
-        var bx = 430, bw = 230, by = 70, bg = 46, maxV = 2;
+        // --- 力ベクトルの分解（右ロープ側で図示） ---
+        var ux = Math.sin(rad), uy = -Math.cos(rad);   // 右ロープ方向の単位ベクトル(上向き)
+        var Tlen = 70 * forceR;                         // T の長さ(力に比例)
+        var ex = cx + r, ey = py;                       // 右ロープの付け根
+        var tx = ex + ux * Tlen, ty = ey + uy * Tlen;   // T 先端
+        // T（ロープ方向・緑）
+        arrow(ex, ey, tx, ty, GREEN, 2.5);
+        // 分解の補助線（T cosθ = 縦, T sinθ = 横）
+        ctx.strokeStyle = '#b9b1a4'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(ex, ty); ctx.stroke();   // 横→縦の補助
+        ctx.setLineDash([]);
+        // 縦成分 T cosθ（青緑、太め）
+        arrow(ex, ey, ex, ey - Tlen*c, TEAL, 3);
+        ctx.fillStyle = TEAL; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('T cosθ', ex + 4, ey - Tlen*c + 4);
+        ctx.fillStyle = GREEN; ctx.fillText('T', tx + 4, ty);
+        // 重さ W(赤・下向き)
+        arrow(cx, py+r+36, cx, py+r+60, RED, 2.5);
+        ctx.fillStyle = RED; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('W', cx + 8, py+r+54);
+        // バランス注記
+        ctx.fillStyle = '#7d7568'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('上向き合計 2·T cosθ = W', cx, ceil - 18);
+        ctx.fillStyle = '#7d7568'; ctx.fillText('θ=' + th + '°', aR + 18, ceil + 14);
+
+        // --- 棒グラフ(右上) ---
+        var bx = 430, bw = 230, by = 58, bg = 40, maxV = 2;
         function bar(y, label, val, col){
           ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
           ctx.fillText(label, bx, y - 6);
-          ctx.fillStyle = '#ece7df'; ctx.fillRect(bx, y, bw, 16);
-          ctx.fillStyle = col; ctx.fillRect(bx, y, bw * Math.min(1, val/maxV), 16);
+          ctx.fillStyle = '#ece7df'; ctx.fillRect(bx, y, bw, 14);
+          ctx.fillStyle = col; ctx.fillRect(bx, y, bw * Math.min(1, val/maxV), 14);
           ctx.fillStyle = INK; ctx.textAlign = 'right';
           ctx.fillText('×' + val.toFixed(2), bx + bw, y - 6);
         }
         bar(by,        '必要な力  T/W = 1/(2cosθ)', forceR, RED);
-        bar(by + bg,   '引く距離  (ロープ/持ち上げ) = 2cosθ', distR, TEAL);
+        bar(by + bg,   '引く距離  ロープ/持ち上げ = 2cosθ', distR, TEAL);
         bar(by + 2*bg, '仕事  = 力 × 距離', workR, GREEN);
-        // 仕事バーに「一定」マーク
         ctx.strokeStyle = GREEN; ctx.setLineDash([4,3]); ctx.lineWidth = 1.5;
         var x1 = bx + bw * (1/maxV);
-        ctx.beginPath(); ctx.moveTo(x1, by + 2*bg - 8); ctx.lineTo(x1, by + 2*bg + 24); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1, by + 2*bg - 6); ctx.lineTo(x1, by + 2*bg + 22); ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = GREEN; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('いつもここ（一定）', x1, by + 2*bg + 38);
+        ctx.fillText('いつもここ（一定）', x1, by + 2*bg + 36);
+
+        // --- 「糸を引く量 vs 上がる高さ」可視化（下） ---
+        var gy = 300, lift = 46;        // 上がる高さの基準px
+        var rope = lift * distR;        // 引く糸 = 2cosθ × lift
+        ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('引いた糸の長さ', 40, gy - lift - 8);
+        ctx.fillText('上がる高さ', 250, gy - lift - 8);
+        // 引く糸(緑・長い)
+        arrow(70, gy, 70, gy - rope, GREEN, 3);
+        ctx.fillStyle = GREEN; ctx.textAlign = 'left';
+        ctx.fillText('= 2cosθ × 高さ', 84, gy - rope/2);
+        // 上がる高さ(青緑・基準)
+        arrow(290, gy, 290, gy - lift, TEAL, 3);
+        ctx.fillStyle = TEAL; ctx.fillText('= 1 ぶん', 304, gy - lift/2);
+        // 基準線
+        ctx.strokeStyle = '#d9d2c6'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+        ctx.beginPath(); ctx.moveTo(40, gy); ctx.lineTo(360, gy); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#7d7568'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+        ctx.fillText(th < 30 ? 'θが小さいほど、糸をたくさん引いて少ししか上がらない' : 'θが大きいと、糸も少ししか引かない（力の得も消える）', 40, gy + 22);
       }
 
       function status(){
