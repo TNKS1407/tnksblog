@@ -116,7 +116,7 @@ import Footer from '../components/Footer.astro';
       var DMIN = -0.20, DMAX = 1.08, PADL = 40, PADR = 28;
       function px(x){ return PADL + (x - DMIN) / (DMAX - DMIN) * (W - PADL - PADR); }
       var AX = H - 64;                  // 数直線の y
-      var ANCHOR = { a: -0.07, b: 0.13 }; // 閉区間モードで左端を覆う毛布
+      var ANCHOR = { a: -0.05, b: 0.22 }; // 閉区間モードで 0 をまたぐ毛布
       var TEAL = '#3c7876', RED = '#c2543d', GREEN = '#2f9e6e';
 
       function bl(n){ return 1 / (n + 1); }   // Uₙ = (1/(n+1), 1) の左端
@@ -136,6 +136,8 @@ import Footer from '../components/Footer.astro';
       function draw(){
         ctx.clearRect(0,0,W,H);
         var L = bl(N);
+        var covered = (mode === 'closed') && (L <= ANCHOR.b);
+        var ns = Math.floor(1/ANCHOR.b - 1) + 1;  // 橋渡しに要る最小の n（緑とつながる毛布）
 
         // 毛布(開区間)の積み重ね
         var top = 18, bottomLevel = AX - 16;
@@ -145,20 +147,28 @@ import Footer from '../components/Footer.astro';
           var y = bottomLevel - (n-1) * step - bh;
           var xL = px(bl(n)), xR = px(1);
           var t = (n-1) / Math.max(1, N-1);
-          ctx.globalAlpha = 0.30 + 0.45 * (1-t);
+          var bridge = covered && (n === ns);
+          ctx.globalAlpha = bridge ? 1 : (covered ? 0.13 : (0.30 + 0.45 * (1-t)));
           ctx.fillStyle = TEAL;
           rrect(xL, y, xR - xL, bh, bh/2); ctx.fill();
+          if(bridge){
+            ctx.globalAlpha = 1; ctx.strokeStyle = '#1d1b17'; ctx.lineWidth = 1.5;
+            rrect(xL, y, xR - xL, bh, bh/2); ctx.stroke();
+            ctx.fillStyle = '#1d1b17'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+            ctx.fillText('この1枚 (U' + ns + ')', xL, y - 4);
+          }
         }
         ctx.globalAlpha = 1;
 
-        // 閉区間モード: 左端を覆う緑の毛布
+        // 閉区間モード: 0 をまたぐ緑の毛布
         if(mode === 'closed'){
           var ay = bottomLevel + 2;
-          ctx.globalAlpha = 0.85; ctx.fillStyle = GREEN;
+          ctx.globalAlpha = 1; ctx.fillStyle = GREEN;
           rrect(px(ANCHOR.a), ay, px(ANCHOR.b) - px(ANCHOR.a), 7, 3); ctx.fill();
-          ctx.globalAlpha = 1;
+          if(covered){ ctx.strokeStyle = '#1d1b17'; ctx.lineWidth = 1.5;
+            rrect(px(ANCHOR.a), ay, px(ANCHOR.b) - px(ANCHOR.a), 7, 3); ctx.stroke(); }
           ctx.fillStyle = GREEN; ctx.font = '11px monospace'; ctx.textAlign = 'left';
-          ctx.fillText('左端の1枚', px(ANCHOR.a), ay + 22);
+          ctx.fillText('0をまたぐ1枚', px(ANCHOR.a), ay + 22);
         }
 
         // 数直線ベース(灰) → 覆えた所(teal) → 覆えてない所(赤)
@@ -210,18 +220,20 @@ import Footer from '../components/Footer.astro';
         var el = document.getElementById('cmp-status');
         var L = bl(N);
         var Ls = L.toFixed(4);
+        var ns = Math.floor(1/ANCHOR.b - 1) + 1;
         if(mode === 'open'){
           el.textContent = '覆えた範囲 (1/(N+1), 1) = (' + Ls + ', 1)。まだ覆えてない (0, ' + Ls + ']。'
-            + 'N を増やすと赤い隙間は縮むけど、0 には永遠に届かない —— だから (0,1) はコンパクトでない。';
+            + '毛布は開区間だから端点 1/(N+1) 自身も覆われず残る（だから "]"）。'
+            + 'N を増やすと赤い隙間は縮むけど 0 には永遠に届かない —— だから (0,1) はコンパクトでない。';
           el.style.color = RED;
         } else {
           if(L <= ANCHOR.b){
-            el.textContent = '覆えた！ 左端の1枚（緑）＋有限枚（N=' + N + '）で [0,1] 全部を覆いきった。'
-              + '閉区間ならいつでも有限で足りる —— これがコンパクト（ハイネ・ボレル）。';
+            el.textContent = '覆えた！ 実は「0をまたぐ緑の1枚」＋「U' + ns + ' の1枚」の たった2枚で [0,1] 全部に届く（他は要らない＝薄く表示）。'
+              + '0 が"在る"から、0 をまたぐ毛布が必ず右に幅をもって橋渡しになり、無限の追いかけっこが終わる。これがコンパクト（ハイネ・ボレル）。';
             el.style.color = GREEN;
           } else {
-            el.textContent = '左端に毛布を1枚（緑）足した。でもまだ [' + ANCHOR.b.toFixed(2) + ', ' + Ls + '] に隙間がある。'
-              + 'N をもう少し増やすと、緑と毛布がつながって覆いきれる。';
+            el.textContent = '0 をまたぐ緑の毛布を置いた（右に幅 ' + ANCHOR.b.toFixed(2) + ' まで）。でもまだ [' + ANCHOR.b.toFixed(2) + ', ' + Ls + '] に隙間。'
+              + 'N を増やして、緑とつながる毛布（U' + ns + '）まで出すと覆いきれる。';
             el.style.color = '#7d7568';
           }
         }
