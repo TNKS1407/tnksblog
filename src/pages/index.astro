@@ -62,7 +62,7 @@ const posts = (await getCollection('blog')).sort(
           </div>
         ) : (
           <ul>
-            {posts.map(post => (
+            {posts.slice(0, 6).map(post => (
               <li>
                 <a href={`/blog/${post.id}/`} class="post-card">
                   {post.data.heroImage && (
@@ -82,6 +82,9 @@ const posts = (await getCollection('blog')).sort(
               </li>
             ))}
           </ul>
+        )}
+        {posts.length > 6 && (
+          <a href="/blog" class="archive-link">記事をすべて見る（全{posts.length}件）<span>→</span></a>
         )}
       </section>
     </main>
@@ -185,6 +188,19 @@ const posts = (await getCollection('blog')).sort(
     font-size: 0.68rem; font-weight: 500; font-family: 'JetBrains Mono', monospace;
   }
   .play-card-arrow { position: relative; z-index: 1; font-size: 1.3rem; color: var(--accent); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+
+  /* 記事一覧(/blog)への導線 */
+  .archive-link {
+    display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    margin-top: 1.25rem; padding: 0.7rem 1rem;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    color: var(--text-muted); text-decoration: none;
+    font-size: 0.82rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+  }
+  .archive-link:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); opacity: 1; }
+  .archive-link span { transition: transform 0.2s; }
+  .archive-link:hover span { transform: translateX(3px); }
 </style>
 
 <canvas id="tinks" style="position:fixed;bottom:0;left:0;pointer-events:none;z-index:999;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
