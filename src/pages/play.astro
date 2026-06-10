@@ -79,6 +79,187 @@ import Footer from '../components/Footer.astro';
       <p>好奇心のまま作ったものを置いている。使い方があってもなくても、まあいい。</p>
     </div>
 
+    <!-- Compactness / open cover -->
+    <div class="app-card">
+      <div class="app-title">コンパクト性 — 開区間はなぜ"覆いきれない"のか</div>
+      <div class="app-desc">
+        区間を「開いた毛布（開区間）」で覆っていく。コンパクトとは「どんな覆い方をしても、有限枚だけ選んで覆い直せる」こと。<br>
+        閉区間 [0,1] はいつでも有限枚で足りる。でも開区間 (0,1) は、端の 0 に向かって毛布を無限に小さくし続けないと覆えない——その「追いつかない」感じを動かして確かめる。覆いの族は Uₙ =（1/(n+1), 1）。
+      </div>
+      <div class="canvas-label">NUMBER LINE — 毛布(開区間)で覆う ／ 赤 = まだ覆えていない</div>
+      <canvas id="cmp-cv" width="720" height="300" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <button class="btn primary" id="cmp-open" type="button">開区間 (0,1)</button>
+          <button class="btn" id="cmp-closed" type="button">閉区間 [0,1]</button>
+        </div>
+        <div class="ctrl-group">
+          <label>毛布の枚数 N</label>
+          <input type="range" id="cmp-n" min="1" max="40" value="4">
+          <span id="cmp-n-v">4</span>
+        </div>
+        <button class="btn" id="cmp-more" type="button">もっと増やす ▶</button>
+      </div>
+      <div class="status" id="cmp-status"></div>
+    </div>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('cmp-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var W = cv.width, H = cv.height;
+      var mode = 'open';   // 'open' | 'closed'
+      var N = 4;
+      var timer = null;
+
+      var DMIN = -0.20, DMAX = 1.08, PADL = 40, PADR = 28;
+      function px(x){ return PADL + (x - DMIN) / (DMAX - DMIN) * (W - PADL - PADR); }
+      var AX = H - 64;                  // 数直線の y
+      var ANCHOR = { a: -0.07, b: 0.13 }; // 閉区間モードで左端を覆う毛布
+      var TEAL = '#3c7876', RED = '#c2543d', GREEN = '#2f9e6e';
+
+      function bl(n){ return 1 / (n + 1); }   // Uₙ = (1/(n+1), 1) の左端
+
+      function rrect(x, y, w, h, r){
+        if(w < 2*r) r = w/2; if(h < 2*r) r = h/2;
+        ctx.beginPath();
+        ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+        ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+      }
+
+      function track(x0, x1, color, lw){
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px(x0), AX); ctx.lineTo(px(x1), AX); ctx.stroke();
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,W,H);
+        var L = bl(N);
+
+        // 毛布(開区間)の積み重ね
+        var top = 18, bottomLevel = AX - 16;
+        var step = Math.min(14, (bottomLevel - top) / N);
+        var bh = Math.max(2.5, step * 0.62);
+        for(var n = 1; n <= N; n++){
+          var y = bottomLevel - (n-1) * step - bh;
+          var xL = px(bl(n)), xR = px(1);
+          var t = (n-1) / Math.max(1, N-1);
+          ctx.globalAlpha = 0.30 + 0.45 * (1-t);
+          ctx.fillStyle = TEAL;
+          rrect(xL, y, xR - xL, bh, bh/2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // 閉区間モード: 左端を覆う緑の毛布
+        if(mode === 'closed'){
+          var ay = bottomLevel + 2;
+          ctx.globalAlpha = 0.85; ctx.fillStyle = GREEN;
+          rrect(px(ANCHOR.a), ay, px(ANCHOR.b) - px(ANCHOR.a), 7, 3); ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = GREEN; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+          ctx.fillText('左端の1枚', px(ANCHOR.a), ay + 22);
+        }
+
+        // 数直線ベース(灰) → 覆えた所(teal) → 覆えてない所(赤)
+        track(0, 1, '#d9d2c6', 6);
+        var sliver;
+        if(mode === 'open'){
+          track(L, 1, TEAL, 6);
+          sliver = { from: 0, to: L, empty: (L <= 0) };
+        } else {
+          // 覆い = (ANCHOR.a, ANCHOR.b) ∪ (L, 1)
+          track(0, Math.min(ANCHOR.b, 1), TEAL, 6);
+          if(L < 1) track(L, 1, TEAL, 6);
+          if(L <= ANCHOR.b) sliver = { from: 0, to: 0, empty: true };
+          else sliver = { from: ANCHOR.b, to: L, empty: false };
+        }
+        if(!sliver.empty && sliver.to > sliver.from) track(sliver.from, sliver.to, RED, 6);
+
+        // 端点マーカー(0 と 1)
+        function endpoint(x){
+          ctx.lineWidth = 2; ctx.strokeStyle = '#1d1b17'; ctx.fillStyle = '#faf8f4';
+          ctx.beginPath(); ctx.arc(px(x), AX, 5, 0, Math.PI*2);
+          if(mode === 'closed'){ ctx.fillStyle = '#1d1b17'; ctx.fill(); }
+          else { ctx.fill(); ctx.stroke(); }
+        }
+        endpoint(0); endpoint(1);
+
+        // 目盛りラベル
+        ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('0', px(0), AX + 22);
+        ctx.fillText('1', px(1), AX + 22);
+        // 1/(N+1) マーカー
+        if(L > 0.02 && L < 0.98){
+          ctx.strokeStyle = RED; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+          ctx.beginPath(); ctx.moveTo(px(L), AX-10); ctx.lineTo(px(L), AX+10); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = RED; ctx.fillText('1/(N+1)', px(L), AX + 36);
+        }
+
+        // 赤い隙間に矢印＋注記
+        if(!sliver.empty && sliver.to - sliver.from > 0.001){
+          var mid = (sliver.from + sliver.to) / 2;
+          ctx.fillStyle = RED; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('まだ覆えてない', px(mid), AX - 26);
+          ctx.beginPath(); ctx.moveTo(px(mid), AX - 22); ctx.lineTo(px(mid), AX - 6); ctx.stroke();
+        }
+      }
+
+      function status(){
+        var el = document.getElementById('cmp-status');
+        var L = bl(N);
+        var Ls = L.toFixed(4);
+        if(mode === 'open'){
+          el.textContent = '覆えた範囲 (1/(N+1), 1) = (' + Ls + ', 1)。まだ覆えてない (0, ' + Ls + ']。'
+            + 'N を増やすと赤い隙間は縮むけど、0 には永遠に届かない —— だから (0,1) はコンパクトでない。';
+          el.style.color = RED;
+        } else {
+          if(L <= ANCHOR.b){
+            el.textContent = '覆えた！ 左端の1枚（緑）＋有限枚（N=' + N + '）で [0,1] 全部を覆いきった。'
+              + '閉区間ならいつでも有限で足りる —— これがコンパクト（ハイネ・ボレル）。';
+            el.style.color = GREEN;
+          } else {
+            el.textContent = '左端に毛布を1枚（緑）足した。でもまだ [' + ANCHOR.b.toFixed(2) + ', ' + Ls + '] に隙間がある。'
+              + 'N をもう少し増やすと、緑と毛布がつながって覆いきれる。';
+            el.style.color = '#7d7568';
+          }
+        }
+      }
+
+      function render(){ draw(); status(); }
+
+      function setMode(m){
+        mode = m;
+        document.getElementById('cmp-open').classList.toggle('primary', m==='open');
+        document.getElementById('cmp-closed').classList.toggle('primary', m==='closed');
+        render();
+      }
+      function setN(v){
+        N = v;
+        document.getElementById('cmp-n').value = v;
+        document.getElementById('cmp-n-v').textContent = v;
+        render();
+      }
+
+      document.getElementById('cmp-open').addEventListener('click', function(){ setMode('open'); });
+      document.getElementById('cmp-closed').addEventListener('click', function(){ setMode('closed'); });
+      document.getElementById('cmp-n').addEventListener('input', function(e){
+        if(timer){ clearInterval(timer); timer = null; }
+        setN(parseInt(e.target.value, 10));
+      });
+      document.getElementById('cmp-more').addEventListener('click', function(){
+        if(timer){ clearInterval(timer); timer = null; return; }
+        timer = setInterval(function(){
+          if(N >= 40){ clearInterval(timer); timer = null; return; }
+          setN(N + 1);
+        }, 220);
+      });
+
+      render();
+    })();
+    </script>
+
     <!-- Fourier Sketchbook -->
     <div class="app-card">
       <div class="app-title">Fourier スケッチブック</div>
