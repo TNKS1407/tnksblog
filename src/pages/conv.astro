@@ -45,10 +45,12 @@ import Footer from '../components/Footer.astro';
     .mcell.pos{color:#0e6f64;} .mcell.neg{color:#c2543d;} .mcell.zero{color:#bcb6ab;}
     .mcell.cur{outline:2px solid #c2543d;outline-offset:-2px;}
     .mcell.dim{color:#d8d2c8;background:#fbfaf7;}
-    .exprview{font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:2.1;color:#b8b2a8;word-break:break-word;}
-    .exprview .ftermon{color:#2a4d49;}
-    .exprview .fhot{background:#fff2ec;color:#c2543d;font-weight:700;border-radius:4px;padding:1px 4px;}
-    .exprview .fplus{color:#c8c2b8;}
+    .exprmat{font-family:'JetBrains Mono',monospace;font-size:.82rem;line-height:2.0;}
+    .exprmat .exprrow{white-space:nowrap;overflow-x:auto;}
+    .exprmat .epos{color:#0e6f64;} .exprmat .eneg{color:#c2543d;} .exprmat .ezero{color:#9aa3a8;}
+    .exprmat .edim{color:#d3cdc3;}
+    .exprmat .ehot{background:#fff2ec;border-radius:4px;padding:1px 5px;outline:1.2px solid #c2543d;font-weight:700;}
+    .exprmat .fplus{color:#c8c2b8;}
     .kmean{margin:.2rem 0 .85rem;font-size:.82rem;color:#2a4d49;background:var(--surface,#faf8f4);border-left:3px solid #3c7876;border-radius:0 8px 8px 0;padding:.55rem .85rem;line-height:1.72;}
     .klegend{margin-top:.5rem;font-size:.72rem;color:var(--text-muted,#7d7568);}
     .klegend .lg-pos{color:#0e6f64;font-weight:700;} .klegend .lg-neg{color:#c2543d;font-weight:700;} .klegend .lg-zero{color:#aaa49b;}
@@ -246,10 +248,17 @@ import Footer from '../components/Footer.astro';
           '<div class="mblock"><div class="mlab">積（要素ごと）</div>'+grid3(res.prod,true,rk,true)+'</div>'+
         '</div>';
       } else {
-        var terms=[];
-        for(i=0;i<9;i++){ var w=k.m[i],v=res.win[i]; var ws=(w<0?'('+w+')':w); var t=ws+'×'+v;
-          terms.push('<span class="'+(i<rk?'ftermon':'fterm')+(i===rk-1?' fhot':'')+'">'+t+'</span>'); }
-        body='<div class="exprview">'+terms.join(' <span class="fplus">+</span> ')+'</div>';
+        var rows='';
+        for(var rr=0;rr<3;rr++){
+          var parts=[];
+          for(var cc=0;cc<3;cc++){
+            var idx=rr*3+cc, w=k.m[idx], v=res.win[idx], ws=(w<0?'('+w+')':w), t=ws+'×'+v;
+            var cls='eterm '+(idx<rk?(w>0?'epos':(w<0?'eneg':'ezero')):'edim')+(idx===rk-1?' ehot':'');
+            parts.push('<span class="'+cls+'">'+t+'</span>');
+          }
+          rows+='<div class="exprrow">'+parts.join('<span class="fplus"> + </span>')+(rr<2?'<span class="fplus"> +</span>':'')+'</div>';
+        }
+        body='<div class="exprmat">'+rows+'</div>';
       }
       var sumExpl;
       if(rk<9){ sumExpl='ここまでの合計 = <b>'+partial+'</b>　（あと '+(9-rk)+' 個）'; }
