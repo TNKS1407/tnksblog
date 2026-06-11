@@ -103,6 +103,7 @@ import Footer from '../components/Footer.astro';
           <button class="btn" id="play" type="button">▶ 再生</button>
           <button class="btn" id="step" type="button">1ステップ</button>
           <button class="btn" id="substep" type="button">1項ずつ</button>
+          <button class="btn" id="finish" type="button">一気に完成</button>
           <button class="btn" id="reset" type="button">リセット</button>
         </div>
         <div class="ctrl-group" style="margin-left:auto;">
@@ -317,6 +318,9 @@ import Footer from '../components/Footer.astro';
       document.getElementById('readout').innerHTML='「▶ 再生」か「1ステップ」を押すと、今まさに計算している1マスが——カーネル行列・入力の窓・その積——として、ここに見えるよ。';
       lastJust=null; subK=0; curRes=null; lastShow=null; hlCell=-1; buildNumMat(); draw(); setStatus(); }
 
+    function finishAll(){ stop(); while(cur<N*N){ var r=(cur/N|0),c=cur%N,res=compute(r,c); out[cur]=res.disp; var nd=ncells[cur]; if(nd){ nd.textContent=res.disp; nd.classList.add('filled'); } cur++; }
+      subK=0; curRes=null; hlCell=-1; if(lastJust){ lastJust.classList.remove('just'); lastJust=null; } draw(); setStatus();
+      document.getElementById('readout').innerHTML='<div class="msum">——全 '+(N*N)+' マス完成。'+curKer().label+'を一回かけ終わった。</div>'; }
     function setOp(o){ op=o; document.querySelectorAll('#ops .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-op')===o); }); reset(); }
 
     var opsWrap=document.getElementById('ops');
@@ -336,6 +340,7 @@ import Footer from '../components/Footer.astro';
     document.getElementById('play').onclick=function(){ if(timer) stop(); else { if(cur>=N*N) reset(); play(); } };
     document.getElementById('step').onclick=function(){ stop(); if(cur>=N*N) reset(); stepOnce(); };
     document.getElementById('substep').onclick=function(){ if(cur>=N*N) reset(); subStep(); };
+    document.getElementById('finish').onclick=function(){ if(cur>=N*N) reset(); finishAll(); };
     document.getElementById('reset').onclick=reset;
     var sp=document.getElementById('speed'); sp.oninput=function(){ speed=+sp.value; if(timer){ clearInterval(timer); timer=setInterval(stepOnce, delay()); } };
 
