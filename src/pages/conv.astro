@@ -48,6 +48,13 @@ import Footer from '../components/Footer.astro';
     .msum{margin-top:.8rem;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#2a4d49;line-height:1.6;}
     .msum b{color:#c2543d;font-size:.95rem;}
     .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.6rem;}
+    .nummat{margin-top:1rem;overflow-x:auto;}
+    .nmlab{font-size:.7rem;color:var(--text-muted,#7d7568);font-family:'JetBrains Mono',monospace;margin-bottom:.45rem;}
+    .nmgrid{display:grid;gap:1px;background:var(--border,#e3dbd0);border:1px solid var(--border,#e3dbd0);border-radius:8px;padding:1px;width:max-content;}
+    .ncell{background:#fff;width:1.95em;height:1.6em;display:flex;align-items:center;justify-content:center;
+      font-family:'JetBrains Mono',monospace;font-size:.6rem;color:#c8c2b8;}
+    .ncell.filled{color:#2a4d49;}
+    .ncell.just{background:#fff2ec;color:#c2543d;font-weight:700;outline:1.5px solid #c2543d;outline-offset:-1.5px;}
   </style>
 </head>
 <body>
@@ -86,6 +93,7 @@ import Footer from '../components/Footer.astro';
         </div>
       </div>
       <div class="readout" id="readout">「▶ 再生」か「1ステップ」を押すと、今まさに計算している1マスが——カーネル行列・入力の窓・その積——として、ここに見えるよ。</div>
+      <div class="nummat" id="nummat"></div>
       <div class="status" id="status"></div>
     </div>
   </main>
@@ -147,6 +155,7 @@ import Footer from '../components/Footer.astro';
     ];
     function curKer(){ for(var i=0;i<KER.length;i++) if(KER[i].id===op) return KER[i]; return KER[0]; }
     var op='blur', cur=0, out=new Array(N*N).fill(null), timer=null, speed=55;
+    var ncells=[], lastJust=null;
 
     function srcAt(yy,xx){ yy=yy<0?0:yy>N-1?N-1:yy; xx=xx<0?0:xx>N-1?N-1:xx; return img[yy*N+xx]; }
     function compute(r,c){
@@ -224,12 +233,23 @@ import Footer from '../components/Footer.astro';
       document.getElementById('readout').innerHTML=html;
     }
 
+    function buildNumMat(){
+      var nm=document.getElementById('nummat'); if(!nm) return;
+      nm.innerHTML='<div class="nmlab">出力の値（行列）— 計算したマスから数字が埋まる（'+N+'×'+N+'）</div>';
+      var g=document.createElement('div'); g.className='nmgrid'; g.style.gridTemplateColumns='repeat('+N+', 1.95em)';
+      ncells=[];
+      for(var i=0;i<N*N;i++){ var d=document.createElement('div'); d.className='ncell'; d.textContent='·'; g.appendChild(d); ncells.push(d); }
+      nm.appendChild(g);
+    }
     function setStatus(){ document.getElementById('status').textContent = '進み: '+Math.min(cur,N*N)+' / '+(N*N)+' マス（カーネル '+curKer().label+'）'; }
 
     function stepOnce(){
       if(cur>=N*N){ stop(); return; }
       var r=(cur/N|0), c=cur%N, res=compute(r,c);
-      out[cur]=res.disp; showReadout(r,c,res); cur++;
+      out[cur]=res.disp;
+      if(lastJust) lastJust.classList.remove('just');
+      var nd=ncells[cur]; if(nd){ nd.textContent=res.disp; nd.classList.add('filled'); nd.classList.add('just'); lastJust=nd; }
+      showReadout(r,c,res); cur++;
       draw(); setStatus();
       if(cur>=N*N){ stop(); document.getElementById('readout').innerHTML+='<div class="msum">——全 '+(N*N)+' マス完成。これが畳み込み1回ぶんだよ。</div>'; }
     }
@@ -238,7 +258,7 @@ import Footer from '../components/Footer.astro';
     function stop(){ if(timer){clearInterval(timer);timer=null;} var b=document.getElementById('play'); b.textContent='▶ 再生'; b.classList.remove('on'); }
     function reset(){ stop(); cur=0; out=new Array(N*N).fill(null);
       document.getElementById('readout').innerHTML='「▶ 再生」か「1ステップ」を押すと、今まさに計算している1マスが——カーネル行列・入力の窓・その積——として、ここに見えるよ。';
-      draw(); setStatus(); }
+      lastJust=null; buildNumMat(); draw(); setStatus(); }
 
     function setOp(o){ op=o; document.querySelectorAll('#ops .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-op')===o); }); reset(); }
 
