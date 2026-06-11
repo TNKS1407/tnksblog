@@ -44,6 +44,11 @@ import Footer from '../components/Footer.astro';
       font-family:'JetBrains Mono',monospace;background:#fff;border:1px solid var(--border,#e3dbd0);border-radius:4px;}
     .mcell.pos{color:#0e6f64;} .mcell.neg{color:#c2543d;} .mcell.zero{color:#bcb6ab;}
     .mcell.cur{outline:2px solid #c2543d;outline-offset:-2px;}
+    .mcell.dim{color:#d8d2c8;background:#fbfaf7;}
+    .exprview{font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:2.1;color:#b8b2a8;word-break:break-word;}
+    .exprview .ftermon{color:#2a4d49;}
+    .exprview .fhot{background:#fff2ec;color:#c2543d;font-weight:700;border-radius:4px;padding:1px 4px;}
+    .exprview .fplus{color:#c8c2b8;}
     .mop{font-size:1.05rem;color:#3c7876;font-weight:700;align-self:center;padding-top:1em;}
     .msum{margin-top:.8rem;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#2a4d49;line-height:1.6;}
     .msum b{color:#c2543d;font-size:.95rem;}
@@ -81,11 +86,16 @@ import Footer from '../components/Footer.astro';
         <span style="font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;">カーネル</span>
         <div class="ops" id="ops" style="margin-bottom:0;"></div>
       </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:1rem;">
+        <span style="font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;">見せ方</span>
+        <div class="ops" id="reprs" style="margin-bottom:0;"></div>
+      </div>
       <canvas id="cv" width="720" height="372"></canvas>
       <div class="controls">
         <div class="ctrl-group">
           <button class="btn" id="play" type="button">▶ 再生</button>
           <button class="btn" id="step" type="button">1ステップ</button>
+          <button class="btn" id="substep" type="button">1項ずつ</button>
           <button class="btn" id="reset" type="button">リセット</button>
         </div>
         <div class="ctrl-group" style="margin-left:auto;">
@@ -156,7 +166,7 @@ import Footer from '../components/Footer.astro';
     ];
     function curKer(){ for(var i=0;i<KER.length;i++) if(KER[i].id===op) return KER[i]; return KER[0]; }
     var op='blur', cur=0, out=new Array(N*N).fill(null), timer=null, speed=55;
-    var ncells=[], lastJust=null;
+    var ncells=[], lastJust=null, repr='mat', subK=0, curRes=null, lastShow=null;
 
     function srcAt(yy,xx){ yy=yy<0?0:yy>N-1?N-1:yy; xx=xx<0?0:xx>N-1?N-1:xx; return img[yy*N+xx]; }
     function compute(r,c){
@@ -206,34 +216,47 @@ import Footer from '../components/Footer.astro';
       }
     }
 
-    function grid3(arr,colorBySign){
-      var s='<div class="m3">';
+    function grid3(arr,colorBySign,rk,isProd){
+      var s='<div class="m3">', hi=(rk<9?rk-1:4);
       for(var i=0;i<9;i++){
-        var val=arr[i], cls='mcell';
-        if(colorBySign){ cls += val>0?' pos':(val<0?' neg':' zero'); }
-        if(i===4) cls+=' cur';
-        s+='<div class="'+cls+'">'+val+'</div>';
+        var val=arr[i], cls='mcell', show=!(isProd && i>=rk);
+        if(show && colorBySign){ cls += val>0?' pos':(val<0?' neg':' zero'); }
+        if(i===hi) cls+=' cur';
+        if(!show) cls+=' dim';
+        s+='<div class="'+cls+'">'+(show?val:'·')+'</div>';
       }
       return s+'</div>';
     }
-    function showReadout(r,c,res){
-      var k=curKer(), sumExpl;
-      if(k.disp==='avg') sumExpl='Σ積 = '+res.sum+'　÷ '+k.div+' = <b>'+res.disp+'</b>';
-      else if(k.disp==='abs') sumExpl='Σ積 = '+res.sum+'　→ |絶対値| = <b>'+res.disp+'</b>';
-      else if(k.disp==='offset') sumExpl='Σ積 = '+res.sum+'　+ 128 = <b>'+res.disp+'</b>';
-      else sumExpl='Σ積 = '+res.sum+'　→ 0〜255にクランプ = <b>'+res.disp+'</b>';
-      var html='<div class="rhead">'+k.label+'　／　出力 (x='+c+', y='+r+')</div>'+
-        '<div class="matview">'+
-          '<div class="mblock"><div class="mlab">カーネル h</div>'+grid3(k.m,true)+'</div>'+
+    function showReadout(r,c,res,rk){
+      lastShow={r:r,c:c,res:res,rk:rk};
+      var k=curKer(), partial=0, i; for(i=0;i<rk;i++) partial+=res.prod[i];
+      var head='<div class="rhead">'+k.label+'　／　出力 (x='+c+', y='+r+')'+(rk<9?'　— '+rk+' / 9 個め':'')+'</div>';
+      var body;
+      if(repr==='mat'){
+        body='<div class="matview">'+
+          '<div class="mblock"><div class="mlab">カーネル h</div>'+grid3(k.m,true,rk,false)+'</div>'+
           '<div class="mop">⊙</div>'+
-          '<div class="mblock"><div class="mlab">入力の窓</div>'+grid3(res.win,false)+'</div>'+
+          '<div class="mblock"><div class="mlab">入力の窓</div>'+grid3(res.win,false,rk,false)+'</div>'+
           '<div class="mop">=</div>'+
-          '<div class="mblock"><div class="mlab">積（要素ごと）</div>'+grid3(res.prod,true)+'</div>'+
-        '</div>'+
-        '<div class="msum">'+sumExpl+'　→ 出力マスに書き込み</div>'+
+          '<div class="mblock"><div class="mlab">積（要素ごと）</div>'+grid3(res.prod,true,rk,true)+'</div>'+
+        '</div>';
+      } else {
+        var terms=[];
+        for(i=0;i<9;i++){ var w=k.m[i],v=res.win[i]; var ws=(w<0?'('+w+')':w); var t=ws+'×'+v;
+          terms.push('<span class="'+(i<rk?'ftermon':'fterm')+(i===rk-1?' fhot':'')+'">'+t+'</span>'); }
+        body='<div class="exprview">'+terms.join(' <span class="fplus">+</span> ')+'</div>';
+      }
+      var sumExpl;
+      if(rk<9){ sumExpl='ここまでの合計 = <b>'+partial+'</b>　（あと '+(9-rk)+' 個）'; }
+      else if(k.disp==='avg') sumExpl='Σ積 = '+res.sum+'　÷ '+k.div+' = <b>'+res.disp+'</b>　→ 出力マスに書き込み';
+      else if(k.disp==='abs') sumExpl='Σ積 = '+res.sum+'　→ |絶対値| = <b>'+res.disp+'</b>　→ 出力マスに書き込み';
+      else if(k.disp==='offset') sumExpl='Σ積 = '+res.sum+'　+ 128 = <b>'+res.disp+'</b>　→ 出力マスに書き込み';
+      else sumExpl='Σ積 = '+res.sum+'　→ 0〜255にクランプ = <b>'+res.disp+'</b>　→ 出力マスに書き込み';
+      var html=head+body+'<div class="msum">'+sumExpl+'</div>'+
         '<div class="mnote">※ ⊙ は「同じ位置どうしを掛けて、9個を全部足す」（要素ごとの積＝アダマール積）。行列の掛け算（行列積）とは別ものだよ。結果はマス1個ぶんの数（スカラー）。</div>';
       document.getElementById('readout').innerHTML=html;
     }
+    function setRepr(rp){ repr=rp; document.querySelectorAll('#reprs .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-r')===rp); }); if(lastShow) showReadout(lastShow.r,lastShow.c,lastShow.res,lastShow.rk); }
 
     function buildNumMat(){
       var nm=document.getElementById('nummat'); if(!nm) return;
@@ -245,22 +268,35 @@ import Footer from '../components/Footer.astro';
     }
     function setStatus(){ document.getElementById('status').textContent = '進み: '+Math.min(cur,N*N)+' / '+(N*N)+' マス（カーネル '+curKer().label+'）'; }
 
-    function stepOnce(){
-      if(cur>=N*N){ stop(); return; }
-      var r=(cur/N|0), c=cur%N, res=compute(r,c);
+    function finalizeCell(res){
       out[cur]=res.disp;
       if(lastJust) lastJust.classList.remove('just');
       var nd=ncells[cur]; if(nd){ nd.textContent=res.disp; nd.classList.add('filled'); nd.classList.add('just'); lastJust=nd; }
-      showReadout(r,c,res); cur++;
-      draw(); setStatus();
-      if(cur>=N*N){ stop(); document.getElementById('readout').innerHTML+='<div class="msum">——全 '+(N*N)+' マス完成。これが畳み込み1回ぶんだよ。</div>'; }
+      cur++; subK=0; curRes=null;
+    }
+    function endNote(){ if(cur>=N*N){ stop(); document.getElementById('readout').innerHTML+='<div class="msum">——全 '+(N*N)+' マス完成。これが畳み込み1回ぶんだよ。</div>'; } }
+    function stepOnce(){
+      if(cur>=N*N){ stop(); return; }
+      var r=(cur/N|0), c=cur%N, res=compute(r,c);
+      showReadout(r,c,res,9); finalizeCell(res);
+      draw(); setStatus(); endNote();
+    }
+    function subStep(){
+      stop();
+      if(cur>=N*N) return;
+      var r=(cur/N|0), c=cur%N;
+      if(subK===0) curRes=compute(r,c);
+      subK++;
+      showReadout(r,c,curRes,subK);
+      if(subK>=9){ finalizeCell(curRes); }
+      draw(); setStatus(); endNote();
     }
     function delay(){ return Math.round(420 - speed*3.6); }
     function play(){ if(timer) return; var b=document.getElementById('play'); b.textContent='⏸ 停止'; b.classList.add('on'); timer=setInterval(stepOnce, delay()); }
     function stop(){ if(timer){clearInterval(timer);timer=null;} var b=document.getElementById('play'); b.textContent='▶ 再生'; b.classList.remove('on'); }
     function reset(){ stop(); cur=0; out=new Array(N*N).fill(null);
       document.getElementById('readout').innerHTML='「▶ 再生」か「1ステップ」を押すと、今まさに計算している1マスが——カーネル行列・入力の窓・その積——として、ここに見えるよ。';
-      lastJust=null; buildNumMat(); draw(); setStatus(); }
+      lastJust=null; subK=0; curRes=null; lastShow=null; buildNumMat(); draw(); setStatus(); }
 
     function setOp(o){ op=o; document.querySelectorAll('#ops .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-op')===o); }); reset(); }
 
@@ -275,9 +311,12 @@ import Footer from '../components/Footer.astro';
       document.querySelectorAll('#grids .opill').forEach(function(el){ el.classList.toggle('on', +el.getAttribute('data-n')===n); }); reset(); }
     var gridsWrap=document.getElementById('grids');
     [[12,'12×12'],[24,'24×24']].forEach(function(g){ var b=document.createElement('div'); b.className='opill'+(g[0]===N?' on':''); b.setAttribute('data-n',g[0]); b.textContent=g[1]; b.onclick=function(){ setN(g[0]); }; gridsWrap.appendChild(b); });
+    var reprWrap=document.getElementById('reprs');
+    [['mat','行列 (⊙)'],['expr','式（和）']].forEach(function(m){ var b=document.createElement('div'); b.className='opill'+(m[0]===repr?' on':''); b.setAttribute('data-r',m[0]); b.textContent=m[1]; b.onclick=function(){ setRepr(m[0]); }; reprWrap.appendChild(b); });
 
     document.getElementById('play').onclick=function(){ if(timer) stop(); else { if(cur>=N*N) reset(); play(); } };
     document.getElementById('step').onclick=function(){ stop(); if(cur>=N*N) reset(); stepOnce(); };
+    document.getElementById('substep').onclick=function(){ if(cur>=N*N) reset(); subStep(); };
     document.getElementById('reset').onclick=reset;
     var sp=document.getElementById('speed'); sp.oninput=function(){ speed=+sp.value; if(timer){ clearInterval(timer); timer=setInterval(stepOnce, delay()); } };
 
