@@ -4,14 +4,25 @@ interface Props {
 }
 
 const { date } = Astro.props;
+
+// 日付のみ指定(YAMLの 2026-06-11)は UTC 00:00 になる。その場合は日付だけ。
+// 時刻つき(pubDate: 2026-06-11T22:57:00+09:00)なら、JSTの時刻も添える。
+const hasTime = !(date.getUTCHours() === 0 && date.getUTCMinutes() === 0);
+const TZ = 'Asia/Tokyo';
+const dateStr = date.toLocaleDateString('en-us', {
+	year: 'numeric',
+	month: 'short',
+	day: 'numeric',
+	timeZone: TZ,
+});
+const timeStr = date.toLocaleTimeString('ja-JP', {
+	hour: '2-digit',
+	minute: '2-digit',
+	hour12: false,
+	timeZone: TZ,
+});
 ---
 
 <time datetime={date.toISOString()}>
-	{
-		date.toLocaleDateString('en-us', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-		})
-	}
+	{dateStr}{hasTime ? ` ${timeStr}` : ''}
 </time>
