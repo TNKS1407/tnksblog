@@ -1,0 +1,195 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="写真をドット絵に — tnkblog" description="本物の写真を取り込んで、各ブロックのRGBを平均しながら一歩ずつドット絵にする。ちゃんとした縮小＝面積平均が目に見える。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .intro h1{font-size:1.25rem;margin:0 0 .5rem;}
+    .intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin:0 0 .4rem;}
+    .intro a{color:#3c7876;}
+    .card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;background:#faf8f4;width:100%;height:auto;}
+    .row{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.6rem;}
+    .rlab{font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;}
+    .ops{display:flex;flex-wrap:wrap;gap:.5rem;}
+    .opill{padding:.35rem .85rem;border:1px solid var(--border,#e3dbd0);border-radius:999px;background:var(--surface,#faf8f4);
+      font-size:.76rem;color:var(--text-muted,#7d7568);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .12s;}
+    .opill:hover{border-color:#3c7876;color:#3c7876;}
+    .opill.on{background:#3c7876;color:#fff;border-color:#3c7876;font-weight:700;}
+    .controls{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);}
+    .ctrl-group input[type=range]{width:90px;accent-color:#3c7876;}
+    .btn{padding:.35rem .85rem;border:1px solid var(--border,#e3dbd0);border-radius:8px;background:none;
+      font-family:inherit;font-size:.78rem;color:var(--text-muted,#7d7568);cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .btn.on{background:#3c7876;color:#fff;border-color:#3c7876;font-weight:700;}
+    .readout{margin-top:1rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);border-radius:10px;
+      padding:.9rem 1.1rem;min-height:4.5em;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#2a4d49;line-height:1.7;}
+    .readout b{color:#c2543d;}
+    .sw{display:inline-block;width:1.5em;height:1.5em;border:1px solid #ccc;border-radius:4px;vertical-align:middle;margin:0 .2em;}
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.6rem;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main>
+    <div class="intro">
+      <h1>写真をドット絵に</h1>
+      <p>本物の写真を、ドット絵（低解像度のタイル）に縮めていく——その計算を<strong>一歩ずつ</strong>見るための場所だよ。コツは、出力の1ドットを「元画像のそのブロックにある全画素の<strong>平均色</strong>」で塗ること。</p>
+      <p>ブロックの中の R・G・B をそれぞれ平均して、1ドットの色を決める。これが"ちゃんとした縮小"＝面積平均（ボックスフィルタ）の正体なんだ。「中央1点だけ拾う（最近傍）」と比べると、平均のほうが色がなめらかで、細かい模様が化けにくいのが分かる。<br>「画像を選ぶ」で手持ちの写真を入れてもいいし、最初は風景が入ってるよ。</p>
+      <p><a href="/play">← /play へもどる</a>　・　<a href="/conv">畳み込みを一歩ずつ →</a></p>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <span class="rlab">画像</span>
+        <label class="btn" style="cursor:pointer;">画像を選ぶ<input type="file" id="file" accept="image/*" style="display:none;"></label>
+        <button class="btn" id="reimg" type="button">最初の風景に戻す</button>
+      </div>
+      <div class="row">
+        <span class="rlab">ドット数</span>
+        <div class="ops" id="grids"></div>
+      </div>
+      <div class="row">
+        <span class="rlab">塗り方</span>
+        <div class="ops" id="methods"></div>
+      </div>
+      <canvas id="cv" width="640" height="352"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <button class="btn" id="play" type="button">▶ 再生</button>
+          <button class="btn" id="step" type="button">1ステップ</button>
+          <button class="btn" id="reset" type="button">リセット</button>
+        </div>
+        <div class="ctrl-group" style="margin-left:auto;">
+          <label>速さ</label>
+          <input type="range" id="speed" min="0" max="100" value="62">
+        </div>
+      </div>
+      <div class="readout" id="readout">「▶ 再生」か「1ステップ」を押すと、いま計算してるドットが——元画像のどのブロックを、どんな平均で塗るか——ここに出るよ。</div>
+      <div class="status" id="status"></div>
+    </div>
+  </main>
+  <Footer />
+
+  <script is:inline>
+  (function(){
+    var cv=document.getElementById('cv'); if(!cv) return;
+    var ctx=cv.getContext('2d');
+    var SRC=240, SS=280, SX=20, SY=44, GX=336, GY=44;
+    var TEAL='#3c7876', WARM='#c2543d';
+
+    var sc=document.createElement('canvas'); sc.width=sc.height=SRC; var sctx=sc.getContext('2d');
+    var srcData=null;
+    var N=16, method='avg', cur=0, out=[], timer=null, speed=62;
+
+    function defaultScene(){
+      var g=sctx.createLinearGradient(0,0,0,SRC); g.addColorStop(0,'#5b9bd5'); g.addColorStop(1,'#d7ecff');
+      sctx.fillStyle=g; sctx.fillRect(0,0,SRC,SRC);
+      sctx.fillStyle='#ffd24a'; sctx.beginPath(); sctx.arc(SRC*0.74,SRC*0.26,SRC*0.13,0,7); sctx.fill();
+      sctx.fillStyle='#fff3c4'; sctx.globalAlpha=0.6; sctx.beginPath(); sctx.arc(SRC*0.74,SRC*0.26,SRC*0.18,0,7); sctx.fill(); sctx.globalAlpha=1;
+      sctx.fillStyle='#7cbf6a'; sctx.beginPath(); sctx.moveTo(0,SRC); sctx.lineTo(0,SRC*0.66);
+      sctx.quadraticCurveTo(SRC*0.3,SRC*0.5,SRC*0.6,SRC*0.7); sctx.quadraticCurveTo(SRC*0.82,SRC*0.82,SRC,SRC*0.62); sctx.lineTo(SRC,SRC); sctx.closePath(); sctx.fill();
+      sctx.fillStyle='#4e9248'; sctx.beginPath(); sctx.moveTo(0,SRC); sctx.lineTo(0,SRC*0.84);
+      sctx.quadraticCurveTo(SRC*0.45,SRC*0.72,SRC,SRC*0.88); sctx.lineTo(SRC,SRC); sctx.closePath(); sctx.fill();
+      sctx.fillStyle='#d9544d'; sctx.fillRect(SRC*0.16,SRC*0.62,SRC*0.13,SRC*0.13);
+      sctx.fillStyle='#7a342f'; sctx.beginPath(); sctx.moveTo(SRC*0.145,SRC*0.62); sctx.lineTo(SRC*0.225,SRC*0.55); sctx.lineTo(SRC*0.305,SRC*0.62); sctx.closePath(); sctx.fill();
+      srcData=sctx.getImageData(0,0,SRC,SRC).data;
+    }
+
+    function blockBox(col,row){
+      return { x0:Math.floor(col*SRC/N), x1:Math.floor((col+1)*SRC/N), y0:Math.floor(row*SRC/N), y1:Math.floor((row+1)*SRC/N) };
+    }
+    function blockColor(col,row){
+      var b=blockBox(col,row);
+      if(method==='near'){ var mx=(b.x0+b.x1)>>1, my=(b.y0+b.y1)>>1, k=(my*SRC+mx)*4; return {r:srcData[k],g:srcData[k+1],b:srcData[k+2],n:1,box:b}; }
+      var sr=0,sg=0,sb=0,cnt=0;
+      for(var yy=b.y0;yy<b.y1;yy++)for(var xx=b.x0;xx<b.x1;xx++){ var k=(yy*SRC+xx)*4; sr+=srcData[k];sg+=srcData[k+1];sb+=srcData[k+2];cnt++; }
+      cnt=cnt||1;
+      return {r:Math.round(sr/cnt),g:Math.round(sg/cnt),b:Math.round(sb/cnt),n:cnt,box:b};
+    }
+
+    function label(txt,x,y,col){ ctx.fillStyle=col; ctx.font='600 12px "JetBrains Mono", monospace'; ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillText(txt,x,y); }
+    function draw(){
+      ctx.clearRect(0,0,cv.width,cv.height);
+      label('元画像',SX,SY-12,'#7d7568'); label('ドット絵',GX,GY-12,TEAL);
+      // source photo
+      ctx.imageSmoothingEnabled=true; ctx.drawImage(sc,SX,SY,SS,SS);
+      ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1; ctx.strokeRect(SX+0.5,SY+0.5,SS,SS);
+      // dot grid background + filled dots
+      var ds=SS/N;
+      ctx.fillStyle='#efeae1'; ctx.fillRect(GX,GY,SS,SS);
+      for(var i=0;i<N*N;i++){ var o=out[i]; if(o){ var dc=i%N, dr=(i/N|0); ctx.fillStyle='rgb('+o.r+','+o.g+','+o.b+')'; ctx.fillRect(GX+dc*ds, GY+dr*ds, Math.ceil(ds), Math.ceil(ds)); } }
+      ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1; ctx.strokeRect(GX+0.5,GY+0.5,SS,SS);
+      // current block + current dot
+      if(cur<N*N){
+        var c=cur%N, r=(cur/N|0);
+        ctx.strokeStyle=TEAL; ctx.lineWidth=2.5;
+        ctx.strokeRect(SX+c/N*SS-1, SY+r/N*SS-1, SS/N+2, SS/N+2);
+        ctx.strokeStyle=WARM; ctx.lineWidth=2.5;
+        ctx.strokeRect(GX+c/N*SS-1, GY+r/N*SS-1, SS/N+2, SS/N+2);
+        // arrow
+        ctx.strokeStyle=TEAL; ctx.lineWidth=2; var ay=SY+r/N*SS+SS/N/2;
+        ctx.beginPath(); ctx.moveTo(SX+c/N*SS+SS/N+8, ay); ctx.lineTo(GX+c/N*SS-9, GY+r/N*SS+SS/N/2); ctx.stroke();
+        var hx=GX+c/N*SS-9, hy=GY+r/N*SS+SS/N/2; ctx.fillStyle=TEAL; ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-7,hy-4); ctx.lineTo(hx-7,hy+4); ctx.closePath(); ctx.fill();
+      }
+    }
+
+    function showReadout(c,r,res){
+      var bw=res.box.x1-res.box.x0, bh=res.box.y1-res.box.y0;
+      var html;
+      if(method==='near') html='ドット ('+c+', '+r+') ← 元画像のブロック中央1点を採用：<span class="sw" style="background:rgb('+res.r+','+res.g+','+res.b+')"></span> R=<b>'+res.r+'</b> G=<b>'+res.g+'</b> B=<b>'+res.b+'</b>';
+      else html='ドット ('+c+', '+r+') ← 元画像の '+bw+'×'+bh+' = '+res.n+' 画素を平均：<span class="sw" style="background:rgb('+res.r+','+res.g+','+res.b+')"></span> R̄=<b>'+res.r+'</b> Ḡ=<b>'+res.g+'</b> B̄=<b>'+res.b+'</b>';
+      document.getElementById('readout').innerHTML=html;
+    }
+    function setStatus(){ document.getElementById('status').textContent='進み: '+Math.min(cur,N*N)+' / '+(N*N)+' ドット（'+(method==='avg'?'平均':'中央1点')+'、'+N+'×'+N+'）'; }
+
+    function stepOnce(){
+      if(cur>=N*N){ stop(); return; }
+      var c=cur%N, r=(cur/N|0), res=blockColor(c,r);
+      out[cur]={r:res.r,g:res.g,b:res.b}; showReadout(c,r,res); cur++;
+      draw(); setStatus();
+      if(cur>=N*N){ stop(); document.getElementById('readout').innerHTML+='　——完成！ '+(N*N)+' ドットのドット絵だよ。'; }
+    }
+    function delay(){ return Math.round(260 - speed*2.2); }
+    function play(){ if(timer) return; var b=document.getElementById('play'); b.textContent='⏸ 停止'; b.classList.add('on'); timer=setInterval(stepOnce, delay()); }
+    function stop(){ if(timer){clearInterval(timer);timer=null;} var b=document.getElementById('play'); b.textContent='▶ 再生'; b.classList.remove('on'); }
+    function reset(){ stop(); cur=0; out=new Array(N*N).fill(null);
+      document.getElementById('readout').innerHTML='「▶ 再生」か「1ステップ」を押すと、いま計算してるドットが——元画像のどのブロックを、どんな平均で塗るか——ここに出るよ。';
+      draw(); setStatus(); }
+
+    function setN(n){ N=n; document.querySelectorAll('#grids .opill').forEach(function(el){ el.classList.toggle('on', +el.getAttribute('data-n')===n); }); reset(); }
+    function setMethod(m){ method=m; document.querySelectorAll('#methods .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-m')===m); }); reset(); }
+
+    var gw=document.getElementById('grids');
+    [[8,'8×8'],[16,'16×16'],[24,'24×24'],[32,'32×32']].forEach(function(g){ var b=document.createElement('div'); b.className='opill'+(g[0]===N?' on':''); b.setAttribute('data-n',g[0]); b.textContent=g[1]; b.onclick=function(){ setN(g[0]); }; gw.appendChild(b); });
+    var mw=document.getElementById('methods');
+    [['avg','平均（面積）'],['near','中央1点（最近傍）']].forEach(function(m){ var b=document.createElement('div'); b.className='opill'+(m[0]===method?' on':''); b.setAttribute('data-m',m[0]); b.textContent=m[1]; b.onclick=function(){ setMethod(m[0]); }; mw.appendChild(b); });
+
+    document.getElementById('play').onclick=function(){ if(timer) stop(); else { if(cur>=N*N) reset(); play(); } };
+    document.getElementById('step').onclick=function(){ stop(); if(cur>=N*N) reset(); stepOnce(); };
+    document.getElementById('reset').onclick=reset;
+    document.getElementById('reimg').onclick=function(){ defaultScene(); reset(); };
+    var sp=document.getElementById('speed'); sp.oninput=function(){ speed=+sp.value; if(timer){ clearInterval(timer); timer=setInterval(stepOnce, delay()); } };
+    document.getElementById('file').onchange=function(e){ var f=e.target.files[0]; if(!f)return; var im=new Image(); im.onload=function(){
+      sctx.fillStyle='#fff'; sctx.fillRect(0,0,SRC,SRC);
+      var s=Math.max(SRC/im.width, SRC/im.height), dw=im.width*s, dh=im.height*s;
+      sctx.drawImage(im,(SRC-dw)/2,(SRC-dh)/2,dw,dh);
+      srcData=sctx.getImageData(0,0,SRC,SRC).data; reset();
+    }; im.src=URL.createObjectURL(f); };
+
+    defaultScene(); reset();
+  })();
+  </script>
+</body>
+</html>
