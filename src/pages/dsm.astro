@@ -1,0 +1,200 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="ΔΣを一歩ずつ — 誤差タンクと1ビット出力" description="ノイズシェイピングの正体を、1サンプルずつ。誤差のタンクが溜まって1を超えた瞬間に1を吐き、溢れたぶんが残る。ならすと1ビットなのに入力に戻る。OFF（素の丸め）との違いも並べて見る。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style is:global>
+    .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .intro h1{font-size:1.25rem;margin:0 0 .5rem;}
+    .intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin:0 0 .4rem;}
+    .intro a{color:#3c7876;}
+    .card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;background:#faf8f4;
+      width:100%;height:auto;}
+    .row{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.7rem;}
+    .rlab{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;}
+    .ops{display:flex;flex-wrap:wrap;gap:.5rem;}
+    .opill{padding:.35rem .85rem;border:1px solid var(--border,#e3dbd0);border-radius:999px;
+      background:var(--surface,#faf8f4);font-size:.76rem;color:var(--text-muted,#7d7568);cursor:pointer;
+      font-family:'JetBrains Mono',monospace;transition:all .12s;}
+    .opill:hover{border-color:#3c7876;color:#3c7876;}
+    .opill.on{background:#3c7876;color:#fff;border-color:#3c7876;font-weight:700;}
+    .controls{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);white-space:nowrap;}
+    .ctrl-group input[type=range]{width:120px;accent-color:#3c7876;}
+    .btn{padding:.38rem .9rem;border:1px solid var(--border,#e3dbd0);border-radius:8px;background:none;
+      font-family:inherit;font-size:.78rem;color:var(--text-muted,#7d7568);cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .btn.primary{background:#3c7876;color:#fff;border-color:#3c7876;}
+    .readout{margin-top:1rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);
+      border-radius:10px;padding:.9rem 1.1rem;min-height:4.2em;}
+    .rhead{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;margin-bottom:.45rem;}
+    .calc{font-family:'JetBrains Mono',monospace;font-size:.98rem;color:#2a4d49;line-height:1.7;}
+    .calc b{color:#c9761f;} .calc .on1{color:#3c7876;font-weight:700;}
+    .note2{margin-top:.55rem;font-size:.82rem;color:#33433f;line-height:1.7;background:#fff;
+      border-left:3px solid #3c7876;border-radius:0 8px 8px 0;padding:.5rem .8rem;}
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.7rem;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main class="wrap">
+    <div class="intro">
+      <h1>ΔΣを一歩ずつ — 誤差タンクと1ビット出力</h1>
+      <p>なめらかな入力（例えば 0.3）を、<strong>0 か 1 だけ</strong>の出力で表す。秘密は「誤差を捨てずに溜める」こと。入力を<strong>誤差タンク</strong>に足していって、<strong>1 を超えた瞬間に 1 を吐き、溢れたぶんだけ残す</strong>。これを繰り返すと、1ビットしか無いのに、ならせば（平均すれば）入力に戻る。これが <strong>ノイズシェイピング</strong>＝ΔΣ変調の素の姿だよ。</p>
+      <p>「素の丸め（OFF）」に切り替えると、タンクを使わずに毎回ただ近いほうへ丸める。一定の 0.3 は毎回 0 に丸まって平らなまま——だから OFF だとパタパタしない。<a href="/play">← /play に戻る</a></p>
+    </div>
+
+    <div class="card">
+      <div class="row"><span class="rlab">モード</span><div class="ops" id="modes"></div></div>
+      <div class="row"><span class="rlab">入力</span><div class="ops" id="sigs"></div>
+        <div class="ctrl-group" id="invalGroup" style="margin-left:.4rem;"><label>値</label><input type="range" id="inval" min="5" max="95" value="30"><span id="invalv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;">0.30</span></div>
+      </div>
+
+      <canvas id="cv" width="680" height="320"></canvas>
+
+      <div class="controls">
+        <button class="btn primary" id="play" type="button">▶ 再生</button>
+        <button class="btn" id="step" type="button">1ステップ</button>
+        <button class="btn" id="run" type="button">一気に流す</button>
+        <button class="btn" id="reset" type="button">リセット</button>
+        <div class="ctrl-group" style="margin-left:auto;"><label>速さ</label><input type="range" id="speed" min="0" max="100" value="55"></div>
+      </div>
+
+      <div class="readout" id="readout"></div>
+      <div class="status" id="status"></div>
+    </div>
+  </main>
+  <Footer />
+</body>
+</html>
+
+<script is:inline>
+(function(){
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0';
+  var mode='on', sig='const', inval=0.30, acc=0, n=0, ones=0, bits=[], avgHist=[], inHist=[], fired=false, timer=null, speed=55;
+  var K=64; // 表示するサンプル数
+
+  function inputAt(i){
+    if(sig==='const') return inval;
+    if(sig==='sine') return 0.5+0.42*Math.sin(i*0.055);
+    return ((i%140)/140); // ramp 0→1
+  }
+
+  // ---- canvas geometry ----
+  var TX=24, TW=86, TYt=44, THh=212;     // tank
+  var GX=152, GW=680-152-20, GY=44, GHh=212; // graph
+
+  function drawTank(){
+    // 枠
+    ctx.fillStyle='#fff'; ctx.fillRect(TX,TYt,TW,THh);
+    ctx.strokeStyle=LINE; ctx.lineWidth=1; ctx.strokeRect(TX+.5,TYt+.5,TW,THh);
+    var off=(mode==='off');
+    // 目盛り（0と1）
+    ctx.fillStyle=GRAY; ctx.font='11px "JetBrains Mono",monospace'; ctx.textAlign='right';
+    ctx.fillText('1', TX-4, TYt+4); ctx.fillText('0', TX-4, TYt+THh+4);
+    // brim
+    ctx.strokeStyle=off?'#d8d2c8':WARM; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(TX,TYt); ctx.lineTo(TX+TW,TYt); ctx.stroke(); ctx.setLineDash([]);
+    if(off){
+      ctx.fillStyle='#cfc9bf'; ctx.font='12px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+      ctx.fillText('使わない', TX+TW/2, TYt+THh/2); ctx.textAlign='left';
+    } else {
+      var a=Math.max(0,Math.min(1,acc)), fh=a*THh;
+      ctx.fillStyle=TEAL; ctx.globalAlpha=.85; ctx.fillRect(TX+1, TYt+THh-fh, TW-2, fh); ctx.globalAlpha=1;
+      // fired splash
+      if(fired){ ctx.fillStyle=WARM; ctx.font='700 13px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('▲ 1!', TX+TW/2, TYt-8); ctx.textAlign='left'; }
+      ctx.fillStyle='#2a4d49'; ctx.font='700 12px "JetBrains Mono",monospace'; ctx.textAlign='center';
+      ctx.fillText('acc='+acc.toFixed(2), TX+TW/2, TYt+THh+18); ctx.textAlign='left';
+    }
+    ctx.fillStyle=GRAY; ctx.font='600 11px "JetBrains Mono",monospace'; ctx.textAlign='left';
+    ctx.fillText('誤差タンク', TX, TYt-12);
+  }
+
+  function drawGraph(){
+    ctx.fillStyle='#fff'; ctx.fillRect(GX,GY,GW,GHh);
+    ctx.strokeStyle=LINE; ctx.strokeRect(GX+.5,GY+.5,GW,GHh);
+    var y0=GY+GHh, y1=GY; // out=0 / out=1
+    // ベースライン
+    ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(GX,y0); ctx.lineTo(GX+GW,y0); ctx.moveTo(GX,y1); ctx.lineTo(GX+GW,y1); ctx.stroke();
+    ctx.fillStyle=GRAY; ctx.font='11px "JetBrains Mono",monospace'; ctx.textAlign='left';
+    ctx.fillText('出力 1bit ／ 平均 → 入力', GX, GY-12);
+    ctx.textAlign='left'; ctx.fillText('1', GX+4, y1+12); ctx.fillText('0', GX+4, y0-4);
+    var st=Math.max(0,bits.length-K), m=bits.length-st, bw=GW/K;
+    // 入力の線（破線）
+    ctx.strokeStyle=GRAY; ctx.setLineDash([3,3]); ctx.lineWidth=1.4; ctx.beginPath();
+    for(var i=0;i<m;i++){ var iv=inHist[st+i], gx=GX+(i+0.5)*bw, gy=y0-iv*GHh; if(i===0)ctx.moveTo(gx,gy); else ctx.lineTo(gx,gy); }
+    ctx.stroke(); ctx.setLineDash([]);
+    // 出力ビット（階段＋パルス）
+    ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.beginPath();
+    for(var i=0;i<m;i++){ var b=bits[st+i], gx0=GX+i*bw, gx1=GX+(i+1)*bw, gy=b?y1:y0;
+      if(i===0)ctx.moveTo(gx0,gy); else ctx.lineTo(gx0,gy); ctx.lineTo(gx1,gy); }
+    ctx.stroke();
+    // 1のビットを縦線で強調
+    for(var i=0;i<m;i++){ if(bits[st+i]){ var gx=GX+(i+0.5)*bw; ctx.strokeStyle='rgba(60,120,118,.35)'; ctx.lineWidth=Math.max(1,bw*0.5); ctx.beginPath(); ctx.moveTo(gx,y0); ctx.lineTo(gx,y1); ctx.stroke(); } }
+    // 平均の線（橙）
+    ctx.strokeStyle=WARM; ctx.lineWidth=2; ctx.beginPath();
+    for(var i=0;i<m;i++){ var av=avgHist[st+i], gx=GX+(i+0.5)*bw, gy=y0-av*GHh; if(i===0)ctx.moveTo(gx,gy); else ctx.lineTo(gx,gy); }
+    ctx.stroke();
+  }
+
+  function draw(){ ctx.clearRect(0,0,cv.width,cv.height); drawTank(); drawGraph(); }
+
+  function showReadout(){
+    var x=(n>0)?inHist[n-1]:inputAt(0), b=(bits.length>0)?bits[bits.length-1]:0, avg=(n>0)?ones/n:0;
+    var head='<div class="rhead">'+(mode==='on'?'ノイズシェイピング（誤差を足し戻す）':'素の丸め（タンク無し）')+'　／　'+n+' サンプル目</div>';
+    var calc;
+    if(n===0){ calc='<div class="calc">「▶ 再生」か「1ステップ」で、1サンプルずつ進めよう。</div>'; }
+    else if(mode==='on'){
+      var pre=acc+ (b? 1:0); // 足した直後の値（吐く前）
+      calc='<div class="calc">タンク = '+(pre-x).toFixed(2)+' ＋ 入力 '+x.toFixed(2)+' = <b>'+pre.toFixed(2)+'</b>　'+
+        (b? '≥ 1 → <span class="on1">1 を出力</span>、溢れた '+acc.toFixed(2)+' が残る' : '&lt; 1 → 0 を出力（まだ溜める）')+'</div>';
+    } else {
+      calc='<div class="calc">入力 '+x.toFixed(2)+' を近いほうへ丸め → <b>'+b+'</b>　（'+x.toFixed(2)+(x>=0.5?' ≥ 0.5':' &lt; 0.5')+'）。タンクは使わない。</div>';
+    }
+    var note;
+    if(mode==='on') note='<div class="note2">平均 = '+ones+' / '+n+' = <b>'+avg.toFixed(3)+'</b> → 入力 '+ (sig==='const'?inval.toFixed(2):'(時々変わる)') +' に吸い寄せられていく。橙の線がそれ。1ビット列をならすと信号が戻る、が目で分かる。</div>';
+    else note='<div class="note2">平均 = '+avg.toFixed(3)+'。素の丸めだと、一定入力は毎回同じ値に丸まって平ら＝0と1の間（0.3 など）を表せない。だから OFF はパタパタしない。</div>';
+    document.getElementById('readout').innerHTML=head+calc+note;
+  }
+  function setStatus(){ document.getElementById('status').textContent=(mode==='on'?'ΔΣ 1次（誤差フィードバック）':'素の1bit量子化')+'　— '+n+' サンプル　平均 '+(n>0?(ones/n).toFixed(3):'—'); }
+
+  function step(){
+    var x=inputAt(n); fired=false;
+    var out;
+    if(mode==='on'){ acc+=x; if(acc>=1-1e-9){ out=1; acc-=1; if(acc<0)acc=0; fired=true; } else out=0; }
+    else { out=(x>=0.5)?1:0; acc=0; }
+    bits.push(out); inHist.push(x); ones+=out; n++; avgHist.push(ones/n);
+    draw(); showReadout(); setStatus();
+  }
+  function runAll(){ stop(); for(var k=0;k<240 && n<400;k++) step(); }
+  function delay(){ return Math.round(260-speed*2.2); }
+  function play(){ if(timer)return; var b=document.getElementById('play'); b.textContent='⏸ 停止'; timer=setInterval(function(){ if(n>=400){stop();return;} step(); }, delay()); }
+  function stop(){ if(timer){clearInterval(timer);timer=null;} document.getElementById('play').textContent='▶ 再生'; }
+  function reset(){ stop(); acc=0; n=0; ones=0; bits=[]; avgHist=[]; inHist=[]; fired=false; draw(); showReadout(); setStatus(); }
+
+  function mkpills(wrap, arr, cur, fn){ var w=document.getElementById(wrap); arr.forEach(function(it){ var b=document.createElement('div'); b.className='opill'+(it[0]===cur?' on':''); b.setAttribute('data-v',it[0]); b.textContent=it[1]; b.onclick=function(){ fn(it[0]); }; w.appendChild(b); }); }
+  function sel(wrap,v){ document.querySelectorAll(wrap+' .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-v')===v); }); }
+  mkpills('modes', [['on','ノイズシェイピング ON'],['off','素の丸め OFF']], mode, function(v){ mode=v; sel('#modes',v); reset(); });
+  mkpills('sigs', [['const','一定値'],['sine','さざ波'],['ramp','階段（のこぎり）']], sig, function(v){ sig=v; sel('#sigs',v); document.getElementById('invalGroup').style.display=(v==='const')?'flex':'none'; reset(); });
+
+  var iv=document.getElementById('inval'), ivv=document.getElementById('invalv');
+  iv.oninput=function(){ inval=+iv.value/100; ivv.textContent=inval.toFixed(2); reset(); };
+  document.getElementById('play').onclick=function(){ if(timer)stop(); else { if(n>=400)reset(); play(); } };
+  document.getElementById('step').onclick=function(){ stop(); if(n>=400)reset(); step(); };
+  document.getElementById('run').onclick=runAll;
+  document.getElementById('reset').onclick=reset;
+  var sp=document.getElementById('speed'); sp.oninput=function(){ speed=+sp.value; if(timer){ clearInterval(timer); timer=setInterval(function(){ if(n>=400){stop();return;} step(); }, delay()); } };
+
+  reset();
+})();
+</script>
