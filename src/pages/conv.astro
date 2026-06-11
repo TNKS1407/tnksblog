@@ -47,6 +47,7 @@ import Footer from '../components/Footer.astro';
     .mop{font-size:1.05rem;color:#3c7876;font-weight:700;align-self:center;padding-top:1em;}
     .msum{margin-top:.8rem;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#2a4d49;line-height:1.6;}
     .msum b{color:#c2543d;font-size:.95rem;}
+    .mnote{margin-top:.55rem;font-size:.72rem;color:var(--text-muted,#7d7568);line-height:1.65;border-top:1px dashed var(--border,#e3dbd0);padding-top:.55rem;}
     .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.6rem;}
     .nummat{margin-top:1rem;overflow-x:auto;}
     .nmlab{font-size:.7rem;color:var(--text-muted,#7d7568);font-family:'JetBrains Mono',monospace;margin-bottom:.45rem;}
@@ -229,7 +230,8 @@ import Footer from '../components/Footer.astro';
           '<div class="mop">=</div>'+
           '<div class="mblock"><div class="mlab">積（要素ごと）</div>'+grid3(res.prod,true)+'</div>'+
         '</div>'+
-        '<div class="msum">'+sumExpl+'　→ 出力マスに書き込み</div>';
+        '<div class="msum">'+sumExpl+'　→ 出力マスに書き込み</div>'+
+        '<div class="mnote">※ ⊙ は「同じ位置どうしを掛けて、9個を全部足す」（要素ごとの積＝アダマール積）。行列の掛け算（行列積）とは別ものだよ。結果はマス1個ぶんの数（スカラー）。</div>';
       document.getElementById('readout').innerHTML=html;
     }
 
