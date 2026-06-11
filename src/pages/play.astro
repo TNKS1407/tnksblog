@@ -1392,7 +1392,7 @@ import Footer from '../components/Footer.astro';
         上＝入力と復元出力、中＝1bit出力ストリーム（濃淡が入力を追う）、下＝スペクトル。「ノイズシェーピング」を OFF にすると、ループ無しの素の1bit量子化になって、余計な成分が帯域内に居座る。デモ用の素朴な実装だよ。
       </div>
       <div class="canvas-label">ΔΣ MODULATOR — 入力 / 1bit出力 / スペクトル</div>
-      <canvas id="ds-cv" width="720" height="470" style="width:100%;height:auto;cursor:default;"></canvas>
+      <canvas id="ds-cv" width="720" height="545" style="width:100%;height:auto;cursor:default;"></canvas>
       <div class="controls">
         <div class="ctrl-group">
           <button class="btn primary" id="ds-on" type="button">ノイズシェーピング ON</button>
@@ -1418,6 +1418,11 @@ import Footer from '../components/Footer.astro';
           <input type="range" id="ds-frq" min="2" max="28" value="7">
           <span id="ds-frq-v">7</span>
         </div>
+        <div class="ctrl-group">
+          <label>時間ズーム（拡大→）</label>
+          <input type="range" id="ds-zoom" min="0" max="100" value="40">
+          <span id="ds-zoom-v">—</span>
+        </div>
       </div>
       <div class="status" id="ds-status"></div>
       <div class="gs-math" id="ds-math">
@@ -1437,7 +1442,7 @@ import Footer from '../components/Footer.astro';
 
       var shaping = true, order = 1;
       var OSRS = [4,8,16,32,64], osrIdx = 2;
-      var amp = 0.60, sigCycles = 7;
+      var amp = 0.60, sigCycles = 7, zoom = 40;
       var NFFT = 4096;
 
       // ---- iterative radix-2 FFT (no deps) ----
@@ -1531,47 +1536,62 @@ import Footer from '../components/Footer.astro';
         var an=analyze(y, inbandBin, sigBin);
         var recon=reconstruct(y, inbandBin);
 
+        // time window from zoom slider (right = zoom in = fewer samples shown)
+        var WnMax=Math.min(NFFT,2400), WnMin=44;
+        var Wn=Math.round(WnMax*Math.pow(WnMin/WnMax, zoom/100));
+        Wn=Math.max(12, Math.min(NFFT, Wn));
+        var zEl=document.getElementById('ds-zoom-v'); if(zEl) zEl.textContent=Wn;
+
         ctx.clearRect(0,0,W,H);
-        var Wn=Math.min(NFFT, Math.round(NFFT/sigBin*1.6));
+        function AX(k){ return 40+(k/Wn)*(W-52); }
 
         // Panel A: input vs reconstructed
-        var aMid=66, aH=44;
+        var aMid=64, aH=44;
         ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1;
         ctx.beginPath(); ctx.moveTo(40,aMid); ctx.lineTo(W-12,aMid); ctx.stroke();
-        function AX(k){ return 40+(k/(Wn-1))*(W-52); }
         ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.beginPath();
         for(i=0;i<Wn;i++){ var px=AX(i),py=aMid-x[i]*aH; if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py); } ctx.stroke();
         ctx.strokeStyle=ORANGE; ctx.lineWidth=1.6; ctx.beginPath();
         for(i=0;i<Wn;i++){ var px2=AX(i),py2=aMid-recon[i]*aH; if(i===0)ctx.moveTo(px2,py2);else ctx.lineTo(px2,py2); } ctx.stroke();
-        txt('入力',44,22,TEAL,11); txt('—— 復元出力（低域だけ通した1bit）',82,22,ORANGE,11);
+        txt('入力',44,20,TEAL,11); txt('—— 復元出力（低域だけ通した1bit）',82,20,ORANGE,11);
 
-        // Panel B: 1bit stream + input overlay
-        var bMid=176, bH=30;
-        for(i=0;i<Wn;i++){
-          var bx=AX(i);
-          if(y[i]>=0){ ctx.strokeStyle='rgba(60,120,118,0.55)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid-bH); ctx.stroke(); }
-          else { ctx.strokeStyle='rgba(170,164,155,0.5)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid+bH); ctx.stroke(); }
+        // Panel B: 1bit stream — steps when zoomed in, density bars when zoomed out
+        var bMid=190, bH=42;
+        ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(40,bMid); ctx.lineTo(W-12,bMid); ctx.stroke();
+        if(Wn<=320){
+          ctx.strokeStyle=TEAL; ctx.lineWidth = Wn<=110 ? 2 : 1.4; ctx.beginPath();
+          for(i=0;i<Wn;i++){ var lvl=y[i]>=0?bMid-bH:bMid+bH; var xa=AX(i),xb=AX(i+1);
+            if(i===0)ctx.moveTo(xa,lvl); else ctx.lineTo(xa,lvl); ctx.lineTo(xb,lvl); }
+          ctx.stroke();
+          if(Wn<=110){ ctx.fillStyle=TEAL;
+            for(i=0;i<Wn;i++){ var lv=y[i]>=0?bMid-bH:bMid+bH; ctx.beginPath(); ctx.arc((AX(i)+AX(i+1))/2,lv,1.8,0,7); ctx.fill(); } }
+        } else {
+          for(i=0;i<Wn;i++){ var bx=AX(i);
+            if(y[i]>=0){ ctx.strokeStyle='rgba(60,120,118,0.55)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid-bH); ctx.stroke(); }
+            else { ctx.strokeStyle='rgba(170,164,155,0.5)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid+bH); ctx.stroke(); } }
         }
         ctx.strokeStyle=INK; ctx.lineWidth=1.4; ctx.beginPath();
         for(i=0;i<Wn;i++){ var ix=AX(i),iy=bMid-x[i]*bH; if(i===0)ctx.moveTo(ix,iy);else ctx.lineTo(ix,iy); } ctx.stroke();
-        txt('1bit出力：+1 上 / −1 下  （入力が高いほど +1 が密に）',44,138,MUT,11);
+        txt('1bit出力：+1 上 / −1 下  （入力が高いほど +1 が密に）',44,134,MUT,11);
+        txt('表示 '+Wn+' サンプル',W-12,134,FAINT,10,'right');
 
-        // Panel C: spectrum
-        var y0=236, y1=460, hh=y1-y0, dbT=0, dbB=-130, half=an.magDb.length;
+        // Panel C: spectrum on a log-frequency axis (in-band spreads out; shaping slope is a straight line)
+        var y0=258, y1=H-16, hh=y1-y0, dbT=0, dbB=-130, half=an.magDb.length;
+        var fMin=1, fMax=half-1, lf0=Math.log(fMin), lf1=Math.log(fMax);
         function CY(db){ db=Math.max(dbB,Math.min(dbT,db)); return y0+(dbT-db)/(dbT-dbB)*hh; }
-        function CX(k){ return 46+(k/(half-1))*(W-58); }
-        ctx.fillStyle='rgba(60,120,118,0.08)'; ctx.fillRect(CX(0),y0,CX(inbandBin)-CX(0),hh);
+        function CX(b){ if(b<fMin)b=fMin; return 50+(Math.log(b)-lf0)/(lf1-lf0)*(W-62); }
+        ctx.fillStyle='rgba(60,120,118,0.08)'; ctx.fillRect(CX(fMin),y0,CX(inbandBin)-CX(fMin),hh);
         ctx.strokeStyle='#efe9e0'; ctx.lineWidth=1;
-        for(var db=0; db>=-120; db-=30){ var gy=CY(db); ctx.beginPath(); ctx.moveTo(46,gy); ctx.lineTo(W-12,gy); ctx.stroke(); txt(db+'dB',6,gy+3,FAINT,9); }
+        for(var db=0; db>=-120; db-=30){ var gy=CY(db); ctx.beginPath(); ctx.moveTo(50,gy); ctx.lineTo(W-12,gy); ctx.stroke(); txt(db+'dB',8,gy+3,FAINT,9); }
+        for(var d=1; d<=fMax; d*=10){ var dx=CX(d); ctx.strokeStyle='#efe9e0'; ctx.beginPath(); ctx.moveTo(dx,y0); ctx.lineTo(dx,y1); ctx.stroke(); txt(d+'',dx+2,y1-3,FAINT,9); }
         ctx.strokeStyle=TEAL; ctx.lineWidth=1; ctx.beginPath();
         for(i=1;i<half;i++){ var sx=CX(i),sy=CY(an.magDb[i]); if(i===1)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy); } ctx.stroke();
         var ex=CX(inbandBin);
         ctx.strokeStyle=RED; ctx.setLineDash([4,3]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(ex,y0); ctx.lineTo(ex,y1); ctx.stroke(); ctx.setLineDash([]);
         var tx=CX(sigBin); ctx.strokeStyle=ORANGE; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(tx,CY(an.magDb[sigBin])); ctx.lineTo(tx,y1); ctx.stroke();
-        txt('スペクトル（周波数 →）',46,y0+12,MUT,11);
+        txt('スペクトル（周波数 → 対数）',50,y0+12,MUT,11);
         txt('信号',tx+3,CY(an.magDb[sigBin])-4,ORANGE,10);
-        txt('復元帯域の端',ex+5,y0+12,RED,10);
-        txt('→ この外へノイズを追い出す',ex+5,y0+26,FAINT,9);
+        txt('復元帯域の端 →',ex-4,y0+12,RED,10,'right');
 
         var enob=(an.snr-1.76)/6.02;
         document.getElementById('ds-status').textContent =
@@ -1607,6 +1627,8 @@ import Footer from '../components/Footer.astro';
       eAmp.oninput=function(){ amp=(+eAmp.value)/100; document.getElementById('ds-amp-v').textContent=amp.toFixed(2); redraw(); };
       var eFrq=document.getElementById('ds-frq');
       eFrq.oninput=function(){ sigCycles=+eFrq.value; document.getElementById('ds-frq-v').textContent=sigCycles; redraw(); };
+      var eZoom=document.getElementById('ds-zoom');
+      eZoom.oninput=function(){ zoom=+eZoom.value; redraw(); };
 
       redraw();
       renderMath();
