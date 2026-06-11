@@ -1,0 +1,188 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="畳み込みを一歩ずつ — tnkblog" description="12×12の小さな画像で、ぼかしやエッジ（Sobel/Prewitt）の計算が一マスずつ進む様子を見る。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .intro h1{font-size:1.25rem;margin:0 0 .5rem;}
+    .intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin:0 0 .4rem;}
+    .intro a{color:#3c7876;}
+    .card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;background:#faf8f4;
+      width:100%;height:auto;}
+    .controls{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);white-space:nowrap;}
+    .ctrl-group input[type=range]{width:90px;accent-color:#3c7876;}
+    .ctrl-group span{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;font-weight:700;}
+    .btn{padding:.35rem .85rem;border:1px solid var(--border,#e3dbd0);border-radius:8px;background:none;
+      font-family:inherit;font-size:.78rem;color:var(--text-muted,#7d7568);cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .btn.on{background:#3c7876;color:#fff;border-color:#3c7876;font-weight:700;}
+    .readout{margin-top:1rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);
+      border-radius:10px;padding:.9rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.8rem;
+      line-height:1.6;color:#2a4d49;white-space:pre-wrap;min-height:5.5em;}
+    .readout .res{color:#c2543d;font-weight:700;}
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.6rem;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main>
+    <div class="intro">
+      <h1>畳み込みを一歩ずつ</h1>
+      <p>「ぼかし」や「エッジ検出」が、内部では何をしているのか——12×12 の小さな画像で、計算が<strong>一マスずつ進む</strong>様子をそのまま見るための場所だよ。</p>
+      <p>3×3 の窓（カーネル）が入力を左上から舐めていき、その都度「9個の掛け算 → 合計」を計算して、出力の1マスを埋める。これが畳み込み（convolution）の正体なんだ。ぼかし・Sobel・Prewitt を切り替えて、Sobel と Prewitt の重みの違いも見比べてみて。</p>
+      <p><a href="/play">← /play へもどる</a></p>
+    </div>
+
+    <div class="card">
+      <canvas id="cv" width="720" height="372"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <button class="btn on" id="op-blur" type="button">平均ぼかし</button>
+          <button class="btn" id="op-sobel" type="button">Sobel</button>
+          <button class="btn" id="op-prewitt" type="button">Prewitt</button>
+        </div>
+        <div class="ctrl-group" style="margin-left:auto;">
+          <button class="btn" id="play" type="button">▶ 再生</button>
+          <button class="btn" id="step" type="button">1ステップ</button>
+          <button class="btn" id="reset" type="button">リセット</button>
+        </div>
+        <div class="ctrl-group">
+          <label>速さ</label>
+          <input type="range" id="speed" min="0" max="100" value="55">
+        </div>
+      </div>
+      <div class="readout" id="readout">「▶ 再生」か「1ステップ」を押すと、今まさに計算している1マスの式がここに出るよ。</div>
+      <div class="status" id="status"></div>
+    </div>
+  </main>
+  <Footer />
+
+  <script is:inline>
+  (function(){
+    var cv=document.getElementById('cv'); if(!cv) return;
+    var ctx=cv.getContext('2d');
+    var N=12, CELL=24;
+    var IX=28, IY=58, OX=404, OY=58;
+    var TEAL='#3c7876', WARM='#c2543d', INK='#232a2e';
+
+    // ---- 12x12 input image: vertical edge + a bright block + a dark block ----
+    var img=new Array(N*N);
+    for(var y=0;y<N;y++)for(var x=0;x<N;x++){
+      var v = x<5 ? 60 : (x>6 ? 200 : 130);
+      if(y>=2&&y<=3&&x>=1&&x<=2) v=235;
+      if(y>=8&&y<=9&&x>=8&&x<=9) v=70;
+      img[y*N+x]=v;
+    }
+
+    var KER={
+      blur:{m:[1,1,1, 1,1,1, 1,1,1], div:9, signed:false, label:'平均ぼかし (3×3)'},
+      sobel:{m:[-1,0,1, -2,0,2, -1,0,1], div:1, signed:true, label:'Sobel 横（縦エッジを拾う）'},
+      prewitt:{m:[-1,0,1, -1,0,1, -1,0,1], div:1, signed:true, label:'Prewitt 横'}
+    };
+    var op='blur', cur=0, out=new Array(N*N).fill(null), timer=null, speed=55;
+
+    function srcAt(yy,xx){ yy=yy<0?0:yy>N-1?N-1:yy; xx=xx<0?0:xx>N-1?N-1:xx; return img[yy*N+xx]; }
+    function compute(r,c){
+      var k=KER[op], terms=[], sum=0;
+      for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){
+        var w=k.m[(dy+1)*3+(dx+1)], val=srcAt(r+dy,c+dx);
+        terms.push({w:w,v:val}); sum+=w*val;
+      }
+      var disp = k.signed ? Math.min(255,Math.abs(Math.round(sum))) : Math.round(sum/k.div);
+      return {terms:terms, sum:sum, disp:disp};
+    }
+
+    function cellColor(v){ return 'rgb('+v+','+v+','+v+')'; }
+    function drawCell(ox,oy,c,r,val){
+      var px=ox+c*CELL, py=oy+r*CELL;
+      ctx.fillStyle = (val===null) ? '#efeae1' : cellColor(val);
+      ctx.fillRect(px,py,CELL,CELL);
+      ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=1; ctx.strokeRect(px+0.5,py+0.5,CELL-1,CELL-1);
+      if(val!==null){
+        ctx.fillStyle = val>128 ? 'rgba(20,20,20,0.72)' : 'rgba(255,255,255,0.85)';
+        ctx.font='8px "JetBrains Mono", monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(val, px+CELL/2, py+CELL/2+0.5);
+      }
+    }
+    function label(txt,x,y,col){ ctx.fillStyle=col; ctx.font='600 12px "JetBrains Mono", monospace'; ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillText(txt,x,y); }
+
+    function draw(){
+      ctx.clearRect(0,0,cv.width,cv.height);
+      var r=(cur/N|0), c=cur%N;
+      label('入力',IX,IY-12,'#7d7568');
+      label('出力',OX,OY-12,TEAL);
+      // grids
+      for(var i=0;i<N*N;i++){ drawCell(IX,IY,i%N,(i/N|0),img[i]); drawCell(OX,OY,i%N,(i/N|0),out[i]); }
+      // kernel window on input (clamped box)
+      if(cur<N*N){
+        var x0=Math.max(0,c-1),x1=Math.min(N-1,c+1),y0=Math.max(0,r-1),y1=Math.min(N-1,r+1);
+        ctx.strokeStyle=TEAL; ctx.lineWidth=2.5;
+        ctx.strokeRect(IX+x0*CELL-1, IY+y0*CELL-1, (x1-x0+1)*CELL+2, (y1-y0+1)*CELL+2);
+        // current output cell
+        ctx.strokeStyle=WARM; ctx.lineWidth=2.5;
+        ctx.strokeRect(OX+c*CELL-1, OY+r*CELL-1, CELL+2, CELL+2);
+        // arrow
+        ctx.strokeStyle=TEAL; ctx.lineWidth=2; var ay=IY+150;
+        ctx.beginPath(); ctx.moveTo(IX+x1*CELL+12, IY+(r*CELL)+CELL/2); ctx.lineTo(OX+c*CELL-10, OY+r*CELL+CELL/2); ctx.stroke();
+        ctx.fillStyle=TEAL; var hx=OX+c*CELL-10, hy=OY+r*CELL+CELL/2;
+        ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-7,hy-4); ctx.lineTo(hx-7,hy+4); ctx.closePath(); ctx.fill();
+      }
+    }
+
+    function showReadout(r,c,res){
+      var k=KER[op], t=res.terms, lines=[];
+      lines.push(KER[op].label+'  ／  出力 ('+c+', '+r+')');
+      for(var row=0;row<3;row++){
+        var parts=[];
+        for(var col=0;col<3;col++){ var e=t[row*3+col]; var w=e.w; var ws=(w<0?'(':'')+w+(w<0?')':''); parts.push(ws+'×'+e.v); }
+        lines.push('  '+parts.join(' + '));
+      }
+      var tail = k.signed ? ('  = '+res.sum+'  →  |合計| を表示 = <span class="res">'+res.disp+'</span>')
+                          : ('  = '+res.terms.reduce(function(a,e){return a+e.w*e.v;},0)+' / 9  →  <span class="res">'+res.disp+'</span>');
+      lines.push('  '+tail);
+      document.getElementById('readout').innerHTML=lines.join('\n');
+    }
+
+    function setStatus(){ document.getElementById('status').textContent = '進み: '+Math.min(cur,N*N)+' / '+(N*N)+' マス'; }
+
+    function stepOnce(){
+      if(cur>=N*N){ stop(); return; }
+      var r=(cur/N|0), c=cur%N, res=compute(r,c);
+      out[cur]=res.disp;
+      showReadout(r,c,res);
+      cur++;
+      draw(); setStatus();
+      if(cur>=N*N){ stop(); document.getElementById('readout').innerHTML+='\n\n  ——全 '+(N*N)+' マス完成。これが畳み込み1回ぶんだよ。'; }
+    }
+    function delay(){ return Math.round(420 - speed*3.6); } // 55 -> ~222ms
+    function play(){ if(timer) return; document.getElementById('play').textContent='⏸ 停止'; document.getElementById('play').classList.add('on');
+      timer=setInterval(stepOnce, delay()); }
+    function stop(){ if(timer){clearInterval(timer);timer=null;} document.getElementById('play').textContent='▶ 再生'; document.getElementById('play').classList.remove('on'); }
+    function reset(){ stop(); cur=0; out=new Array(N*N).fill(null); document.getElementById('readout').innerHTML='「▶ 再生」か「1ステップ」を押すと、今まさに計算している1マスの式がここに出るよ。'; draw(); setStatus(); }
+
+    function setOp(o){ op=o; ['blur','sobel','prewitt'].forEach(function(k){ document.getElementById('op-'+k).classList.toggle('on', k===o); }); reset(); }
+    document.getElementById('op-blur').onclick=function(){setOp('blur');};
+    document.getElementById('op-sobel').onclick=function(){setOp('sobel');};
+    document.getElementById('op-prewitt').onclick=function(){setOp('prewitt');};
+    document.getElementById('play').onclick=function(){ if(timer) stop(); else { if(cur>=N*N) reset(); play(); } };
+    document.getElementById('step').onclick=function(){ stop(); if(cur>=N*N) reset(); stepOnce(); };
+    document.getElementById('reset').onclick=reset;
+    var sp=document.getElementById('speed'); sp.oninput=function(){ speed=+sp.value; if(timer){ clearInterval(timer); timer=setInterval(stepOnce, delay()); } };
+
+    draw(); setStatus();
+  })();
+  </script>
+</body>
+</html>
