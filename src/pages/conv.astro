@@ -56,12 +56,19 @@ import Footer from '../components/Footer.astro';
     <div class="intro">
       <h1>畳み込みを一歩ずつ</h1>
       <p>「ぼかし」や「エッジ検出」が、内部では何をしているのか——12×12 の小さな画像で、計算が<strong>一マスずつ進む</strong>様子を、カーネル行列ごと見るための場所だよ。</p>
-      <p>3×3 の窓（カーネル）が入力を左上から舐めていき、その都度「カーネル ⊙ 入力の窓 → 各積の合計」を計算して、出力の1マスを埋める。これが畳み込み（convolution）の正体なんだ。下の行列ビューで、重み・入力・積がそのまま見える。カーネルを切り替えて、ぼかしと各種エッジ、シャープやエンボスがどう違うか見比べてみて。</p>
+      <p>3×3 の窓（カーネル）が入力を左上から舐めていき、その都度「カーネル ⊙ 入力の窓 → 各積の合計」を計算して、出力の1マスを埋める。これが畳み込み（convolution）の正体なんだ。下の行列ビューで、重み・入力・積がそのまま見える。カーネルを切り替えて、ぼかしと各種エッジ、シャープやエンボスがどう違うか見比べてみて。<strong>入力画像</strong>も切り替えられる——「インパルス(1点)」を選ぶと、出力にカーネルの形そのものが浮かぶ（＝インパルス応答。カーネルの"正体"が見える）。</p>
       <p><a href="/play">← /play へもどる</a></p>
     </div>
 
     <div class="card">
-      <div class="ops" id="ops"></div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.55rem;">
+        <span style="font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;">入力画像</span>
+        <div class="ops" id="imgs" style="margin-bottom:0;"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:1rem;">
+        <span style="font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;">カーネル</span>
+        <div class="ops" id="ops" style="margin-bottom:0;"></div>
+      </div>
       <canvas id="cv" width="720" height="372"></canvas>
       <div class="controls">
         <div class="ctrl-group">
@@ -88,14 +95,27 @@ import Footer from '../components/Footer.astro';
     var IX=28, IY=58, OX=404, OY=58;
     var TEAL='#3c7876', WARM='#c2543d';
 
-    // ---- 12x12 input image: vertical edge + a bright block + a dark block ----
-    var img=new Array(N*N);
-    for(var y=0;y<N;y++)for(var x=0;x<N;x++){
-      var v = x<5 ? 60 : (x>6 ? 200 : 130);
-      if(y>=2&&y<=3&&x>=1&&x<=2) v=235;
-      if(y>=8&&y<=9&&x>=8&&x<=9) v=70;
-      img[y*N+x]=v;
+    // ---- 12x12 input image presets ----
+    var img=new Array(N*N), imgPreset='edge';
+    var IMGS=[
+      {id:'edge',    label:'エッジ'},
+      {id:'impulse', label:'インパルス(1点)'},
+      {id:'diag',    label:'斜めエッジ'},
+      {id:'grad',    label:'グラデ'},
+      {id:'checker', label:'市松'}
+    ];
+    function buildImg(p){
+      for(var y=0;y<N;y++)for(var x=0;x<N;x++){
+        var v;
+        if(p==='impulse'){ v = (x===6&&y===6) ? 255 : 30; }
+        else if(p==='diag'){ v = (x+y)<11 ? 55 : 205; }
+        else if(p==='grad'){ v = Math.round(x/(N-1)*225)+15; }
+        else if(p==='checker'){ v = ((((x/3)|0)+((y/3)|0))%2) ? 210 : 55; }
+        else { v = x<5?60:(x>6?200:130); if(y>=2&&y<=3&&x>=1&&x<=2)v=235; if(y>=8&&y<=9&&x>=8&&x<=9)v=70; } // edge
+        img[y*N+x]=v;
+      }
     }
+    buildImg(imgPreset);
 
     // disp: avg=合計/div, abs=|合計|, clamp=合計をクランプ, offset=合計+128
     var KER=[
@@ -207,6 +227,10 @@ import Footer from '../components/Footer.astro';
 
     var opsWrap=document.getElementById('ops');
     KER.forEach(function(k){ var b=document.createElement('div'); b.className='opill'+(k.id===op?' on':''); b.setAttribute('data-op',k.id); b.textContent=k.label; b.onclick=function(){ setOp(k.id); }; opsWrap.appendChild(b); });
+
+    function setImg(p){ imgPreset=p; buildImg(p); document.querySelectorAll('#imgs .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-img')===p); }); reset(); }
+    var imgsWrap=document.getElementById('imgs');
+    IMGS.forEach(function(im){ var b=document.createElement('div'); b.className='opill'+(im.id===imgPreset?' on':''); b.setAttribute('data-img',im.id); b.textContent=im.label; b.onclick=function(){ setImg(im.id); }; imgsWrap.appendChild(b); });
 
     document.getElementById('play').onclick=function(){ if(timer) stop(); else { if(cur>=N*N) reset(); play(); } };
     document.getElementById('step').onclick=function(){ stop(); if(cur>=N*N) reset(); stepOnce(); };
