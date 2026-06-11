@@ -1384,6 +1384,235 @@ import Footer from '../components/Footer.astro';
       </div>
     </div>
 
+    <!-- Delta-Sigma modulation -->
+    <div class="app-card">
+      <div class="app-title">ΔΣ変調 — 1bitはどうやって滑らかな信号を運ぶのか</div>
+      <div class="app-desc">
+        ΔΣ変調器は、なめらかな入力を「+1 か −1 か」だけの1bitストリームに変える。秘密は<strong>ノイズシェーピング</strong>——量子化で出る粗さ（ノイズ）を、信号のある低い周波数から<strong>高い周波数へ追い出す</strong>こと。あとから低域だけ通せば、1bitなのに高分解能の信号が戻ってくる。<br>
+        上＝入力と復元出力、中＝1bit出力ストリーム（濃淡が入力を追う）、下＝スペクトル。「ノイズシェーピング」を OFF にすると、ループ無しの素の1bit量子化になって、余計な成分が帯域内に居座る。デモ用の素朴な実装だよ。
+      </div>
+      <div class="canvas-label">ΔΣ MODULATOR — 入力 / 1bit出力 / スペクトル</div>
+      <canvas id="ds-cv" width="720" height="470" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <button class="btn primary" id="ds-on" type="button">ノイズシェーピング ON</button>
+          <button class="btn" id="ds-off" type="button">OFF（素の1bit）</button>
+        </div>
+        <div class="ctrl-group">
+          <label>次数</label>
+          <button class="btn primary" id="ds-o1" type="button">1次</button>
+          <button class="btn" id="ds-o2" type="button">2次</button>
+        </div>
+        <div class="ctrl-group">
+          <label>OSR 過剰標本化比</label>
+          <input type="range" id="ds-osr" min="0" max="4" value="2">
+          <span id="ds-osr-v">16</span>
+        </div>
+        <div class="ctrl-group">
+          <label>入力 振幅</label>
+          <input type="range" id="ds-amp" min="5" max="85" value="60">
+          <span id="ds-amp-v">0.60</span>
+        </div>
+        <div class="ctrl-group">
+          <label>入力 周波数</label>
+          <input type="range" id="ds-frq" min="2" max="28" value="7">
+          <span id="ds-frq-v">7</span>
+        </div>
+      </div>
+      <div class="status" id="ds-status"></div>
+      <div class="gs-math" id="ds-math">
+        <div class="gs-math-title">なぜ効くのか</div>
+        <div class="gs-math-row"><span data-ds-tex="0"></span><span class="gs-math-cap">信号 X はそのまま通り、量子化ノイズ E には (1−z⁻¹)ᴺ という高域通過がかかる（N＝次数）。低い周波数では 1−z⁻¹≈0 だからノイズが消える＝信号の居る帯域だけ静かになる。</span></div>
+        <div class="gs-math-row"><span data-ds-tex="1"></span><span class="gs-math-cap">OSR を2倍にするごとに、1次なら約 +9 dB、2次なら約 +15 dB ぶん S/N が良くなる。速く回すほど、あるいは次数を上げるほど、1bitでも分解能が上がるという仕組みだよ。</span></div>
+      </div>
+    </div>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('ds-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var W = cv.width, H = cv.height;
+      var TEAL='#3c7876', ORANGE='#c2773d', RED='#c2543d', FAINT='#aaa49b', MUT='#7d7568', INK='#1d1b17';
+
+      var shaping = true, order = 1;
+      var OSRS = [4,8,16,32,64], osrIdx = 2;
+      var amp = 0.60, sigCycles = 7;
+      var NFFT = 4096;
+
+      // ---- iterative radix-2 FFT (no deps) ----
+      function fft(re, im){
+        var n=re.length, i, j=0, k, len;
+        for(i=1;i<n;i++){
+          var bit=n>>1;
+          for(; j & bit; bit>>=1) j^=bit;
+          j^=bit;
+          if(i<j){ var tr=re[i];re[i]=re[j];re[j]=tr; var ti=im[i];im[i]=im[j];im[j]=ti; }
+        }
+        for(len=2; len<=n; len<<=1){
+          var ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
+          for(i=0;i<n;i+=len){
+            var cwr=1, cwi=0;
+            for(k=0;k<len/2;k++){
+              var a=i+k, b=i+k+len/2;
+              var vr=re[b]*cwr-im[b]*cwi, vi=re[b]*cwi+im[b]*cwr;
+              re[b]=re[a]-vr; im[b]=im[a]-vi;
+              re[a]=re[a]+vr; im[a]=im[a]+vi;
+              var ncwr=cwr*wr-cwi*wi; cwi=cwr*wi+cwi*wr; cwr=ncwr;
+            }
+          }
+        }
+      }
+      function ifft(re, im){
+        var n=re.length, i;
+        for(i=0;i<n;i++) im[i]=-im[i];
+        fft(re,im);
+        for(i=0;i<n;i++){ re[i]/=n; im[i]=-im[i]/n; }
+      }
+
+      // ---- 1bit modulator ----
+      function modulate(x){
+        var n=x.length, y=new Float64Array(n), i;
+        if(!shaping){
+          for(i=0;i<n;i++) y[i]= x[i]>=0 ? 1 : -1;   // open-loop 1bit quantize
+          return y;
+        }
+        var s1=0, s2=0, yp=0, q;
+        for(i=0;i<n;i++){
+          if(order===1){
+            s1 += x[i]-yp;
+            q = s1>=0?1:-1;
+          } else {
+            s1 += 0.5*(x[i]-yp);
+            s2 += 0.5*(s1-yp);
+            q = s2>=0?1:-1;
+            if(s1>8)s1=8; if(s1<-8)s1=-8; if(s2>8)s2=8; if(s2<-8)s2=-8; // keep the toy bounded
+          }
+          y[i]=q; yp=q;
+        }
+        return y;
+      }
+
+      function analyze(y, inbandBin, sigBin){
+        var re=new Float64Array(NFFT), im=new Float64Array(NFFT), i;
+        for(i=0;i<NFFT;i++){ re[i]=y[i]; im[i]=0; }
+        fft(re,im);
+        var half=NFFT/2, magDb=new Float64Array(half), sig=0, noise=0;
+        for(i=0;i<half;i++){
+          var p=(re[i]*re[i]+im[i]*im[i])/(half*half);
+          magDb[i]=10*Math.log10(p+1e-13);
+          if(i>=1 && i<=inbandBin){ if(Math.abs(i-sigBin)<=1) sig+=p; else noise+=p; }
+        }
+        var snr=10*Math.log10((sig+1e-15)/(noise+1e-15));
+        return { magDb:magDb, snr:snr };
+      }
+
+      function reconstruct(y, inbandBin){
+        var re=new Float64Array(NFFT), im=new Float64Array(NFFT), i;
+        for(i=0;i<NFFT;i++){ re[i]=y[i]; im[i]=0; }
+        fft(re,im);
+        for(i=0;i<NFFT;i++){ var f= i<=NFFT/2 ? i : NFFT-i; if(f>inbandBin){ re[i]=0; im[i]=0; } }
+        ifft(re,im);
+        return re;
+      }
+
+      function txt(s,x,y,col,size,align){
+        ctx.fillStyle=col; ctx.font=(size||11)+"px 'JetBrains Mono', monospace";
+        ctx.textAlign=align||'left'; ctx.fillText(s,x,y); ctx.textAlign='left';
+      }
+
+      function redraw(){
+        var OSR=OSRS[osrIdx];
+        var inbandBin=Math.max(8, Math.floor(NFFT/(2*OSR)));
+        var sigBin=Math.min(sigCycles, inbandBin-2);
+        var x=new Float64Array(NFFT), i;
+        for(i=0;i<NFFT;i++) x[i]=amp*Math.sin(2*Math.PI*sigBin*i/NFFT);
+        var y=modulate(x);
+        var an=analyze(y, inbandBin, sigBin);
+        var recon=reconstruct(y, inbandBin);
+
+        ctx.clearRect(0,0,W,H);
+        var Wn=Math.min(NFFT, Math.round(NFFT/sigBin*1.6));
+
+        // Panel A: input vs reconstructed
+        var aMid=66, aH=44;
+        ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(40,aMid); ctx.lineTo(W-12,aMid); ctx.stroke();
+        function AX(k){ return 40+(k/(Wn-1))*(W-52); }
+        ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.beginPath();
+        for(i=0;i<Wn;i++){ var px=AX(i),py=aMid-x[i]*aH; if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py); } ctx.stroke();
+        ctx.strokeStyle=ORANGE; ctx.lineWidth=1.6; ctx.beginPath();
+        for(i=0;i<Wn;i++){ var px2=AX(i),py2=aMid-recon[i]*aH; if(i===0)ctx.moveTo(px2,py2);else ctx.lineTo(px2,py2); } ctx.stroke();
+        txt('入力',44,22,TEAL,11); txt('—— 復元出力（低域だけ通した1bit）',82,22,ORANGE,11);
+
+        // Panel B: 1bit stream + input overlay
+        var bMid=176, bH=30;
+        for(i=0;i<Wn;i++){
+          var bx=AX(i);
+          if(y[i]>=0){ ctx.strokeStyle='rgba(60,120,118,0.55)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid-bH); ctx.stroke(); }
+          else { ctx.strokeStyle='rgba(170,164,155,0.5)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid+bH); ctx.stroke(); }
+        }
+        ctx.strokeStyle=INK; ctx.lineWidth=1.4; ctx.beginPath();
+        for(i=0;i<Wn;i++){ var ix=AX(i),iy=bMid-x[i]*bH; if(i===0)ctx.moveTo(ix,iy);else ctx.lineTo(ix,iy); } ctx.stroke();
+        txt('1bit出力：+1 上 / −1 下  （入力が高いほど +1 が密に）',44,138,MUT,11);
+
+        // Panel C: spectrum
+        var y0=236, y1=460, hh=y1-y0, dbT=0, dbB=-130, half=an.magDb.length;
+        function CY(db){ db=Math.max(dbB,Math.min(dbT,db)); return y0+(dbT-db)/(dbT-dbB)*hh; }
+        function CX(k){ return 46+(k/(half-1))*(W-58); }
+        ctx.fillStyle='rgba(60,120,118,0.08)'; ctx.fillRect(CX(0),y0,CX(inbandBin)-CX(0),hh);
+        ctx.strokeStyle='#efe9e0'; ctx.lineWidth=1;
+        for(var db=0; db>=-120; db-=30){ var gy=CY(db); ctx.beginPath(); ctx.moveTo(46,gy); ctx.lineTo(W-12,gy); ctx.stroke(); txt(db+'dB',6,gy+3,FAINT,9); }
+        ctx.strokeStyle=TEAL; ctx.lineWidth=1; ctx.beginPath();
+        for(i=1;i<half;i++){ var sx=CX(i),sy=CY(an.magDb[i]); if(i===1)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy); } ctx.stroke();
+        var ex=CX(inbandBin);
+        ctx.strokeStyle=RED; ctx.setLineDash([4,3]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(ex,y0); ctx.lineTo(ex,y1); ctx.stroke(); ctx.setLineDash([]);
+        var tx=CX(sigBin); ctx.strokeStyle=ORANGE; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(tx,CY(an.magDb[sigBin])); ctx.lineTo(tx,y1); ctx.stroke();
+        txt('スペクトル（周波数 →）',46,y0+12,MUT,11);
+        txt('信号',tx+3,CY(an.magDb[sigBin])-4,ORANGE,10);
+        txt('復元帯域の端',ex+5,y0+12,RED,10);
+        txt('→ この外へノイズを追い出す',ex+5,y0+26,FAINT,9);
+
+        var enob=(an.snr-1.76)/6.02;
+        document.getElementById('ds-status').textContent =
+          'モード: '+(shaping?('ΔΣ '+order+'次・ノイズシェーピング'):'素の1bit量子化（ループ無し）')+
+          ' ／ OSR='+OSR+' ／ 帯域内S/N ≈ '+an.snr.toFixed(1)+' dB （実効 ≈ '+(enob>0?enob.toFixed(1):'0.0')+' bit 相当）';
+      }
+
+      // KaTeX (deferred-load safe)
+      var DSTEX=[
+        'Y(z)=\\underbrace{z^{-1}}_{\\text{STF}}\\,X(z)+\\underbrace{(1-z^{-1})^{N}}_{\\text{NTF}}\\,E(z)',
+        '\\text{帯域内ノイズ}\\ \\propto\\ \\dfrac{1}{\\mathrm{OSR}^{\\,2N+1}}'
+      ];
+      function renderMath(){
+        if(window.katex){
+          var els=document.querySelectorAll('#ds-math [data-ds-tex]');
+          els.forEach(function(el){
+            try{ window.katex.render(DSTEX[+el.getAttribute('data-ds-tex')], el, {throwOnError:false, displayMode:true}); }catch(e){}
+          });
+        } else setTimeout(renderMath, 100);
+      }
+
+      function pick(a, b, onA){
+        document.getElementById(a).classList.toggle('primary', onA);
+        document.getElementById(b).classList.toggle('primary', !onA);
+      }
+      document.getElementById('ds-on').onclick=function(){ shaping=true; pick('ds-on','ds-off',true); redraw(); };
+      document.getElementById('ds-off').onclick=function(){ shaping=false; pick('ds-on','ds-off',false); redraw(); };
+      document.getElementById('ds-o1').onclick=function(){ order=1; pick('ds-o1','ds-o2',true); redraw(); };
+      document.getElementById('ds-o2').onclick=function(){ order=2; pick('ds-o1','ds-o2',false); redraw(); };
+      var eOsr=document.getElementById('ds-osr');
+      eOsr.oninput=function(){ osrIdx=+eOsr.value; document.getElementById('ds-osr-v').textContent=OSRS[osrIdx]; redraw(); };
+      var eAmp=document.getElementById('ds-amp');
+      eAmp.oninput=function(){ amp=(+eAmp.value)/100; document.getElementById('ds-amp-v').textContent=amp.toFixed(2); redraw(); };
+      var eFrq=document.getElementById('ds-frq');
+      eFrq.oninput=function(){ sigCycles=+eFrq.value; document.getElementById('ds-frq-v').textContent=sigCycles; redraw(); };
+
+      redraw();
+      renderMath();
+    })();
+    </script>
+
   </main>
   <Footer />
 </body>
