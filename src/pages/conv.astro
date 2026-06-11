@@ -56,11 +56,15 @@ import Footer from '../components/Footer.astro';
     <div class="intro">
       <h1>畳み込みを一歩ずつ</h1>
       <p>「ぼかし」や「エッジ検出」が、内部では何をしているのか——12×12 の小さな画像で、計算が<strong>一マスずつ進む</strong>様子を、カーネル行列ごと見るための場所だよ。</p>
-      <p>3×3 の窓（カーネル）が入力を左上から舐めていき、その都度「カーネル ⊙ 入力の窓 → 各積の合計」を計算して、出力の1マスを埋める。これが畳み込み（convolution）の正体なんだ。下の行列ビューで、重み・入力・積がそのまま見える。カーネルを切り替えて、ぼかしと各種エッジ、シャープやエンボスがどう違うか見比べてみて。<strong>入力画像</strong>も切り替えられる——「インパルス(1点)」を選ぶと、出力にカーネルの形そのものが浮かぶ（＝インパルス応答。カーネルの"正体"が見える）。</p>
+      <p>3×3 の窓（カーネル）が入力を左上から舐めていき、その都度「カーネル ⊙ 入力の窓 → 各積の合計」を計算して、出力の1マスを埋める。これが畳み込み（convolution）の正体なんだ。下の行列ビューで、重み・入力・積がそのまま見える。カーネルを切り替えて、ぼかしと各種エッジ、シャープやエンボスがどう違うか見比べてみて。<strong>入力画像</strong>も切り替えられる——「インパルス(1点)」を選ぶと、出力にカーネルの形そのものが浮かぶ（＝インパルス応答。カーネルの"正体"が見える）。さらに<strong>グリッド</strong>を 12×12 / 24×24 で切り替えると、同じ絵（連続関数として持っている）を粗く/細かく<strong>標本化</strong>したのが見える——「顔」だと 12 は四角ばって、24 は滑らか。連続の絵を格子に写し取る、それが標本化なんだ。</p>
       <p><a href="/play">← /play へもどる</a></p>
     </div>
 
     <div class="card">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.55rem;">
+        <span style="font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;">グリッド</span>
+        <div class="ops" id="grids" style="margin-bottom:0;"></div>
+      </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.55rem;">
         <span style="font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);min-width:4.5em;">入力画像</span>
         <div class="ops" id="imgs" style="margin-bottom:0;"></div>
@@ -102,18 +106,31 @@ import Footer from '../components/Footer.astro';
       {id:'impulse', label:'インパルス(1点)'},
       {id:'diag',    label:'斜めエッジ'},
       {id:'grad',    label:'グラデ'},
-      {id:'checker', label:'市松'}
+      {id:'checker', label:'市松'},
+      {id:'face',    label:'顔（絵）'}
     ];
-    function buildImg(p){
-      for(var y=0;y<N;y++)for(var x=0;x<N;x++){
-        var v;
-        if(p==='impulse'){ v = (x===6&&y===6) ? 255 : 30; }
-        else if(p==='diag'){ v = (x+y)<11 ? 55 : 205; }
-        else if(p==='grad'){ v = Math.round(x/(N-1)*225)+15; }
-        else if(p==='checker'){ v = ((((x/3)|0)+((y/3)|0))%2) ? 210 : 55; }
-        else { v = x<5?60:(x>6?200:130); if(y>=2&&y<=3&&x>=1&&x<=2)v=235; if(y>=8&&y<=9&&x>=8&&x<=9)v=70; } // edge
-        img[y*N+x]=v;
+    // continuous "picture" f(u,v), u,v in [0,1] — sampled onto the N×N grid (so 12/24 = coarse/fine sampling)
+    function sampleVal(p,u,v){
+      if(p==='impulse'){ return (Math.abs(u-0.5)<0.5/N && Math.abs(v-0.5)<0.5/N) ? 255 : 30; }
+      if(p==='diag'){ return (u+v)<1 ? 55 : 205; }
+      if(p==='grad'){ return Math.round(u*225)+15; }
+      if(p==='checker'){ var f=6; return ((Math.floor(u*f)+Math.floor(v*f))%2) ? 210 : 55; }
+      if(p==='face'){
+        var dx=u-0.5, dy=v-0.5, d=Math.sqrt(dx*dx+dy*dy), val=235;
+        if(d<0.45) val=205;
+        if(d<0.45 && d>0.36) val=95;
+        if(Math.sqrt((u-0.33)*(u-0.33)+(v-0.40)*(v-0.40))<0.058) val=40;
+        if(Math.sqrt((u-0.67)*(u-0.67)+(v-0.40)*(v-0.40))<0.058) val=40;
+        if(dy>0.05 && Math.abs(d-0.25)<0.05 && Math.abs(dx)<0.27) val=40;
+        return val;
       }
+      var ev = u<0.42 ? 60 : (u>0.5 ? 200 : 130);   // edge (default)
+      if(v<0.28 && u>0.04 && u<0.24) ev=235;
+      if(v>0.66 && u>0.66 && u<0.86) ev=70;
+      return ev;
+    }
+    function buildImg(p){
+      for(var y=0;y<N;y++)for(var x=0;x<N;x++){ img[y*N+x]=sampleVal(p,(x+0.5)/N,(y+0.5)/N); }
     }
     buildImg(imgPreset);
 
@@ -152,7 +169,7 @@ import Footer from '../components/Footer.astro';
       ctx.fillStyle = (val===null) ? '#efeae1' : 'rgb('+val+','+val+','+val+')';
       ctx.fillRect(px,py,CELL,CELL);
       ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=1; ctx.strokeRect(px+0.5,py+0.5,CELL-1,CELL-1);
-      if(val!==null){
+      if(val!==null && CELL>=18){
         ctx.fillStyle = val>128 ? 'rgba(20,20,20,0.72)' : 'rgba(255,255,255,0.85)';
         ctx.font='8px "JetBrains Mono", monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(val, px+CELL/2, py+CELL/2+0.5);
@@ -231,6 +248,11 @@ import Footer from '../components/Footer.astro';
     function setImg(p){ imgPreset=p; buildImg(p); document.querySelectorAll('#imgs .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-img')===p); }); reset(); }
     var imgsWrap=document.getElementById('imgs');
     IMGS.forEach(function(im){ var b=document.createElement('div'); b.className='opill'+(im.id===imgPreset?' on':''); b.setAttribute('data-img',im.id); b.textContent=im.label; b.onclick=function(){ setImg(im.id); }; imgsWrap.appendChild(b); });
+
+    function setN(n){ stop(); N=n; CELL=288/N; img=new Array(N*N); buildImg(imgPreset);
+      document.querySelectorAll('#grids .opill').forEach(function(el){ el.classList.toggle('on', +el.getAttribute('data-n')===n); }); reset(); }
+    var gridsWrap=document.getElementById('grids');
+    [[12,'12×12'],[24,'24×24']].forEach(function(g){ var b=document.createElement('div'); b.className='opill'+(g[0]===N?' on':''); b.setAttribute('data-n',g[0]); b.textContent=g[1]; b.onclick=function(){ setN(g[0]); }; gridsWrap.appendChild(b); });
 
     document.getElementById('play').onclick=function(){ if(timer) stop(); else { if(cur>=N*N) reset(); play(); } };
     document.getElementById('step').onclick=function(){ stop(); if(cur>=N*N) reset(); stepOnce(); };
