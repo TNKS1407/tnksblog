@@ -50,6 +50,8 @@ import Footer from '../components/Footer.astro';
         <button class="btn" id="zero" type="button">0V（平衡）</button>
         <button class="btn" id="rev" type="button">逆方向 -0.8V</button>
         <button class="btn" id="trr" type="button" style="border-color:#c2543d;color:#c2543d;">⚡ 逆回復を見る</button>
+        <button class="btn" id="trrstep" type="button">▶| コマ送り</button>
+        <div class="ctrl-group"><label>速さ</label><input type="range" id="trrspd" min="0" max="100" value="60"><span class="vv" id="trrspdv">ゆっくり</span></div>
         <div class="ctrl-group"><label>τ寿命</label><input type="range" id="ttau" min="4" max="30" value="12"><span class="vv" id="ttauv">0.12</span></div>
         <div class="ctrl-group"><label>di/dt</label><input type="range" id="tdidt" min="3" max="20" value="8"><span class="vv" id="tdidtv">8</span></div>
       </div>
@@ -208,7 +210,7 @@ import Footer from '../components/Footer.astro';
   function render(){ if(!trrOn) injF=ex(); draw(); setReadout(); }
 
   // ---- reverse recovery (trr) transient ----
-  var trrTau=0.12, trrDidt=8, IF=1;
+  var trrTau=0.12, trrDidt=8, IF=1, trrFrames=690;
   var trrQ=0, trrI_=0, trrT=0, trrPhase='idle', trrIRM=0, trrTs=0, trrTzc=0, trrTwin=1, trrHist=[];
   function trrInit(){
     trrTau=(+document.getElementById('ttau').value)/100;
@@ -249,11 +251,18 @@ import Footer from '../components/Footer.astro';
   function stopTRR(){ if(trrRaf){ cancelAnimationFrame(trrRaf); trrRaf=null; } trrOn=false; var b=document.getElementById('bias'); if(b)b.disabled=false; }
   function startTRR(){ stopTRR(); trrOn=true; trrInit(); document.getElementById('bias').disabled=true; trrLoop(); }
   function trrLoop(){
-    var dt=0.0016, steps=Math.max(1, Math.round(trrTwin/dt/150));
+    var dt=0.0016, steps=Math.max(1, Math.round(trrTwin/dt/trrFrames));
     for(var s=0;s<steps && trrPhase!=='done'; s++) trrStep(dt);
     draw(); setReadout();
     if(trrPhase!=='done'){ trrRaf=requestAnimationFrame(trrLoop); }
     else { document.getElementById('bias').disabled=false; }
+  }
+  function stepTRR(){
+    if(!trrOn || trrPhase==='done' || trrPhase==='idle'){ stopTRR(); trrOn=true; trrInit(); document.getElementById('bias').disabled=true; }
+    if(trrRaf){ cancelAnimationFrame(trrRaf); trrRaf=null; }
+    var dt=0.0016, n=Math.max(1, Math.round(trrTwin/dt/70));
+    for(var s=0;s<n && trrPhase!=='done'; s++) trrStep(dt);
+    draw(); setReadout();
   }
 
   var eb=document.getElementById('bias'), ebv=document.getElementById('biasv');
@@ -265,6 +274,8 @@ import Footer from '../components/Footer.astro';
   document.getElementById('trr').onclick=function(){ startTRR(); };
   document.getElementById('ttau').oninput=function(){ document.getElementById('ttauv').textContent=(+this.value/100).toFixed(2); if(trrOn&&trrPhase==='done') startTRR(); };
   document.getElementById('tdidt').oninput=function(){ document.getElementById('tdidtv').textContent=this.value; if(trrOn&&trrPhase==='done') startTRR(); };
+  document.getElementById('trrstep').onclick=function(){ stepTRR(); };
+  document.getElementById('trrspd').oninput=function(){ var v=+this.value; trrFrames=Math.round(150+v*9); document.getElementById('trrspdv').textContent=v<30?'はやい':(v<55?'ふつう':'ゆっくり'); };
 
   render();
 })();
