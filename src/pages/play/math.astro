@@ -1,0 +1,285 @@
+---
+import PlayLayout from '../../layouts/PlayLayout.astro';
+---
+<PlayLayout title="数学・幾何 — Play" description="コンパクト性・極限・対称性・曲線。抽象を目で触る。" heading="📐 数学・幾何" intro="コンパクト性・極限・対称性・曲線。抽象を目で触る。">
+
+    <!-- Compactness / open cover -->
+    <div class="app-card">
+      <div class="app-title">コンパクト性 — 開区間はなぜ"覆いきれない"のか</div>
+      <div class="app-desc">
+        区間を「開いた毛布（開区間）」で覆っていく。コンパクトとは「どんな覆い方をしても、有限枚だけ選んで覆い直せる」こと。<br>
+        閉区間 [0,1] はいつでも有限枚で足りる。でも開区間 (0,1) は、端の 0 に向かって毛布を無限に小さくし続けないと覆えない——その「追いつかない」感じを動かして確かめる。覆いの族は Uₙ =（1/(n+1), 1）。
+      </div>
+      <div class="canvas-label">NUMBER LINE — 毛布(開区間)で覆う ／ 赤 = まだ覆えていない</div>
+      <canvas id="cmp-cv" width="720" height="300" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <button class="btn primary" id="cmp-open" type="button">開区間 (0,1)</button>
+          <button class="btn" id="cmp-closed" type="button">閉区間 [0,1]</button>
+        </div>
+        <div class="ctrl-group">
+          <label>毛布の枚数 N</label>
+          <input type="range" id="cmp-n" min="1" max="40" value="4">
+          <span id="cmp-n-v">4</span>
+        </div>
+        <button class="btn" id="cmp-more" type="button">もっと増やす ▶</button>
+      </div>
+      <div class="status" id="cmp-status"></div>
+    </div>
+
+    <!-- Central Limit Theorem -->
+    <div class="app-card">
+      <div class="app-title">中心極限定理</div>
+      <div class="app-desc">
+        どんな分布から取った値でも、<b>n 個の平均</b>を何度も作ってヒストグラムにすると、n が大きいほど正規分布（ガウス）に近づく。<br>
+        元の分布がサイコロでも二山でも指数でも関係ない、というのが面白い所。スライダで n を上げて、▶再生で試行をためていくと、形がガウス曲線（点線）に吸い寄せられていくのが見える。
+      </div>
+
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">① 元の分布（ここから1個ずつ引く）</div>
+        <canvas id="cv-clt-src" width="700" height="90" style="width:100%;height:90px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">② n 個の平均のヒストグラム ＋ 理論ガウス（点線）</div>
+        <canvas id="cv-clt-hist" width="700" height="220" style="width:100%;height:220px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:220px;">
+          <label>平均する個数 n
+            <button type="button" id="clt-n-info" aria-label="平均する個数 n とは"
+              style="margin-left:.3rem;width:1.15rem;height:1.15rem;line-height:1;border-radius:50%;border:1px solid var(--accent,#3c7876);background:none;color:var(--accent,#3c7876);font-size:.72rem;font-weight:700;cursor:pointer;vertical-align:middle;">?</button>
+          </label>
+          <input type="range" id="clt-n" min="1" max="30" value="1" step="1" style="flex:1;">
+          <span id="clt-n-val" style="min-width:2rem;">1</span>
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:220px;">
+          <label>試行速度</label>
+          <input type="range" id="clt-speed" min="1" max="200" value="20" step="1" style="flex:1;">
+          <span id="clt-speed-val" style="min-width:5.5rem;">20 回/フレーム</span>
+        </div>
+        <button class="btn primary" id="clt-play">▶ 再生</button>
+        <button class="btn" id="clt-step">+1試行</button>
+        <button class="btn" id="clt-reset">リセット</button>
+      </div>
+
+      <div id="clt-n-pop" hidden style="margin-top:.6rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);border-radius:10px;padding:.8rem 1rem;font-size:.8rem;line-height:1.7;color:var(--text,#1d1b17);position:relative;">
+        <button type="button" id="clt-n-pop-close" aria-label="閉じる" style="position:absolute;top:.4rem;right:.6rem;border:none;background:none;color:var(--text-muted,#7d7568);font-size:1rem;cursor:pointer;">×</button>
+        <b>n＝1回の試行で、元の分布から何個引いて平均するか。</b><br>
+        サイコロで言うと——<br>
+        ・<b>n=1</b>：1個振って出た目そのものを1点として積む（たくさんやれば 1〜6 が平ら）。<br>
+        ・<b>n=2</b>：2個振った平均（3と6なら4.5）を1点に。<br>
+        ・<b>n=10</b>：10個の平均を1点に。<br>
+        n が大きいほど、その“平均”が真ん中（μ）に集まって形がガウスに近づく——これが中心極限定理。だから n を上げると山が細く高くなる。▶再生でためる点は、ぜんぶ「n個の平均」だよ。
+      </div>
+
+      <div class="presets">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">元の分布:</span>
+        <button class="preset-btn" data-clt="uniform">一様</button>
+        <button class="preset-btn" data-clt="die">サイコロ</button>
+        <button class="preset-btn" data-clt="exp">指数</button>
+        <button class="preset-btn" data-clt="bimodal">二山</button>
+        <button class="preset-btn" data-clt="coin">コイン</button>
+      </div>
+
+      <div class="status" id="clt-status"></div>
+
+      <div class="gs-math" id="clt-math">
+        <div class="gs-math-title">DEFINITION</div>
+        <div class="gs-math-row"><span data-tex="\\bar X_n=\\frac1n\\sum_{i=1}^{n}X_i \\;\\xrightarrow[n\\to\\infty]{}\\; \\mathcal N\\!\\left(\\mu,\\ \\frac{\\sigma^2}{n}\\right)"></span><span class="gs-math-cap">平均は μ のまま、ばらつき（標準偏差）は σ/√n で縮む。だから n を4倍にすると山の幅は半分になる。元の分布の形にはほとんど依らない、というのが中心極限定理だよ。</span></div>
+      </div>
+    </div>
+
+    <!-- Crystal Symmetry Playground -->
+    <div class="app-card">
+      <div class="app-title">結晶対称操作の遊び場</div>
+      <div class="app-desc">
+        1つの点を置くと、選んだ点群の対称操作が等価位置を生成する。2D版でのざっくりした体験用。<br>
+        ちゃんとした3D版（全230空間群）は <a href="https://sg.tnks1407.com" target="_blank" style="color:#3c7876;">sg.tnks1407.com</a> にある。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">クリックで基本点を置く</div>
+          <canvas id="cv-cryst" width="320" height="320" style="cursor:crosshair;"></canvas>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div class="canvas-label" style="margin-bottom:.6rem;">点群（2D）</div>
+          <div style="display:flex;flex-direction:column;gap:.35rem;" id="pg-buttons"></div>
+          <div id="cryst-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.7;"></div>
+          <div style="margin-top:1rem;display:flex;gap:.5rem;">
+            <button class="btn" id="cryst-clear">クリア</button>
+            <button class="btn" id="cryst-anim-btn">アニメON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lissajous Figures -->
+    <div class="app-card">
+      <div class="app-title">リサージュ図形</div>
+      <div class="app-desc">
+        X・Y軸に異なる周波数の正弦波を入れると現れる曲線。オシロスコープのXYモードで見るあれ。<br>
+        周波数比が整数比なら安定した閉曲線になり、位相差が変化すると図形がゆっくり変形していく。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">LISSAJOUS — x=sin(fx·t+δ), y=sin(fy·t)</div>
+          <canvas id="cv-lissa" width="320" height="320"></canvas>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group">
+              <label>fx</label>
+              <input type="range" id="lissa-fx" min="1" max="8" value="3" step="1" style="width:110px;">
+              <span id="lissa-fx-val">3</span>
+            </div>
+            <div class="ctrl-group">
+              <label>fy</label>
+              <input type="range" id="lissa-fy" min="1" max="8" value="2" step="1" style="width:110px;">
+              <span id="lissa-fy-val">2</span>
+            </div>
+            <div class="ctrl-group">
+              <label>δ [°]</label>
+              <input type="range" id="lissa-phase" min="0" max="359" value="90" step="1" style="width:110px;">
+              <span id="lissa-phase-val">90°</span>
+            </div>
+            <div class="ctrl-group">
+              <label>位相アニメ</label>
+              <input type="checkbox" id="lissa-anim" checked style="accent-color:#3c7876;width:auto;">
+            </div>
+            <div class="ctrl-group">
+              <label>速度</label>
+              <input type="range" id="lissa-speed" min="1" max="30" value="6" style="width:110px;">
+              <span id="lissa-speed-val">6</span>
+            </div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">プリセット:</span>
+            <button class="preset-btn" data-lissa="1,1,90">1:1 円</button>
+            <button class="preset-btn" data-lissa="1,2,90">1:2</button>
+            <button class="preset-btn" data-lissa="1,3,90">1:3</button>
+            <button class="preset-btn" data-lissa="2,3,90">2:3</button>
+            <button class="preset-btn" data-lissa="3,4,45">3:4</button>
+            <button class="preset-btn" data-lissa="3,5,30">3:5</button>
+          </div>
+          <div id="lissa-info" style="margin-top:.75rem;font-size:.7rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.6;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hue: line to circle (S^1) -->
+    <div class="app-card">
+      <div class="app-title">色相は円になる — 物理の「線」が知覚の「輪」へ</div>
+      <div class="app-desc">
+        物理の波長は、紫(380nm)から赤(700nm)までの<b>一本の線</b>でしかない。両端は別の色で、つながっていない。<br>
+        でも知覚は、スペクトルに無い<b>紫（マゼンタ＝赤と青紫の混色）</b>で両端を糊づけして、<b>輪（色相環 S¹）</b>に閉じてしまう。スライダーを動かすと、線が曲がって円になり、間を非スペクトルの紫が埋めるのが見える。位相が「物理」から「知覚」へ移るときに変わる、いい例だよ。
+      </div>
+      <div class="canvas-label">スライダー：線（波長） → 円（色相環）</div>
+      <canvas id="hue-cv" width="720" height="380" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>線 → 円</label>
+          <input type="range" id="hue-m" min="0" max="100" value="0">
+          <span id="hue-m-v">0%</span>
+        </div>
+        <button class="btn" id="hue-go" type="button">アニメ ▶</button>
+      </div>
+      <div class="status" id="hue-status"></div>
+    </div>
+
+    <!-- 2D Gaussian Splatting -->
+    <div class="app-card">
+      <div class="app-title">2Dガウシアンスプラッティングの遊び場</div>
+      <div class="app-desc">
+        画像を「たくさんの“にじみ”（2次元ガウシアン）の重ね合わせ」で描き直す実験。これが最近のニューラルレンダリング ── 3Dガウシアンスプラッティングの心臓部の、2D版だよ。<br>
+        スプラット数を増やすほど元画像に近づく。「異方性」をオンにすると、各にじみがエッジに沿って楕円に伸びて、少ない数でも輪郭がシャープになる。なぜ“まんまる”より“楕円”のガウシアンが効くのかが見えるはず。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">RECONSTRUCTION — ガウシアンの重ね合わせ</div>
+          <canvas id="gs-out" width="320" height="320"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">TARGET — 元画像</div>
+          <canvas id="gs-target" width="150" height="150" style="width:150px;height:150px;"></canvas>
+          <div id="gs-stat" style="margin-top:.6rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.7;"></div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group">
+              <label>スプラット数</label>
+              <input type="range" id="gs-n" min="20" max="1500" value="300" step="10" style="width:130px;">
+              <span id="gs-n-val">300</span>
+            </div>
+            <div class="ctrl-group">
+              <label>にじみの大きさ</label>
+              <input type="range" id="gs-size" min="0.5" max="2.5" value="1" step="0.1" style="width:130px;">
+              <span id="gs-size-val">1.0</span>
+            </div>
+            <div class="ctrl-group">
+              <label>異方性（エッジに沿わせる）</label>
+              <input type="checkbox" id="gs-aniso" checked style="accent-color:#3c7876;width:auto;">
+            </div>
+            <div class="ctrl-group">
+              <label>エッジに多く配置</label>
+              <input type="checkbox" id="gs-edge" style="accent-color:#3c7876;width:auto;">
+            </div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">元画像:</span>
+            <button class="preset-btn" data-gs="sunset">夕焼け</button>
+            <button class="preset-btn" data-gs="shapes">図形</button>
+            <button class="preset-btn" data-gs="grad">グラデ</button>
+            <button class="preset-btn" data-gs="hikari">光</button>
+          </div>
+          <div style="margin-top:.8rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+            <button class="btn" id="gs-anim">粗→細アニメ</button>
+            <button class="btn" id="gs-compare">押すと等方性で比較</button>
+          </div>
+          <div id="gs-note" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+      <div class="gs-math" id="gs-math">
+        <div class="gs-math-title">MATH メモ</div>
+        <div class="gs-math-row"><span class="gs-math-lab">① にじみ1つ（2Dガウシアン）</span><span data-tex="G(\\mathbf{x})=\\exp\\!\\left(-\\tfrac12(\\mathbf{x}-\\boldsymbol{\\mu})^{\\top}\\Sigma^{-1}(\\mathbf{x}-\\boldsymbol{\\mu})\\right)"></span><span class="gs-math-cap">μ＝中心、Σ＝共分散（楕円の形）</span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">② 楕円＝回転×拡大で作る</span><span data-tex="\\Sigma=R(\\theta)\\,S\\,S^{\\top}R(\\theta)^{\\top},\\quad S=\\mathrm{diag}(\\sigma_x,\\sigma_y)"></span><span class="gs-math-cap">異方性＝σx≠σy。この遊び場ではσをエッジ強度、θを勾配方向で決めてる</span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">③ 重ね合わせ（前からアルファ合成）</span><span data-tex="C=\\sum_i c_i\\,\\alpha_i\\prod_{j<i}(1-\\alpha_j)"></span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">④ 元画像との誤差＝“学習”で下げる量</span><span data-tex="\\mathcal{L}=\\tfrac{1}{N}\\sum\\lVert I_{\\mathrm{pred}}-I_{\\mathrm{tgt}}\\rVert^2,\\quad \\mathrm{PSNR}=10\\log_{10}\\!\\frac{255^2}{\\mathrm{MSE}}"></span></div>
+      </div>
+    </div>
+
+    <!-- Non-inverse-square gravity: how orbits close -->
+    <div class="app-card">
+      <div class="app-title">逆二乗じゃない重力 — 軌道はどう閉じる？</div>
+      <div class="app-desc">
+        中心からの引力を <b>F ∝ 1/r<sup>p</sup></b> として、冪 <b>p</b> を変えてみる。私たちの宇宙は p=2（逆二乗）。そこから少しずらすと、軌道は閉じずに回り続けて、バラのような歳差軌道を描く。<br>
+        じつは「p=2」は<b>空間が3次元だから</b>なんだ。点源から出た力の流束は、広がる球面（面積 ∝ r²）に薄まるので力は 1/r² になる ── これがガウスの法則の幾何的な中身だよ。N次元なら面積 ∝ r<sup>N−1</sup> で <b>F ∝ 1/r<sup>N−1</sup></b>（p=N−1）。そして閉じた軌道を作れるのは <b>p=2（3次元）とバネ p=−1 だけ</b>（ベルトランの定理）。安定してきれいに回る軌道は、3次元の宇宙でこそ自然に生まれる、とも読める。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">ORBIT — 中心力 F ∝ 1/r^p</div>
+          <canvas id="orb-cv" width="340" height="340"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group"><label>力の冪 p</label><input type="range" id="orb-p" min="-1.2" max="3.2" value="2" step="0.01" style="width:130px;"><span id="orb-p-val">2.00</span></div>
+            <div class="ctrl-group"><label>初速（円=1.00）</label><input type="range" id="orb-v" min="0.45" max="1.35" value="0.8" step="0.01" style="width:130px;"><span id="orb-v-val">0.80</span></div>
+            <div class="ctrl-group"><label>速さ</label><input type="range" id="orb-s" min="0.25" max="3" value="1" step="0.05" style="width:130px;"><span id="orb-s-val">1.0×</span></div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">次元:</span>
+            <button class="preset-btn" data-orbp="2">3次元 p=2</button>
+            <button class="preset-btn" data-orbp="1">2次元 p=1</button>
+            <button class="preset-btn" data-orbp="3">4次元 p=3</button>
+            <button class="preset-btn" data-orbp="-1">バネ p=−1</button>
+          </div>
+          <div class="presets" style="margin-top:.5rem;">
+            <button class="preset-btn" id="orb-play">⏸ 停止</button>
+            <button class="preset-btn" id="orb-clear">↺ 軌跡を消す</button>
+          </div>
+          <div id="orb-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+    </div>
+
+</PlayLayout>

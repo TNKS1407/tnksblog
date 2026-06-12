@@ -1,0 +1,50 @@
+---
+import PlayLayout from '../../layouts/PlayLayout.astro';
+---
+<PlayLayout title="色・知覚 — Play" description="色をかたちとして見る。中立軸と色相環 S¹。" heading="🎨 色・知覚" intro="色をかたちとして見る。中立軸と色相環 S¹。">
+
+    <!-- Color space / neutral axis -->
+    <div class="app-card">
+      <div class="app-title">色空間と中立軸 — グレーの背骨はどこ？</div>
+      <div class="app-desc">
+        色を「明るさ（縦）× 色味（横）」の断面で見たもの。中央のグレーの線が <b>中立軸</b> ── 色相・彩度・明度を測る基準の背骨だよ（明度＝軸上の位置, 彩度＝軸からの距離, 色相＝どちら側か）。<br>
+        ここがこの話の肝：使える色の範囲（色域）は左右非対称だから、<b>「使える色のド真ん中」＝グレー、ではない</b>。中立軸は"形の中心"では決められず、黒からの距離（計量）から導く必要がある ── それが100年解けなかった宿題。「色域のゆがみ」を動かして、真ん中（破線）とグレー軸（実線）がズレるのを見て。
+      </div>
+      <div class="canvas-label">縦=明度(下が黒,上が白) ／ 横=色味 ／ 実線=中立軸(グレー), 破線=色域の幾何中心</div>
+      <canvas id="col-cv" width="720" height="380" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>色域のゆがみ</label>
+          <input type="range" id="col-w" min="0" max="100" value="0">
+          <span id="col-w-v">0</span>
+        </div>
+        <div class="ctrl-group">
+          <label>見る明度 L</label>
+          <input type="range" id="col-l" min="2" max="98" value="50">
+          <span id="col-l-v">0.50</span>
+        </div>
+      </div>
+      <div class="status" id="col-status"></div>
+    </div>
+
+    <!-- Hue: line to circle (S^1) -->
+    <div class="app-card">
+      <div class="app-title">色相は円になる — 物理の「線」が知覚の「輪」へ</div>
+      <div class="app-desc">
+        物理の波長は、紫(380nm)から赤(700nm)までの<b>一本の線</b>でしかない。両端は別の色で、つながっていない。<br>
+        でも知覚は、スペクトルに無い<b>紫（マゼンタ＝赤と青紫の混色）</b>で両端を糊づけして、<b>輪（色相環 S¹）</b>に閉じてしまう。スライダーを動かすと、線が曲がって円になり、間を非スペクトルの紫が埋めるのが見える。位相が「物理」から「知覚」へ移るときに変わる、いい例だよ。
+      </div>
+      <div class="canvas-label">スライダー：線（波長） → 円（色相環）</div>
+      <canvas id="hue-cv" width="720" height="380" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>線 → 円</label>
+          <input type="range" id="hue-m" min="0" max="100" value="0">
+          <span id="hue-m-v">0%</span>
+        </div>
+        <button class="btn" id="hue-go" type="button">アニメ ▶</button>
+      </div>
+      <div class="status" id="hue-status"></div>
+    </div>
+
+</PlayLayout>

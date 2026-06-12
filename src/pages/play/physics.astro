@@ -1,0 +1,152 @@
+---
+import PlayLayout from '../../layouts/PlayLayout.astro';
+---
+<PlayLayout title="物理 — Play" description="力・熱・重力・波。身のまわりの物理を動かして確かめる。" heading="🪐 物理" intro="力・熱・重力・波。身のまわりの物理を動かして確かめる。">
+
+    <!-- Movable pulley: force / distance / work -->
+    <div class="app-card">
+      <div class="app-title">動滑車 — 「力が半分」はどこで崩れる？</div>
+      <div class="app-desc">
+        動滑車は「力が半分・距離が2倍」。でもそれはロープが平行（θ=0）のときだけ。ロープが角度 θ で開くと、上向きに効くのは 2T·cosθ ぶん。<br>
+        だから必要な力は W/(2cosθ) に増える。なのに「した仕事」は W×(持ち上げ高さ) のまま変わらない —— 力と距離は崩れても、仕事＝位置エネルギーの増加は崩れない。θ を動かして確かめて。
+      </div>
+      <div class="canvas-label">θ を動かす ／ 緑 = あなたが引く張力 T, 赤 = 重さ W</div>
+      <canvas id="pul-cv" width="720" height="360" style="width:100%;height:auto;cursor:default;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>ロープの角度 θ</label>
+          <input type="range" id="pul-th" min="0" max="75" value="0">
+          <span id="pul-th-v">0°</span>
+        </div>
+      </div>
+      <div class="status" id="pul-status"></div>
+    </div>
+
+    <!-- Thermodynamic Cycles -->
+    <div class="app-card">
+      <div class="app-title">熱力学サイクル（PV線図・TS線図）</div>
+      <div class="app-desc">
+        熱機関のサイクルを PV線図（仕事＝囲む面積）と TS線図（熱＝囲む面積）で並べて見る。<br>
+        Carnot・Otto・Brayton を切り替え、圧縮比や温度比を動かすと、ループの形と<b>熱効率 η</b>がどう変わるかが掴める。理想気体（γ=1.4）で計算。
+      </div>
+
+      <div class="fourier-wrap" style="margin-top:.5rem;">
+        <div>
+          <div class="canvas-label">PV線図（圧力 - 体積）／ 囲む面積 = 正味仕事</div>
+          <canvas id="cv-th-pv" width="340" height="280" style="height:280px;"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">TS線図（温度 - エントロピー）／ 囲む面積 = 正味熱</div>
+          <canvas id="cv-th-ts" width="340" height="280" style="height:280px;"></canvas>
+        </div>
+      </div>
+
+      <div class="presets" style="margin-top:.8rem;">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">サイクル:</span>
+        <button class="preset-btn" data-th="carnot">Carnot</button>
+        <button class="preset-btn" data-th="otto">Otto（ガソリン）</button>
+        <button class="preset-btn" data-th="brayton">Brayton（ガスタービン）</button>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:260px;">
+          <label id="th-p1-label">パラメータ</label>
+          <input type="range" id="th-p1" min="2" max="14" value="8" step="0.1" style="flex:1;">
+          <span id="th-p1-val" style="min-width:4rem;">—</span>
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:220px;">
+          <label id="th-p2-label">加熱比</label>
+          <input type="range" id="th-p2" min="1.5" max="5" value="3" step="0.05" style="flex:1;">
+          <span id="th-p2-val" style="min-width:3rem;">—</span>
+        </div>
+      </div>
+
+      <div class="status" id="th-status"></div>
+    </div>
+
+    <!-- Non-inverse-square gravity: how orbits close -->
+    <div class="app-card">
+      <div class="app-title">逆二乗じゃない重力 — 軌道はどう閉じる？</div>
+      <div class="app-desc">
+        中心からの引力を <b>F ∝ 1/r<sup>p</sup></b> として、冪 <b>p</b> を変えてみる。私たちの宇宙は p=2（逆二乗）。そこから少しずらすと、軌道は閉じずに回り続けて、バラのような歳差軌道を描く。<br>
+        じつは「p=2」は<b>空間が3次元だから</b>なんだ。点源から出た力の流束は、広がる球面（面積 ∝ r²）に薄まるので力は 1/r² になる ── これがガウスの法則の幾何的な中身だよ。N次元なら面積 ∝ r<sup>N−1</sup> で <b>F ∝ 1/r<sup>N−1</sup></b>（p=N−1）。そして閉じた軌道を作れるのは <b>p=2（3次元）とバネ p=−1 だけ</b>（ベルトランの定理）。安定してきれいに回る軌道は、3次元の宇宙でこそ自然に生まれる、とも読める。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">ORBIT — 中心力 F ∝ 1/r^p</div>
+          <canvas id="orb-cv" width="340" height="340"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group"><label>力の冪 p</label><input type="range" id="orb-p" min="-1.2" max="3.2" value="2" step="0.01" style="width:130px;"><span id="orb-p-val">2.00</span></div>
+            <div class="ctrl-group"><label>初速（円=1.00）</label><input type="range" id="orb-v" min="0.45" max="1.35" value="0.8" step="0.01" style="width:130px;"><span id="orb-v-val">0.80</span></div>
+            <div class="ctrl-group"><label>速さ</label><input type="range" id="orb-s" min="0.25" max="3" value="1" step="0.05" style="width:130px;"><span id="orb-s-val">1.0×</span></div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">次元:</span>
+            <button class="preset-btn" data-orbp="2">3次元 p=2</button>
+            <button class="preset-btn" data-orbp="1">2次元 p=1</button>
+            <button class="preset-btn" data-orbp="3">4次元 p=3</button>
+            <button class="preset-btn" data-orbp="-1">バネ p=−1</button>
+          </div>
+          <div class="presets" style="margin-top:.5rem;">
+            <button class="preset-btn" id="orb-play">⏸ 停止</button>
+            <button class="preset-btn" id="orb-clear">↺ 軌跡を消す</button>
+          </div>
+          <div id="orb-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phased Array / Wave Interference -->
+    <div class="app-card">
+      <div class="app-title">波の干渉とビームフォーミング</div>
+      <div class="app-desc">
+        一直線に並んだ複数の波源がつくる干渉場。素子の<b>間隔</b>と素子ごとの<b>位相差</b>を変えると、波が強め合う方向（ビーム）が向きを変える。アンテナを機械的に動かさずにビームを振る ── フェーズドアレイ（レーダーや5G基地局）の原理だよ。<br>
+        左が干渉場（明るいほど波が強い）、右が遠方でのビームパターン（アレイファクタ）。位相差を振ると主ビームがスッと首を振る。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">FIELD — 干渉場（波源は下辺）</div>
+          <canvas id="bf-field" width="300" height="300" style="background:#0d1614;"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">BEAM PATTERN — 遠方放射 [dB]</div>
+          <canvas id="bf-beam" width="300" height="300" style="background:#0d1614;"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group">
+              <label>素子数 N</label>
+              <input type="range" id="bf-n" min="1" max="16" value="6" step="1" style="width:120px;">
+              <span id="bf-n-val">6</span>
+            </div>
+            <div class="ctrl-group">
+              <label>間隔 d [λ]</label>
+              <input type="range" id="bf-d" min="0.1" max="1.5" value="0.5" step="0.05" style="width:120px;">
+              <span id="bf-d-val">0.50</span>
+            </div>
+            <div class="ctrl-group">
+              <label>位相差 Δφ [°]</label>
+              <input type="range" id="bf-p" min="-180" max="180" value="0" step="5" style="width:120px;">
+              <span id="bf-p-val">0</span>
+            </div>
+            <div class="ctrl-group">
+              <label>首振り</label>
+              <input type="checkbox" id="bf-sweep" style="accent-color:#3c7876;width:auto;">
+            </div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">プリセット:</span>
+            <button class="preset-btn" data-bf="6,0.5,0">正面</button>
+            <button class="preset-btn" data-bf="6,0.5,60">斜め</button>
+            <button class="preset-btn" data-bf="12,0.5,0">鋭いビーム</button>
+            <button class="preset-btn" data-bf="2,0.5,0">2素子</button>
+            <button class="preset-btn" data-bf="6,1.2,0">d&gt;λ</button>
+          </div>
+          <div id="bf-info" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+    </div>
+
+</PlayLayout>

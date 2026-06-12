@@ -1,0 +1,132 @@
+---
+import PlayLayout from '../../layouts/PlayLayout.astro';
+---
+<PlayLayout title="画像 — Play" description="写真を数の格子として扱う。ドット絵・畳み込み・スプラッティング。" heading="🖼️ 画像" intro="写真を数の格子として扱う。ドット絵・畳み込み・スプラッティング。">
+
+    <a href="/dots" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
+      <div class="app-title">写真をドット絵に →</div>
+      <div class="app-desc">本物の写真を取り込んで、各ブロックの平均RGBを一歩ずつ計算してドット絵にする。"ちゃんとした縮小＝面積平均"が目に見える（最近傍との比較つき）。</div>
+    </a>
+
+    <a href="/conv" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
+      <div class="app-title">畳み込みを一歩ずつ →</div>
+      <div class="app-desc">12×12 の小さな画像で、ぼかし・Sobel・Prewitt の計算が一マスずつ進む様子を見る専用ページ。カーネルが格子を舐めて、9個の掛け算→合計→出力が埋まる。</div>
+    </a>
+
+    <!-- 2D Gaussian Splatting -->
+    <div class="app-card">
+      <div class="app-title">2Dガウシアンスプラッティングの遊び場</div>
+      <div class="app-desc">
+        画像を「たくさんの“にじみ”（2次元ガウシアン）の重ね合わせ」で描き直す実験。これが最近のニューラルレンダリング ── 3Dガウシアンスプラッティングの心臓部の、2D版だよ。<br>
+        スプラット数を増やすほど元画像に近づく。「異方性」をオンにすると、各にじみがエッジに沿って楕円に伸びて、少ない数でも輪郭がシャープになる。なぜ“まんまる”より“楕円”のガウシアンが効くのかが見えるはず。
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div class="canvas-label">RECONSTRUCTION — ガウシアンの重ね合わせ</div>
+          <canvas id="gs-out" width="320" height="320"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label">TARGET — 元画像</div>
+          <canvas id="gs-target" width="150" height="150" style="width:150px;height:150px;"></canvas>
+          <div id="gs-stat" style="margin-top:.6rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.7;"></div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="controls" style="flex-direction:column;align-items:flex-start;gap:.65rem;margin-top:0;">
+            <div class="ctrl-group">
+              <label>スプラット数</label>
+              <input type="range" id="gs-n" min="20" max="1500" value="300" step="10" style="width:130px;">
+              <span id="gs-n-val">300</span>
+            </div>
+            <div class="ctrl-group">
+              <label>にじみの大きさ</label>
+              <input type="range" id="gs-size" min="0.5" max="2.5" value="1" step="0.1" style="width:130px;">
+              <span id="gs-size-val">1.0</span>
+            </div>
+            <div class="ctrl-group">
+              <label>異方性（エッジに沿わせる）</label>
+              <input type="checkbox" id="gs-aniso" checked style="accent-color:#3c7876;width:auto;">
+            </div>
+            <div class="ctrl-group">
+              <label>エッジに多く配置</label>
+              <input type="checkbox" id="gs-edge" style="accent-color:#3c7876;width:auto;">
+            </div>
+          </div>
+          <div class="presets" style="margin-top:1rem;">
+            <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);">元画像:</span>
+            <button class="preset-btn" data-gs="sunset">夕焼け</button>
+            <button class="preset-btn" data-gs="shapes">図形</button>
+            <button class="preset-btn" data-gs="grad">グラデ</button>
+            <button class="preset-btn" data-gs="hikari">光</button>
+          </div>
+          <div style="margin-top:.8rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+            <button class="btn" id="gs-anim">粗→細アニメ</button>
+            <button class="btn" id="gs-compare">押すと等方性で比較</button>
+          </div>
+          <div id="gs-note" style="margin-top:1rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;color:#3c7876;line-height:1.8;"></div>
+        </div>
+      </div>
+      <div class="gs-math" id="gs-math">
+        <div class="gs-math-title">MATH メモ</div>
+        <div class="gs-math-row"><span class="gs-math-lab">① にじみ1つ（2Dガウシアン）</span><span data-tex="G(\\mathbf{x})=\\exp\\!\\left(-\\tfrac12(\\mathbf{x}-\\boldsymbol{\\mu})^{\\top}\\Sigma^{-1}(\\mathbf{x}-\\boldsymbol{\\mu})\\right)"></span><span class="gs-math-cap">μ＝中心、Σ＝共分散（楕円の形）</span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">② 楕円＝回転×拡大で作る</span><span data-tex="\\Sigma=R(\\theta)\\,S\\,S^{\\top}R(\\theta)^{\\top},\\quad S=\\mathrm{diag}(\\sigma_x,\\sigma_y)"></span><span class="gs-math-cap">異方性＝σx≠σy。この遊び場ではσをエッジ強度、θを勾配方向で決めてる</span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">③ 重ね合わせ（前からアルファ合成）</span><span data-tex="C=\\sum_i c_i\\,\\alpha_i\\prod_{j<i}(1-\\alpha_j)"></span></div>
+        <div class="gs-math-row"><span class="gs-math-lab">④ 元画像との誤差＝“学習”で下げる量</span><span data-tex="\\mathcal{L}=\\tfrac{1}{N}\\sum\\lVert I_{\\mathrm{pred}}-I_{\\mathrm{tgt}}\\rVert^2,\\quad \\mathrm{PSNR}=10\\log_{10}\\!\\frac{255^2}{\\mathrm{MSE}}"></span></div>
+      </div>
+    </div>
+
+    <!-- Convolution Slider -->
+    <div class="app-card">
+      <div class="app-title">畳み込みスライダ</div>
+      <div class="app-desc">
+        畳み込み <span style="font-family:'JetBrains Mono',monospace;">(f∗g)(t)</span> は「片方を反転して滑らせ、重なった面積をなぞる」操作。<br>
+        上段で <span style="color:#3c7876;font-weight:700;">f(τ)</span> は固定、<span style="color:#c9761f;font-weight:700;">g(t−τ)</span> が反転して動く。中段はその積（＝重なり）、下段がなぞった結果。スライダ <span style="font-family:'JetBrains Mono',monospace;">t</span> を動かすと、面積がそのまま出力になっていくのが見える。
+      </div>
+
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">① f(τ) と g(t−τ) — オレンジが反転して滑る</div>
+        <canvas id="cv-conv-a" width="700" height="120" style="width:100%;height:120px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">② 積 f(τ)·g(t−τ) — この塗りつぶし面積が出力の値</div>
+        <canvas id="cv-conv-b" width="700" height="120" style="width:100%;height:120px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+      <div style="margin-top:.5rem;">
+        <div class="canvas-label">③ 結果 (f∗g)(t) — 面積をなぞった曲線</div>
+        <canvas id="cv-conv-c" width="700" height="120" style="width:100%;height:120px;border-radius:10px;border:1px solid var(--border,#e3dbd0);background:#faf8f4;"></canvas>
+      </div>
+
+      <div class="controls" style="margin-top:1rem;">
+        <div class="ctrl-group" style="flex:1;min-width:240px;">
+          <label>ずらし t</label>
+          <input type="range" id="conv-t" min="-4" max="4" value="-2.2" step="0.02" style="flex:1;">
+          <span id="conv-t-val" style="min-width:3.2rem;">-2.20</span>
+        </div>
+        <button class="btn primary" id="conv-play">▶ 再生</button>
+      </div>
+
+      <div class="presets">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#3c7876;margin-right:.2rem;">f(τ):</span>
+        <button class="preset-btn" data-conv-f="rect">矩形</button>
+        <button class="preset-btn" data-conv-f="tri">三角</button>
+        <button class="preset-btn" data-conv-f="exp">指数減衰</button>
+        <button class="preset-btn" data-conv-f="gauss">ガウス</button>
+        <button class="preset-btn" data-conv-f="two">二山</button>
+      </div>
+      <div class="presets" style="margin-top:.4rem;">
+        <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#c9761f;margin-right:.2rem;">g(τ):</span>
+        <button class="preset-btn" data-conv-g="rect">矩形</button>
+        <button class="preset-btn" data-conv-g="tri">三角</button>
+        <button class="preset-btn" data-conv-g="exp">指数減衰</button>
+        <button class="preset-btn" data-conv-g="gauss">ガウス</button>
+        <button class="preset-btn" data-conv-g="two">二山</button>
+      </div>
+
+      <div class="status" id="conv-status"></div>
+
+      <div class="gs-math" id="conv-math">
+        <div class="gs-math-title">DEFINITION</div>
+        <div class="gs-math-row"><span data-tex="(f*g)(t)=\\int_{-\\infty}^{\\infty} f(\\tau)\\,g(t-\\tau)\\,d\\tau"></span><span class="gs-math-cap">g を τ について反転 (g(−τ)) し、t だけ平行移動して重ね、積の面積をとる。t を動かすとその面積が出力になる。矩形×矩形 → 三角、何かとガウス → なめらかに、がよく効く例だよ。</span></div>
+      </div>
+    </div>
+
+</PlayLayout>

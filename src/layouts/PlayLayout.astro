@@ -1,0 +1,2863 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+const { title = 'Play — tnkblog', description = 'ランキンの遊び場。', heading = '', intro = '' } = Astro.props;
+---
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title={title} description={description} />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <style is:global>
+    .play-intro{
+      background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);
+      border-radius:14px;padding:1.5rem 1.75rem;margin-bottom:2.5rem;
+      box-shadow:0 1px 6px rgba(29,27,23,.05);
+    }
+    .play-intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin-bottom:.5rem;}
+    .play-intro p:last-child{margin-bottom:0;}
+
+    .app-card{
+      background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);
+      border-radius:14px;padding:1.5rem;margin-bottom:2rem;
+      box-shadow:0 1px 6px rgba(29,27,23,.05);
+    }
+    .app-title{font-size:1.05rem;font-weight:700;margin-bottom:.3rem;}
+    .app-desc{font-size:.8rem;color:var(--text-muted,#7d7568);margin-bottom:1.25rem;line-height:1.6;}
+
+    /* Fourier Sketchbook */
+    .fourier-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+    @media(max-width:640px){.fourier-wrap{grid-template-columns:1fr;}}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;
+      background:#faf8f4;cursor:crosshair;touch-action:none;}
+    .canvas-label{font-size:.7rem;font-family:'JetBrains Mono',monospace;
+      color:var(--text-muted,#7d7568);margin-bottom:.4rem;letter-spacing:.04em;}
+
+    .controls{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;
+      color:var(--text-muted,#7d7568);white-space:nowrap;}
+    .ctrl-group input[type=range]{width:100px;accent-color:#3c7876;}
+    .ctrl-group span{font-size:.72rem;font-family:'JetBrains Mono',monospace;
+      color:#3c7876;font-weight:700;min-width:2ch;}
+    .btn{padding:.35rem .85rem;border:1px solid var(--border,#e3dbd0);border-radius:7px;
+      background:none;font-family:inherit;font-size:.78rem;color:var(--text-muted,#7d7568);
+      cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .btn.primary{background:#3c7876;color:#fff;border-color:#3c7876;}
+    .btn.primary:hover{opacity:.85;}
+
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;
+      color:var(--text-faint,#aaa49b);margin-top:.5rem;}
+
+    /* Preset buttons */
+    .presets{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;}
+    .preset-btn{padding:.22rem .6rem;border:1px solid var(--border,#e3dbd0);border-radius:5px;
+      font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text-muted,#7d7568);
+      background:none;cursor:pointer;transition:all .15s;}
+    .preset-btn:hover{border-color:#3c7876;color:#3c7876;}
+
+    .gs-math{margin-top:1.25rem;border-top:1px solid var(--border,#e3dbd0);padding-top:1rem;}
+    .gs-math-title{font-size:.72rem;font-weight:800;color:#3c7876;letter-spacing:.05em;font-family:'JetBrains Mono',monospace;margin-bottom:.9rem;}
+    .gs-math-row{margin:0 0 1.1rem;}
+    .gs-math-lab{display:block;font-size:.8rem;font-weight:700;color:#3c7876;margin-bottom:.4rem;}
+    .gs-math-row [data-tex]{display:block;overflow-x:auto;overflow-y:hidden;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);border-radius:10px;padding:.35rem .8rem;}
+    .gs-math-row .katex-display{margin:.35rem 0;}
+    .gs-math .katex{font-size:1.05em;}
+    .gs-math-cap{display:block;font-size:.72rem;color:var(--text-muted,#7d7568);margin-top:.4rem;line-height:1.6;}
+    .play-nav{display:flex;align-items:center;gap:.6rem;margin-bottom:1.4rem;flex-wrap:wrap;}
+    .play-nav a{font-size:.78rem;color:var(--text-muted,#7d7568);text-decoration:none;border:1px solid var(--border,#e3dbd0);border-radius:7px;padding:.25rem .7rem;background:var(--card,#fff);transition:all .15s;}
+    .play-nav a:hover{border-color:#3c7876;color:#3c7876;}
+    .play-cat-h{font-size:1.35rem;font-weight:700;margin:.2rem 0 .3rem;}
+    .play-cat-d{font-size:.85rem;color:var(--text-muted,#7d7568);margin-bottom:1.9rem;line-height:1.7;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main>
+    <div class="play-nav"><a href="/play">← 遊び場の入口</a></div>
+    <h1 class="play-cat-h">{heading || title}</h1>
+    {intro && <p class="play-cat-d">{intro}</p>}
+    <slot />
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('cmp-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var W = cv.width, H = cv.height;
+      var mode = 'open';   // 'open' | 'closed'
+      var N = 4;
+      var timer = null;
+
+      var DMIN = -0.20, DMAX = 1.08, PADL = 40, PADR = 28;
+      function px(x){ return PADL + (x - DMIN) / (DMAX - DMIN) * (W - PADL - PADR); }
+      var AX = H - 64;                  // 数直線の y
+      var ANCHOR = { a: -0.05, b: 0.22 }; // 閉区間モードで 0 をまたぐ毛布
+      var TEAL = '#3c7876', RED = '#c2543d', GREEN = '#2f9e6e';
+
+      function bl(n){ return 1 / (n + 1); }   // Uₙ = (1/(n+1), 1) の左端
+
+      function rrect(x, y, w, h, r){
+        if(w < 2*r) r = w/2; if(h < 2*r) r = h/2;
+        ctx.beginPath();
+        ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+        ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+      }
+
+      function track(x0, x1, color, lw){
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px(x0), AX); ctx.lineTo(px(x1), AX); ctx.stroke();
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,W,H);
+        var L = bl(N);
+        var covered = (mode === 'closed') && (L <= ANCHOR.b);
+        var ns = Math.floor(1/ANCHOR.b - 1) + 1;  // 橋渡しに要る最小の n（緑とつながる毛布）
+
+        // 毛布(開区間)の積み重ね
+        var top = 18, bottomLevel = AX - 16;
+        var step = Math.min(14, (bottomLevel - top) / N);
+        var bh = Math.max(2.5, step * 0.62);
+        for(var n = 1; n <= N; n++){
+          var y = bottomLevel - (n-1) * step - bh;
+          var xL = px(bl(n)), xR = px(1);
+          var t = (n-1) / Math.max(1, N-1);
+          var bridge = covered && (n === ns);
+          ctx.globalAlpha = bridge ? 1 : (covered ? 0.13 : (0.30 + 0.45 * (1-t)));
+          ctx.fillStyle = TEAL;
+          rrect(xL, y, xR - xL, bh, bh/2); ctx.fill();
+          if(bridge){
+            ctx.globalAlpha = 1; ctx.strokeStyle = '#1d1b17'; ctx.lineWidth = 1.5;
+            rrect(xL, y, xR - xL, bh, bh/2); ctx.stroke();
+            ctx.fillStyle = '#1d1b17'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+            ctx.fillText('この1枚 (U' + ns + ')', xL, y - 4);
+          }
+        }
+        ctx.globalAlpha = 1;
+
+        // 閉区間モード: 0 をまたぐ緑の毛布
+        if(mode === 'closed'){
+          var ay = bottomLevel + 2;
+          ctx.globalAlpha = 1; ctx.fillStyle = GREEN;
+          rrect(px(ANCHOR.a), ay, px(ANCHOR.b) - px(ANCHOR.a), 7, 3); ctx.fill();
+          if(covered){ ctx.strokeStyle = '#1d1b17'; ctx.lineWidth = 1.5;
+            rrect(px(ANCHOR.a), ay, px(ANCHOR.b) - px(ANCHOR.a), 7, 3); ctx.stroke(); }
+          ctx.fillStyle = GREEN; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+          ctx.fillText('0をまたぐ1枚', px(ANCHOR.a), ay + 22);
+        }
+
+        // 数直線ベース(灰) → 覆えた所(teal) → 覆えてない所(赤)
+        track(0, 1, '#d9d2c6', 6);
+        var sliver;
+        if(mode === 'open'){
+          track(L, 1, TEAL, 6);
+          sliver = { from: 0, to: L, empty: (L <= 0) };
+        } else {
+          // 覆い = (ANCHOR.a, ANCHOR.b) ∪ (L, 1)
+          track(0, Math.min(ANCHOR.b, 1), TEAL, 6);
+          if(L < 1) track(L, 1, TEAL, 6);
+          if(L <= ANCHOR.b) sliver = { from: 0, to: 0, empty: true };
+          else sliver = { from: ANCHOR.b, to: L, empty: false };
+        }
+        if(!sliver.empty && sliver.to > sliver.from) track(sliver.from, sliver.to, RED, 6);
+
+        // 端点マーカー(0 と 1)
+        function endpoint(x){
+          ctx.lineWidth = 2; ctx.strokeStyle = '#1d1b17'; ctx.fillStyle = '#faf8f4';
+          ctx.beginPath(); ctx.arc(px(x), AX, 5, 0, Math.PI*2);
+          if(mode === 'closed'){ ctx.fillStyle = '#1d1b17'; ctx.fill(); }
+          else { ctx.fill(); ctx.stroke(); }
+        }
+        endpoint(0); endpoint(1);
+
+        // 目盛りラベル
+        ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('0', px(0), AX + 22);
+        ctx.fillText('1', px(1), AX + 22);
+        // 1/(N+1) マーカー
+        if(L > 0.02 && L < 0.98){
+          ctx.strokeStyle = RED; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+          ctx.beginPath(); ctx.moveTo(px(L), AX-10); ctx.lineTo(px(L), AX+10); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = RED; ctx.fillText('1/(N+1)', px(L), AX + 36);
+        }
+
+        // 赤い隙間に矢印＋注記
+        if(!sliver.empty && sliver.to - sliver.from > 0.001){
+          var mid = (sliver.from + sliver.to) / 2;
+          ctx.fillStyle = RED; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('まだ覆えてない', px(mid), AX - 26);
+          ctx.beginPath(); ctx.moveTo(px(mid), AX - 22); ctx.lineTo(px(mid), AX - 6); ctx.stroke();
+        }
+      }
+
+      function status(){
+        var el = document.getElementById('cmp-status');
+        var L = bl(N);
+        var Ls = L.toFixed(4);
+        var ns = Math.floor(1/ANCHOR.b - 1) + 1;
+        if(mode === 'open'){
+          el.textContent = '覆えた範囲 (1/(N+1), 1) = (' + Ls + ', 1)。まだ覆えてない (0, ' + Ls + ']。'
+            + '毛布は開区間だから端点 1/(N+1) 自身も覆われず残る（だから "]"）。'
+            + 'N を増やすと赤い隙間は縮むけど 0 には永遠に届かない —— だから (0,1) はコンパクトでない。';
+          el.style.color = RED;
+        } else {
+          if(L <= ANCHOR.b){
+            el.textContent = '覆えた！ 実は「0をまたぐ緑の1枚」＋「U' + ns + ' の1枚」の たった2枚で [0,1] 全部に届く（他は要らない＝薄く表示）。'
+              + '0 が"在る"から、0 をまたぐ毛布が必ず右に幅をもって橋渡しになり、無限の追いかけっこが終わる。これがコンパクト（ハイネ・ボレル）。';
+            el.style.color = GREEN;
+          } else {
+            el.textContent = '0 をまたぐ緑の毛布を置いた（右に幅 ' + ANCHOR.b.toFixed(2) + ' まで）。でもまだ [' + ANCHOR.b.toFixed(2) + ', ' + Ls + '] に隙間。'
+              + 'N を増やして、緑とつながる毛布（U' + ns + '）まで出すと覆いきれる。';
+            el.style.color = '#7d7568';
+          }
+        }
+      }
+
+      function render(){ draw(); status(); }
+
+      function setMode(m){
+        mode = m;
+        document.getElementById('cmp-open').classList.toggle('primary', m==='open');
+        document.getElementById('cmp-closed').classList.toggle('primary', m==='closed');
+        render();
+      }
+      function setN(v){
+        N = v;
+        document.getElementById('cmp-n').value = v;
+        document.getElementById('cmp-n-v').textContent = v;
+        render();
+      }
+
+      document.getElementById('cmp-open').addEventListener('click', function(){ setMode('open'); });
+      document.getElementById('cmp-closed').addEventListener('click', function(){ setMode('closed'); });
+      document.getElementById('cmp-n').addEventListener('input', function(e){
+        if(timer){ clearInterval(timer); timer = null; }
+        setN(parseInt(e.target.value, 10));
+      });
+      document.getElementById('cmp-more').addEventListener('click', function(){
+        if(timer){ clearInterval(timer); timer = null; return; }
+        timer = setInterval(function(){
+          if(N >= 40){ clearInterval(timer); timer = null; return; }
+          setN(N + 1);
+        }, 220);
+      });
+
+      render();
+    })();
+    </script>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('pul-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var W = cv.width, H = cv.height;
+      var th = 0;                       // 角度(度)
+      var TEAL = '#3c7876', RED = '#c2543d', GREEN = '#2f9e6e', INK = '#1d1b17';
+
+      function arrow(x0, y0, x1, y1, col, lw){
+        ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+        var a = Math.atan2(y1-y0, x1-x0), h = 7;
+        ctx.beginPath(); ctx.moveTo(x1,y1);
+        ctx.lineTo(x1 - h*Math.cos(a - 0.4), y1 - h*Math.sin(a - 0.4));
+        ctx.lineTo(x1 - h*Math.cos(a + 0.4), y1 - h*Math.sin(a + 0.4));
+        ctx.closePath(); ctx.fill();
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,W,H);
+        var rad = th * Math.PI/180, c = Math.cos(rad), s = Math.sin(rad);
+        // 比率
+        var forceR = 1/(2*c);    // T/W
+        var distR  = 2*c;        // 引くロープ / 持ち上げ
+        var workR  = forceR * distR; // = 1
+
+        // --- 図(左) ---
+        var ceil = 44, cx = 190, py = 150, r = 20;
+        var dx = r + (py - ceil) * Math.tan(rad);
+        var aL = cx - dx, aR = cx + dx;
+        // 天井
+        ctx.strokeStyle = INK; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(40, ceil); ctx.lineTo(360, ceil); ctx.stroke();
+        for(var hx = 46; hx < 360; hx += 14){ ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(hx, ceil); ctx.lineTo(hx-7, ceil-8); ctx.stroke(); }
+        // ロープ(緑)
+        ctx.strokeStyle = GREEN; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(aL, ceil); ctx.lineTo(cx - r, py); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(aR, ceil); ctx.lineTo(cx + r, py); ctx.stroke();
+        // 動滑車
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, py, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, py, 4, 0, Math.PI*2); ctx.fillStyle = INK; ctx.fill();
+        // 荷重
+        ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(cx, py + r); ctx.lineTo(cx, py + r + 12); ctx.stroke();
+        ctx.fillStyle = '#f0ece6'; ctx.strokeStyle = INK;
+        ctx.fillRect(cx-18, py+r+12, 36, 24); ctx.strokeRect(cx-18, py+r+12, 36, 24);
+
+        // --- 力ベクトルの分解（右ロープ側で図示） ---
+        var ux = Math.sin(rad), uy = -Math.cos(rad);   // 右ロープ方向の単位ベクトル(上向き)
+        var Tlen = 70 * forceR;                         // T の長さ(力に比例)
+        var ex = cx + r, ey = py;                       // 右ロープの付け根
+        var tx = ex + ux * Tlen, ty = ey + uy * Tlen;   // T 先端
+        // T（ロープ方向・緑）
+        arrow(ex, ey, tx, ty, GREEN, 2.5);
+        // 分解の補助線（T cosθ = 縦, T sinθ = 横）
+        ctx.strokeStyle = '#b9b1a4'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(ex, ty); ctx.stroke();   // 横→縦の補助
+        ctx.setLineDash([]);
+        // 縦成分 T cosθ（青緑、太め）
+        arrow(ex, ey, ex, ey - Tlen*c, TEAL, 3);
+        ctx.fillStyle = TEAL; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('T cosθ', ex + 4, ey - Tlen*c + 4);
+        ctx.fillStyle = GREEN; ctx.fillText('T', tx + 4, ty);
+        // 重さ W(赤・下向き)
+        arrow(cx, py+r+36, cx, py+r+60, RED, 2.5);
+        ctx.fillStyle = RED; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('W', cx + 8, py+r+54);
+        // バランス注記
+        ctx.fillStyle = '#7d7568'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('上向き合計 2·T cosθ = W', cx, ceil - 18);
+        ctx.fillStyle = '#7d7568'; ctx.fillText('θ=' + th + '°', aR + 18, ceil + 14);
+
+        // --- 棒グラフ(右上) ---
+        var bx = 430, bw = 230, by = 58, bg = 40, maxV = 2;
+        function bar(y, label, val, col){
+          ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+          ctx.fillText(label, bx, y - 6);
+          ctx.fillStyle = '#ece7df'; ctx.fillRect(bx, y, bw, 14);
+          ctx.fillStyle = col; ctx.fillRect(bx, y, bw * Math.min(1, val/maxV), 14);
+          ctx.fillStyle = INK; ctx.textAlign = 'right';
+          ctx.fillText('×' + val.toFixed(2), bx + bw, y - 6);
+        }
+        bar(by,        '必要な力  T/W = 1/(2cosθ)', forceR, RED);
+        bar(by + bg,   '引く距離  ロープ/持ち上げ = 2cosθ', distR, TEAL);
+        bar(by + 2*bg, '仕事  = 力 × 距離', workR, GREEN);
+        ctx.strokeStyle = GREEN; ctx.setLineDash([4,3]); ctx.lineWidth = 1.5;
+        var x1 = bx + bw * (1/maxV);
+        ctx.beginPath(); ctx.moveTo(x1, by + 2*bg - 6); ctx.lineTo(x1, by + 2*bg + 22); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = GREEN; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('いつもここ（一定）', x1, by + 2*bg + 36);
+
+        // --- 「糸を引く量 vs 上がる高さ」可視化（下） ---
+        var gy = 300, lift = 46;        // 上がる高さの基準px
+        var rope = lift * distR;        // 引く糸 = 2cosθ × lift
+        ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('引いた糸の長さ', 40, gy - lift - 8);
+        ctx.fillText('上がる高さ', 250, gy - lift - 8);
+        // 引く糸(緑・長い)
+        arrow(70, gy, 70, gy - rope, GREEN, 3);
+        ctx.fillStyle = GREEN; ctx.textAlign = 'left';
+        ctx.fillText('= 2cosθ × 高さ', 84, gy - rope/2);
+        // 上がる高さ(青緑・基準)
+        arrow(290, gy, 290, gy - lift, TEAL, 3);
+        ctx.fillStyle = TEAL; ctx.fillText('= 1 ぶん', 304, gy - lift/2);
+        // 基準線
+        ctx.strokeStyle = '#d9d2c6'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+        ctx.beginPath(); ctx.moveTo(40, gy); ctx.lineTo(360, gy); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#7d7568'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+        ctx.fillText(th < 30 ? 'θが小さいほど、糸をたくさん引いて少ししか上がらない' : 'θが大きいと、糸も少ししか引かない（力の得も消える）', 40, gy + 22);
+      }
+
+      function status(){
+        var el = document.getElementById('pul-status');
+        var rad = th*Math.PI/180, c = Math.cos(rad);
+        var fr = (1/(2*c));
+        if(th === 0){
+          el.textContent = 'ロープが平行（θ=0）。力は半分 T=W/2、引く距離は2倍、仕事＝W×高さ。これが教科書の動滑車。';
+          el.style.color = TEAL;
+        } else if(th >= 60){
+          el.textContent = 'θ=' + th + '°。cosθ が小さく、必要な力 T=W/(2cosθ)=' + fr.toFixed(2) + '×W。θ=60°では T=W —— 動滑車の利得はゼロ。でも引く距離も同じだけ減って、仕事は W×高さ のまま。「力が半分」は崩れても、仕事＝位置エネルギーの増加は崩れない。';
+          el.style.color = RED;
+        } else {
+          el.textContent = 'θ=' + th + '°。上向きに効くのは 2T·cosθ。必要な力 T=W/(2cosθ)=' + fr.toFixed(2) + '×W に増えた。けれど引くロープは 2cosθ 倍に減り、積（仕事）は W×高さ で一定。力×距離＝位置エネルギーの増加、が不変量。';
+          el.style.color = '#7d7568';
+        }
+      }
+
+      function render(){ draw(); status(); }
+      document.getElementById('pul-th').addEventListener('input', function(e){
+        th = parseInt(e.target.value, 10);
+        document.getElementById('pul-th-v').textContent = th + '°';
+        render();
+      });
+      render();
+    })();
+    </script>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('col-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var INK = '#1d1b17';
+      var w = 0, Lsel = 0.5;
+
+      var RX = 60, RY = 30, RW = 320, RH = 320;   // 断面の領域
+      var CX = RX + 160, HALF = 140;               // グレー軸のx, 横の最大半幅(px)
+
+      function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
+      function Bof(L){ return Math.sin(Math.PI * L); }          // その明度で使える色味の幅(0..1)
+      function asym(L){ return w * 0.6 * Math.sin(2*Math.PI*L); } // 左右非対称の度合い
+      function rfrac(L){ return Bof(L) * (1 + asym(L)); }
+      function lfrac(L){ return Bof(L) * (1 - asym(L)); }
+      function centerOffsetPx(L){ return Bof(L) * asym(L) * HALF; } // 幾何中心の、グレー軸からのズレ
+
+      function colAt(c, L){ // c: -1..1, L: 0..1
+        return [clamp01(L + 0.55*c), clamp01(L - 0.55*c), clamp01(L - 0.15*Math.abs(c))];
+      }
+
+      function fillSlice(){
+        var img = ctx.createImageData(RW, RH);
+        var d = img.data;
+        for(var py = 0; py < RH; py++){
+          var L = 1 - py / RH;
+          var rf = rfrac(L), lf = lfrac(L);
+          for(var px = 0; px < RW; px++){
+            var cc = ((RX + px) - CX) / HALF;          // -1.6..1.6
+            var ef = cc >= 0 ? rf : lf;
+            var idx = (py * RW + px) * 4;
+            if(ef <= 0){ d[idx+3] = 0; continue; }
+            var cn = cc / ef;
+            if(cn < -1 || cn > 1){ d[idx+3] = 0; continue; }
+            var rgb = colAt(cn, L);
+            d[idx] = rgb[0]*255; d[idx+1] = rgb[1]*255; d[idx+2] = rgb[2]*255; d[idx+3] = 255;
+          }
+        }
+        ctx.putImageData(img, RX, RY);
+      }
+
+      function yOfL(L){ return RY + (1 - L) * RH; }
+
+      function draw(){
+        ctx.clearRect(0,0,cv.width,cv.height);
+        fillSlice();
+
+        // 幾何中心（破線）
+        ctx.strokeStyle = '#7d7568'; ctx.lineWidth = 1.5; ctx.setLineDash([5,4]);
+        ctx.beginPath();
+        for(var py = 0; py <= RH; py += 4){
+          var L = 1 - py/RH; var x = CX + centerOffsetPx(L); var y = RY + py;
+          if(py === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+
+        // 中立軸（グレー・実線）
+        ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(CX, RY); ctx.lineTo(CX, RY + RH); ctx.stroke();
+        // 端点(黒・白)
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(CX, RY + RH, 5, 0, 7); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(CX, RY, 5, 0, 7); ctx.fill(); ctx.stroke();
+
+        // 選んだ明度のスライス
+        var y = yOfL(Lsel), rf = rfrac(Lsel), lf = lfrac(Lsel);
+        ctx.strokeStyle = 'rgba(29,27,23,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+        ctx.beginPath(); ctx.moveTo(CX - lf*HALF, y); ctx.lineTo(CX + rf*HALF, y); ctx.stroke();
+        ctx.setLineDash([]);
+        // 中立点
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(CX, y, 5, 0, 7); ctx.fill(); ctx.stroke();
+        // 彩度の矢印
+        arrowCol(CX, y, CX + rf*HALF, y, '#3c7876', 2);
+        ctx.fillStyle = '#3c7876'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('彩度', CX + rf*HALF*0.5, y - 6);
+
+        // ラベル
+        ctx.fillStyle = INK; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('中立軸（グレー）', CX + 8, RY + 14);
+        ctx.fillStyle = '#7d7568'; ctx.fillText('使える色の真ん中', CX + 8, RY + RH - 8);
+        ctx.fillStyle = '#7d7568'; ctx.textAlign = 'center';
+        ctx.fillText('白', CX, RY - 8); ctx.fillText('黒', CX, RY + RH + 16);
+        ctx.fillStyle = INK; ctx.fillText('← 緑寄り', RX + 50, RY + RH + 16);
+        ctx.fillText('赤寄り →', RX + RW - 50, RY + RH + 16);
+
+        // 右パネル
+        var tx = 430, ty = 60;
+        ctx.textAlign = 'left'; ctx.font = '12px monospace';
+        ctx.fillStyle = INK; ctx.fillText('明度 L = ' + Lsel.toFixed(2), tx, ty);
+        var offFrac = (centerOffsetPx(Lsel) / HALF);
+        ctx.fillStyle = '#7d7568'; ctx.font = '11px monospace';
+        ctx.fillText('このスライスで:', tx, ty + 26);
+        ctx.fillText('・グレー(中立)はいつも中央の実線上', tx, ty + 46);
+        ctx.fillText('・色域の幾何中心は ' + (offFrac>=0?'+':'') + offFrac.toFixed(2) + ' ずれてる', tx, ty + 66);
+        ctx.fillStyle = (Math.abs(offFrac) < 0.01) ? '#2f9e6e' : '#c2543d';
+        ctx.fillText(Math.abs(offFrac) < 0.01 ? '→ 真ん中＝グレー（一致）' : '→ 真ん中 ≠ グレー（ズレてる）', tx, ty + 88);
+      }
+
+      function arrowCol(x0,y0,x1,y1,col,lw){
+        ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=lw;
+        ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+        var a=Math.atan2(y1-y0,x1-x0),h=6;
+        ctx.beginPath();ctx.moveTo(x1,y1);
+        ctx.lineTo(x1-h*Math.cos(a-0.4),y1-h*Math.sin(a-0.4));
+        ctx.lineTo(x1-h*Math.cos(a+0.4),y1-h*Math.sin(a+0.4));
+        ctx.closePath();ctx.fill();
+      }
+
+      function status(){
+        var el = document.getElementById('col-status');
+        if(w < 0.01){
+          el.textContent = 'ゆがみ無し：使える色が左右対称だから、色域の真ん中（破線）＝グレー（実線）でぴったり一致する。これなら中立軸は"形の中心"で済む（リーマン的）。';
+          el.style.color = '#2f9e6e';
+        } else {
+          el.textContent = 'ゆがみ有り：色域が左右非対称になり、"使える色の真ん中"（破線）がグレー軸（実線）からズレた。だから中立軸は形の中心では決められず、黒からの距離（計量）で定義する必要がある —— これがシュレーディンガーの宿題で、非リーマン幾何で解かれた部分だよ。';
+          el.style.color = '#c2543d';
+        }
+      }
+
+      function render(){ draw(); status(); }
+      document.getElementById('col-w').addEventListener('input', function(e){
+        w = parseInt(e.target.value,10)/100;
+        document.getElementById('col-w-v').textContent = e.target.value;
+        render();
+      });
+      document.getElementById('col-l').addEventListener('input', function(e){
+        Lsel = parseInt(e.target.value,10)/100;
+        document.getElementById('col-l-v').textContent = Lsel.toFixed(2);
+        render();
+      });
+      render();
+    })();
+    </script>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('hue-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var m = 0, timer = null;
+      var cx = 235, cy = 205, R = 135, xLeft = 80, Lw = 310, yLine = 205;
+      var FS = 0.80, UCUT = (FS + 1) / 2;   // 紫の真ん中で切って線にする
+
+      function wl2rgb(wl){
+        var r=0,g=0,b=0;
+        if(wl>=380&&wl<440){r=-(wl-440)/60;b=1;}
+        else if(wl<490){g=(wl-440)/50;b=1;}
+        else if(wl<510){g=1;b=-(wl-510)/20;}
+        else if(wl<580){r=(wl-510)/70;g=1;}
+        else if(wl<645){r=1;g=-(wl-645)/65;}
+        else {r=1;}
+        var f=1;
+        if(wl<420)f=0.3+0.7*(wl-380)/40;
+        else if(wl>700)f=0.3+0.7*(780-wl)/80;
+        return [r*f,g*f,b*f];
+      }
+      function colOfU(u){
+        if(u < FS){ var wl = 700 - (u/FS)*320; return wl2rgb(wl); }
+        var t = (u-FS)/(1-FS);                 // 0(紫端)→1(赤端)
+        var v = wl2rgb(410), rr = wl2rgb(680);
+        return [v[0]+(rr[0]-v[0])*t, v[1]+(rr[1]-v[1])*t, v[2]+(rr[2]-v[2])*t];
+      }
+      function ease(x){ return x*x*(3-2*x); }
+
+      function posLine(s){ return [xLeft + s*Lw, yLine]; }
+      function posCircle(s){ var a = s*2*Math.PI - Math.PI/2; return [cx + R*Math.cos(a), cy + R*Math.sin(a)]; }
+      function pos(s){
+        var e = ease(m), L = posLine(s), C = posCircle(s);
+        return [L[0]+(C[0]-L[0])*e, L[1]+(C[1]-L[1])*e];
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,cv.width,cv.height);
+        var N = 260;
+        ctx.lineWidth = 16; ctx.lineCap = 'round';
+        for(var i=0;i<N;i++){
+          var s0=i/N, s1=(i+1)/N;
+          var u=(s0+UCUT)%1;
+          var isPurple = u >= FS;
+          var rgb = colOfU(u);
+          var p0=pos(s0), p1=pos(s1);
+          ctx.globalAlpha = isPurple ? (0.18 + 0.82*ease(m)) : 1;  // 紫は知覚が足す→mで濃くなる
+          ctx.strokeStyle = 'rgb('+(rgb[0]*255|0)+','+(rgb[1]*255|0)+','+(rgb[2]*255|0)+')';
+          ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        // 端のラベル（赤端・紫端）
+        function uToS(u){ return ((u-UCUT+1)%1); }
+        function labelAt(u, text, col){
+          var p = pos(uToS(u));
+          ctx.fillStyle = col; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(text, p[0], p[1] - 16);
+        }
+        labelAt(0.001, '赤 700nm', '#b03020');
+        labelAt(FS-0.001, '紫 380nm', '#5030a0');
+
+        // 非スペクトルの紫の注記
+        var pmid = pos(uToS((FS+1)/2 % 1));
+        ctx.fillStyle = '#9030a0'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('非スペクトルの紫', pmid[0], pmid[1] + (m>0.5? -22 : 30));
+        ctx.fillText('（知覚が足す）', pmid[0], pmid[1] + (m>0.5? -10 : 42));
+
+        // 中央の注記
+        ctx.fillStyle = '#7d7568'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+        if(m < 0.05) ctx.fillText('線（区間）', cx, 360);
+        else if(m > 0.95) ctx.fillText('輪（S¹）', cx, cy);
+      }
+
+      function status(){
+        var el = document.getElementById('hue-status');
+        if(m < 0.05){
+          el.textContent = '物理の波長：紫(380nm)から赤(700nm)までの一本の線。両端は別の色で、つながっていない。区間（線）だよ。';
+          el.style.color = '#7d7568';
+        } else if(m > 0.95){
+          el.textContent = '知覚：赤端と紫端を「非スペクトルの紫（マゼンタ）」で糊づけして、輪に閉じた。これが色相環＝S¹。物理には無い紫が、線を円に変えてる —— 位相そのものが、物理から知覚へ移るときに変わった例だよ。';
+          el.style.color = '#9030a0';
+        } else {
+          el.textContent = '曲げているところ…赤端と紫端が近づいて、その間を「物理には無い紫」が埋めていく。線が輪になる途中。';
+          el.style.color = '#7d7568';
+        }
+      }
+
+      function render(){ draw(); status(); }
+      function setM(v){
+        m = v;
+        document.getElementById('hue-m').value = Math.round(v*100);
+        document.getElementById('hue-m-v').textContent = Math.round(v*100) + '%';
+        render();
+      }
+      document.getElementById('hue-m').addEventListener('input', function(e){
+        if(timer){ clearInterval(timer); timer=null; }
+        setM(parseInt(e.target.value,10)/100);
+      });
+      document.getElementById('hue-go').addEventListener('click', function(){
+        if(timer){ clearInterval(timer); timer=null; return; }
+        var dir = (m >= 0.99) ? -1 : 1;
+        timer = setInterval(function(){
+          var nv = m + dir*0.02;
+          if(nv >= 1){ nv = 1; clearInterval(timer); timer=null; }
+          if(nv <= 0){ nv = 0; clearInterval(timer); timer=null; }
+          setM(nv);
+        }, 30);
+      });
+      render();
+    })();
+    </script>
+
+    <script is:inline>
+    (function(){
+      var cv = document.getElementById('ds-cv');
+      if(!cv) return;
+      var ctx = cv.getContext('2d');
+      var W = cv.width, H = cv.height;
+      var TEAL='#3c7876', ORANGE='#c2773d', RED='#c2543d', FAINT='#aaa49b', MUT='#7d7568', INK='#1d1b17';
+
+      var shaping = true, order = 1;
+      var OSRS = [4,8,16,32,64], osrIdx = 2;
+      var amp = 0.60, sigCycles = 7, zoom = 40;
+      var NFFT = 4096;
+
+      // ---- iterative radix-2 FFT (no deps) ----
+      function fft(re, im){
+        var n=re.length, i, j=0, k, len;
+        for(i=1;i<n;i++){
+          var bit=n>>1;
+          for(; j & bit; bit>>=1) j^=bit;
+          j^=bit;
+          if(i<j){ var tr=re[i];re[i]=re[j];re[j]=tr; var ti=im[i];im[i]=im[j];im[j]=ti; }
+        }
+        for(len=2; len<=n; len<<=1){
+          var ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
+          for(i=0;i<n;i+=len){
+            var cwr=1, cwi=0;
+            for(k=0;k<len/2;k++){
+              var a=i+k, b=i+k+len/2;
+              var vr=re[b]*cwr-im[b]*cwi, vi=re[b]*cwi+im[b]*cwr;
+              re[b]=re[a]-vr; im[b]=im[a]-vi;
+              re[a]=re[a]+vr; im[a]=im[a]+vi;
+              var ncwr=cwr*wr-cwi*wi; cwi=cwr*wi+cwi*wr; cwr=ncwr;
+            }
+          }
+        }
+      }
+      function ifft(re, im){
+        var n=re.length, i;
+        for(i=0;i<n;i++) im[i]=-im[i];
+        fft(re,im);
+        for(i=0;i<n;i++){ re[i]/=n; im[i]=-im[i]/n; }
+      }
+
+      // ---- 1bit modulator ----
+      function modulate(x){
+        var n=x.length, y=new Float64Array(n), i;
+        if(!shaping){
+          for(i=0;i<n;i++) y[i]= x[i]>=0 ? 1 : -1;   // open-loop 1bit quantize
+          return y;
+        }
+        var s1=0, s2=0, yp=0, q;
+        for(i=0;i<n;i++){
+          if(order===1){
+            s1 += x[i]-yp;
+            q = s1>=0?1:-1;
+          } else {
+            s1 += 0.5*(x[i]-yp);
+            s2 += 0.5*(s1-yp);
+            q = s2>=0?1:-1;
+            if(s1>8)s1=8; if(s1<-8)s1=-8; if(s2>8)s2=8; if(s2<-8)s2=-8; // keep the toy bounded
+          }
+          y[i]=q; yp=q;
+        }
+        return y;
+      }
+
+      function analyze(y, inbandBin, sigBin){
+        var re=new Float64Array(NFFT), im=new Float64Array(NFFT), i;
+        for(i=0;i<NFFT;i++){ re[i]=y[i]; im[i]=0; }
+        fft(re,im);
+        var half=NFFT/2, magDb=new Float64Array(half), sig=0, noise=0;
+        for(i=0;i<half;i++){
+          var p=(re[i]*re[i]+im[i]*im[i])/(half*half);
+          magDb[i]=10*Math.log10(p+1e-13);
+          if(i>=1 && i<=inbandBin){ if(Math.abs(i-sigBin)<=1) sig+=p; else noise+=p; }
+        }
+        var snr=10*Math.log10((sig+1e-15)/(noise+1e-15));
+        return { magDb:magDb, snr:snr };
+      }
+
+      function reconstruct(y, inbandBin){
+        var re=new Float64Array(NFFT), im=new Float64Array(NFFT), i;
+        for(i=0;i<NFFT;i++){ re[i]=y[i]; im[i]=0; }
+        fft(re,im);
+        for(i=0;i<NFFT;i++){ var f= i<=NFFT/2 ? i : NFFT-i; if(f>inbandBin){ re[i]=0; im[i]=0; } }
+        ifft(re,im);
+        return re;
+      }
+
+      function txt(s,x,y,col,size,align){
+        ctx.fillStyle=col; ctx.font=(size||11)+"px 'JetBrains Mono', monospace";
+        ctx.textAlign=align||'left'; ctx.fillText(s,x,y); ctx.textAlign='left';
+      }
+
+      function redraw(){
+        var OSR=OSRS[osrIdx];
+        var inbandBin=Math.max(8, Math.floor(NFFT/(2*OSR)));
+        var sigBin=Math.min(sigCycles, inbandBin-2);
+        var x=new Float64Array(NFFT), i;
+        for(i=0;i<NFFT;i++) x[i]=amp*Math.sin(2*Math.PI*sigBin*i/NFFT);
+        var y=modulate(x);
+        var an=analyze(y, inbandBin, sigBin);
+        var recon=reconstruct(y, inbandBin);
+
+        // time window from zoom slider (right = zoom in = fewer samples shown)
+        var WnMax=Math.min(NFFT,2400), WnMin=44;
+        var Wn=Math.round(WnMax*Math.pow(WnMin/WnMax, zoom/100));
+        Wn=Math.max(12, Math.min(NFFT, Wn));
+        var zEl=document.getElementById('ds-zoom-v'); if(zEl) zEl.textContent=Wn;
+
+        ctx.clearRect(0,0,W,H);
+        function AX(k){ return 40+(k/Wn)*(W-52); }
+
+        // Panel A: input vs reconstructed
+        var aMid=64, aH=44;
+        ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(40,aMid); ctx.lineTo(W-12,aMid); ctx.stroke();
+        ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.beginPath();
+        for(i=0;i<Wn;i++){ var px=AX(i),py=aMid-x[i]*aH; if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py); } ctx.stroke();
+        ctx.strokeStyle=ORANGE; ctx.lineWidth=1.6; ctx.beginPath();
+        for(i=0;i<Wn;i++){ var px2=AX(i),py2=aMid-recon[i]*aH; if(i===0)ctx.moveTo(px2,py2);else ctx.lineTo(px2,py2); } ctx.stroke();
+        txt('入力',44,20,TEAL,11); txt('—— 復元出力（低域だけ通した1bit）',82,20,ORANGE,11);
+
+        // Panel B: 1bit stream — steps when zoomed in, density bars when zoomed out
+        var bMid=190, bH=42;
+        ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(40,bMid); ctx.lineTo(W-12,bMid); ctx.stroke();
+        if(Wn<=320){
+          ctx.strokeStyle=TEAL; ctx.lineWidth = Wn<=110 ? 2 : 1.4; ctx.beginPath();
+          for(i=0;i<Wn;i++){ var lvl=y[i]>=0?bMid-bH:bMid+bH; var xa=AX(i),xb=AX(i+1);
+            if(i===0)ctx.moveTo(xa,lvl); else ctx.lineTo(xa,lvl); ctx.lineTo(xb,lvl); }
+          ctx.stroke();
+          if(Wn<=110){ ctx.fillStyle=TEAL;
+            for(i=0;i<Wn;i++){ var lv=y[i]>=0?bMid-bH:bMid+bH; ctx.beginPath(); ctx.arc((AX(i)+AX(i+1))/2,lv,1.8,0,7); ctx.fill(); } }
+        } else {
+          for(i=0;i<Wn;i++){ var bx=AX(i);
+            if(y[i]>=0){ ctx.strokeStyle='rgba(60,120,118,0.55)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid-bH); ctx.stroke(); }
+            else { ctx.strokeStyle='rgba(170,164,155,0.5)'; ctx.beginPath(); ctx.moveTo(bx,bMid); ctx.lineTo(bx,bMid+bH); ctx.stroke(); } }
+        }
+        ctx.strokeStyle=INK; ctx.lineWidth=1.4; ctx.beginPath();
+        for(i=0;i<Wn;i++){ var ix=AX(i),iy=bMid-x[i]*bH; if(i===0)ctx.moveTo(ix,iy);else ctx.lineTo(ix,iy); } ctx.stroke();
+        txt('1bit出力：+1 上 / −1 下  （入力が高いほど +1 が密に）',44,134,MUT,11);
+        txt('表示 '+Wn+' サンプル',W-12,134,FAINT,10,'right');
+
+        // Panel C: spectrum on a log-frequency axis (in-band spreads out; shaping slope is a straight line)
+        var y0=258, y1=H-16, hh=y1-y0, dbT=0, dbB=-130, half=an.magDb.length;
+        var fMin=1, fMax=half-1, lf0=Math.log(fMin), lf1=Math.log(fMax);
+        function CY(db){ db=Math.max(dbB,Math.min(dbT,db)); return y0+(dbT-db)/(dbT-dbB)*hh; }
+        function CX(b){ if(b<fMin)b=fMin; return 50+(Math.log(b)-lf0)/(lf1-lf0)*(W-62); }
+        ctx.fillStyle='rgba(60,120,118,0.08)'; ctx.fillRect(CX(fMin),y0,CX(inbandBin)-CX(fMin),hh);
+        ctx.strokeStyle='#efe9e0'; ctx.lineWidth=1;
+        for(var db=0; db>=-120; db-=30){ var gy=CY(db); ctx.beginPath(); ctx.moveTo(50,gy); ctx.lineTo(W-12,gy); ctx.stroke(); txt(db+'dB',8,gy+3,FAINT,9); }
+        for(var d=1; d<=fMax; d*=10){ var dx=CX(d); ctx.strokeStyle='#efe9e0'; ctx.beginPath(); ctx.moveTo(dx,y0); ctx.lineTo(dx,y1); ctx.stroke(); txt(d+'',dx+2,y1-3,FAINT,9); }
+        ctx.strokeStyle=TEAL; ctx.lineWidth=1; ctx.beginPath();
+        for(i=1;i<half;i++){ var sx=CX(i),sy=CY(an.magDb[i]); if(i===1)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy); } ctx.stroke();
+        var ex=CX(inbandBin);
+        ctx.strokeStyle=RED; ctx.setLineDash([4,3]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(ex,y0); ctx.lineTo(ex,y1); ctx.stroke(); ctx.setLineDash([]);
+        var tx=CX(sigBin); ctx.strokeStyle=ORANGE; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(tx,CY(an.magDb[sigBin])); ctx.lineTo(tx,y1); ctx.stroke();
+        txt('スペクトル（周波数 → 対数）',50,y0+12,MUT,11);
+        txt('信号',tx+3,CY(an.magDb[sigBin])-4,ORANGE,10);
+        txt('復元帯域の端 →',ex-4,y0+12,RED,10,'right');
+
+        var enob=(an.snr-1.76)/6.02;
+        document.getElementById('ds-status').textContent =
+          'モード: '+(shaping?('ΔΣ '+order+'次・ノイズシェイピング'):'素の1bit量子化（ループ無し）')+
+          ' ／ OSR='+OSR+' ／ 帯域内S/N ≈ '+an.snr.toFixed(1)+' dB （実効 ≈ '+(enob>0?enob.toFixed(1):'0.0')+' bit 相当）';
+      }
+
+      // KaTeX (deferred-load safe)
+      var DSTEX=[
+        'Y(z)=\\underbrace{z^{-1}}_{\\text{STF}}\\,X(z)+\\underbrace{(1-z^{-1})^{N}}_{\\text{NTF}}\\,E(z)',
+        '\\text{帯域内ノイズ}\\ \\propto\\ \\dfrac{1}{\\mathrm{OSR}^{\\,2N+1}}'
+      ];
+      function renderMath(){
+        if(window.katex){
+          var els=document.querySelectorAll('#ds-math [data-ds-tex]');
+          els.forEach(function(el){
+            try{ window.katex.render(DSTEX[+el.getAttribute('data-ds-tex')], el, {throwOnError:false, displayMode:true}); }catch(e){}
+          });
+        } else setTimeout(renderMath, 100);
+      }
+
+      function pick(a, b, onA){
+        document.getElementById(a).classList.toggle('primary', onA);
+        document.getElementById(b).classList.toggle('primary', !onA);
+      }
+      document.getElementById('ds-on').onclick=function(){ shaping=true; pick('ds-on','ds-off',true); redraw(); };
+      document.getElementById('ds-off').onclick=function(){ shaping=false; pick('ds-on','ds-off',false); redraw(); };
+      document.getElementById('ds-o1').onclick=function(){ order=1; pick('ds-o1','ds-o2',true); redraw(); };
+      document.getElementById('ds-o2').onclick=function(){ order=2; pick('ds-o1','ds-o2',false); redraw(); };
+      var eOsr=document.getElementById('ds-osr');
+      eOsr.oninput=function(){ osrIdx=+eOsr.value; document.getElementById('ds-osr-v').textContent=OSRS[osrIdx]; redraw(); };
+      var eAmp=document.getElementById('ds-amp');
+      eAmp.oninput=function(){ amp=(+eAmp.value)/100; document.getElementById('ds-amp-v').textContent=amp.toFixed(2); redraw(); };
+      var eFrq=document.getElementById('ds-frq');
+      eFrq.oninput=function(){ sigCycles=+eFrq.value; document.getElementById('ds-frq-v').textContent=sigCycles; redraw(); };
+      var eZoom=document.getElementById('ds-zoom');
+      eZoom.oninput=function(){ zoom=+eZoom.value; redraw(); };
+
+      redraw();
+      renderMath();
+    })();
+    </script>
+
+<script>
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Sound Scope
+═══════════════════════════════════════════════════ */
+(()=>{
+  let audioCtx=null, analyser=null, stream=null, rafId=null;
+  let rawMode=true; // true=処理なし, false=処理あり
+  const cvW=document.getElementById('cv-wave');
+  const cvS=document.getElementById('cv-spec');
+  const ctxW=cvW.getContext('2d');
+  const ctxS=cvS.getContext('2d');
+  const btnStart=document.getElementById('scope-start');
+  const btnStop=document.getElementById('scope-stop');
+  const statusEl=document.getElementById('scope-status');
+  const gainSlider=document.getElementById('scope-gain');
+  const maxfSlider=document.getElementById('scope-maxf');
+  const btnRaw=document.getElementById('scope-raw');
+  const btnProc=document.getElementById('scope-proc');
+  gainSlider.addEventListener('input',()=>document.getElementById('scope-gain-val').textContent=gainSlider.value);
+  maxfSlider.addEventListener('input',()=>document.getElementById('scope-maxf-val').textContent=maxfSlider.value);
+
+  function setMode(raw){
+    rawMode=raw;
+    btnRaw.style.borderColor=raw?'#3c7876':'';
+    btnRaw.style.color=raw?'#3c7876':'';
+    btnProc.style.borderColor=raw?'':'#3c7876';
+    btnProc.style.color=raw?'':'#3c7876';
+  }
+  btnRaw.addEventListener('click',()=>{ setMode(true); if(stream) reconnect(); });
+  btnProc.addEventListener('click',()=>{ setMode(false); if(stream) reconnect(); });
+
+  async function reconnect(){
+    if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    if(audioCtx){audioCtx.close();audioCtx=null;}
+    await startMic();
+  }
+
+  const TEAL='#3c7876', TEAL2='rgba(60,120,118,.15)', BG='#faf8f4', GRID='rgba(227,219,208,.6)';
+
+  function drawGrid(ctx,w,h){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1;
+    for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(0,h*i/4);ctx.lineTo(w,h*i/4);ctx.stroke();}
+    for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(w*i/4,0);ctx.lineTo(w*i/4,h);ctx.stroke();}
+  }
+
+  // Note markers: [frequency, label, color]
+  const NOTE_A = 440;
+  const NOTE_MARKERS = [];
+  // Chromatic scale notes around middle octaves with Japanese solfege
+  const SOLFEGE = ['ド','ド#','レ','レ#','ミ','ファ','ファ#','ソ','ソ#','ラ','ラ#','シ'];
+  // Generate notes from C2 to C8
+  for(let midi=36; midi<=108; midi++){
+    const freq = 440 * Math.pow(2, (midi-69)/12);
+    const noteName = SOLFEGE[midi % 12];
+    const octave = Math.floor(midi/12) - 1;
+    const isA = midi % 12 === 9; // A note
+    const isC = midi % 12 === 0; // C note
+    if(isA || isC) NOTE_MARKERS.push({freq, label: noteName+(isA?octave:''), isA, isC});
+  }
+
+  function drawNoteMarkers(ctx, W, H, sampleRate, bufLen, maxF){
+    for(const {freq, label, isA, isC} of NOTE_MARKERS){
+      if(freq > maxF) continue;
+      const x = Math.round(freq / maxF * W);
+      ctx.strokeStyle = isA ? 'rgba(60,120,118,.7)' : 'rgba(140,107,79,.45)';
+      ctx.lineWidth = isA ? 1.5 : 1;
+      ctx.setLineDash(isA ? [] : [3,3]);
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H-14); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = isA ? '#3c7876' : '#8c6d4f';
+      ctx.font = `bold ${isA?9:8}px JetBrains Mono, monospace`;
+      ctx.fillText(label, x+2, H-3);
+    }
+  }
+
+  function loop(){
+    const W=cvW.width, H=cvW.height;
+    const gain=parseFloat(gainSlider.value);
+    const maxF=parseFloat(maxfSlider.value);
+    const bufLen=analyser.frequencyBinCount;
+    const timeBuf=new Float32Array(bufLen);
+    const freqBuf=new Uint8Array(bufLen);
+    analyser.getFloatTimeDomainData(timeBuf);
+    analyser.getByteFrequencyData(freqBuf);
+
+    // Waveform
+    drawGrid(ctxW,W,H);
+    ctxW.beginPath();
+    ctxW.strokeStyle=TEAL; ctxW.lineWidth=1.5;
+    for(let i=0;i<W;i++){
+      const idx=Math.floor(i/W*bufLen);
+      const y=H/2-(timeBuf[idx]*gain*H/2);
+      i===0?ctxW.moveTo(i,y):ctxW.lineTo(i,y);
+    }
+    ctxW.stroke();
+
+    // Spectrum
+    const sampleRate=audioCtx.sampleRate;
+    // maxFがNyquist(sampleRate/2)を超える環境(低サンプルレートのマイク等)では
+    // binがバッファ外を指してスペクトルが壊れる。bufLenでクランプする。
+    const maxBin=Math.max(1, Math.min(bufLen, Math.floor(maxF/(sampleRate/2)*bufLen)));
+    drawGrid(ctxS,W,H);
+    ctxS.fillStyle=TEAL2;
+    ctxS.beginPath(); ctxS.moveTo(0,H);
+    for(let i=0;i<W;i++){
+      const bin=Math.floor(i/W*maxBin);
+      const y=H-(freqBuf[bin]/255)*H;
+      i===0?ctxS.lineTo(0,y):ctxS.lineTo(i,y);
+    }
+    ctxS.lineTo(W,H); ctxS.closePath(); ctxS.fill();
+    ctxS.beginPath();
+    ctxS.strokeStyle=TEAL; ctxS.lineWidth=1.5;
+    for(let i=0;i<W;i++){
+      const bin=Math.floor(i/W*maxBin);
+      const y=H-(freqBuf[bin]/255)*H;
+      i===0?ctxS.moveTo(i,y):ctxS.lineTo(i,y);
+    }
+    ctxS.stroke();
+
+    // Note markers overlay（クランプ後の実表示上限に合わせる）
+    const dispMaxF = maxBin/bufLen*(sampleRate/2);
+    drawNoteMarkers(ctxS, W, H, sampleRate, bufLen, dispMaxF);
+
+    rafId=requestAnimationFrame(loop);
+  }
+
+  async function startMic(){
+    try{
+      const constraints = rawMode
+        ? {audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false}
+        : {audio:true,video:false};
+      stream=await navigator.mediaDevices.getUserMedia(constraints);
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      const src=audioCtx.createMediaStreamSource(stream);
+      analyser=audioCtx.createAnalyser();
+      analyser.fftSize=2048;
+      src.connect(analyser);
+      loop();
+      btnStart.disabled=true; btnStop.disabled=false;
+      statusEl.textContent=`— 録音中（${rawMode?'処理なし':'処理あり'}）`;
+    }catch(e){statusEl.textContent='— マイク許可が必要です';}
+  }
+  btnStart.addEventListener('click', startMic);
+  btnStop.addEventListener('click',()=>{
+    if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    if(audioCtx){audioCtx.close();audioCtx=null;}
+    btnStart.disabled=false; btnStop.disabled=true;
+    statusEl.textContent='— 停止中';
+  });
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Fourier Sketchbook
+═══════════════════════════════════════════════════ */
+const cvDraw = document.getElementById('cv-draw');
+const cvEpi  = document.getElementById('cv-epi');
+const ctxD   = cvDraw.getContext('2d');
+const ctxE   = cvEpi.getContext('2d');
+const W = cvDraw.width, H = cvDraw.height;
+const CX = W/2, CY = H/2;
+
+const TEAL  = '#3c7876';
+const TEAL2 = 'rgba(60,120,118,.18)';
+const TEAL3 = 'rgba(60,120,118,.45)';
+const PATH_COL = 'rgba(60,120,118,.7)';
+const TRACE_COL = '#3c7876';
+
+// ── State ─────────────────────────────────────────
+let drawing = false, rawPts = [], fourier = [], paused = false;
+let animTime = 0, animId = null, tracePath = [];
+let prevMouseX = null, prevMouseY = null;
+
+const sliderN     = document.getElementById('n-harmonics');
+const sliderSpeed = document.getElementById('speed');
+const statusEl    = document.getElementById('fourier-status');
+
+sliderN.addEventListener('input', () => {
+  document.getElementById('n-val').textContent = sliderN.value;
+  if(fourier.length) startAnimation();
+});
+sliderSpeed.addEventListener('input', () => {
+  document.getElementById('speed-val').textContent = sliderSpeed.value;
+});
+document.getElementById('btn-clear').addEventListener('click', clearAll);
+document.getElementById('btn-pause').addEventListener('click', togglePause);
+
+// ── Drawing ───────────────────────────────────────
+function pos(e, cv) {
+  const r = cv.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  // CSSで縮小表示されている時は内部座標(cv.width/height)へ換算しないとズレる
+  const sx = cv.width / r.width, sy = cv.height / r.height;
+  return { x: (src.clientX - r.left) * sx, y: (src.clientY - r.top) * sy };
+}
+
+cvDraw.addEventListener('mousedown',  e => startDraw(pos(e, cvDraw)));
+cvDraw.addEventListener('mousemove',  e => { if(drawing) continueDraw(pos(e, cvDraw)); });
+cvDraw.addEventListener('mouseup',    () => endDraw());
+cvDraw.addEventListener('mouseleave', () => { if(drawing) endDraw(); });
+cvDraw.addEventListener('touchstart', e => { e.preventDefault(); startDraw(pos(e, cvDraw)); }, {passive:false});
+cvDraw.addEventListener('touchmove',  e => { e.preventDefault(); if(drawing) continueDraw(pos(e, cvDraw)); }, {passive:false});
+cvDraw.addEventListener('touchend',   e => { e.preventDefault(); endDraw(); }, {passive:false});
+
+function startDraw({x, y}) {
+  drawing = true; rawPts = [{x,y}];
+  clearCanvas(ctxD);
+  ctxD.beginPath(); ctxD.moveTo(x,y);
+  ctxD.strokeStyle = TEAL3; ctxD.lineWidth = 2.5; ctxD.lineCap='round';
+  prevMouseX = x; prevMouseY = y;
+}
+function continueDraw({x, y}) {
+  if(!drawing) return;
+  rawPts.push({x,y});
+  ctxD.lineTo(x,y); ctxD.stroke();
+  ctxD.beginPath(); ctxD.moveTo(x,y);
+  prevMouseX = x; prevMouseY = y;
+}
+function endDraw() {
+  if(!drawing || rawPts.length < 4) { drawing = false; return; }
+  drawing = false;
+  analyze();
+}
+
+// ── DFT ───────────────────────────────────────────
+function computeDFT(pts) {
+  const N = pts.length;
+  const result = [];
+  for (let k = 0; k < N; k++) {
+    let re = 0, im = 0;
+    for (let n = 0; n < N; n++) {
+      const a = (2 * Math.PI * k * n) / N;
+      re += pts[n].x * Math.cos(a) + pts[n].y * Math.sin(a);
+      im += -pts[n].x * Math.sin(a) + pts[n].y * Math.cos(a);
+    }
+    // k > N/2 → negative frequency (counterclockwise rotation)
+    const freq = k <= N / 2 ? k : k - N;
+    result.push({ freq, amp: Math.hypot(re,im)/N, phase: Math.atan2(im,re) });
+  }
+  return result.sort((a,b) => b.amp - a.amp);
+}
+
+function sampleEvenly(pts, target=256) {
+  if(pts.length < 2) return pts;
+  // 点数ではなく弧長で等間隔に取り直す。
+  // 手描きは速い所ほど点がまばらになるので、点数ベースだと曲線上で粗密ができてしまう。
+  const cum = [0];
+  for(let i=1; i<pts.length; i++) {
+    cum.push(cum[i-1] + Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y));
+  }
+  const total = cum[cum.length-1];
+  if(total === 0) return [pts[0]];
+  const result = [];
+  let j = 0;
+  for(let i=0; i<target; i++) {
+    const d = total * i / target; // 一周ぶんを等分（終点=始点側は含めない）
+    while(j < cum.length-1 && cum[j+1] < d) j++;
+    const span = cum[j+1] - cum[j] || 1;
+    const t = (d - cum[j]) / span;
+    result.push({
+      x: pts[j].x + (pts[j+1].x - pts[j].x) * t,
+      y: pts[j].y + (pts[j+1].y - pts[j].y) * t,
+    });
+  }
+  return result;
+}
+
+function analyze() {
+  const sampled = sampleEvenly(rawPts, 256);
+  // Center the points
+  const mx = sampled.reduce((s,p)=>s+p.x,0)/sampled.length;
+  const my = sampled.reduce((s,p)=>s+p.y,0)/sampled.length;
+  const centered = sampled.map(p=>({x:p.x-mx+CX, y:p.y-my+CY}));
+  fourier = computeDFT(centered);
+  statusEl.textContent = `${rawPts.length}点サンプル → DFT完了。N=${sliderN.value}本の円で近似中。`;
+  startAnimation();
+}
+
+// ── Animation ─────────────────────────────────────
+function startAnimation() {
+  if(animId) cancelAnimationFrame(animId);
+  // 一時停止中に新しい図形を解析しても動き出すように、ここで解除する
+  if(paused) {
+    paused = false;
+    document.getElementById('btn-pause').textContent = '一時停止';
+  }
+  animTime = 0; tracePath = [];
+  clearCanvas(ctxE);
+  loop();
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('btn-pause').textContent = paused ? '再開' : '一時停止';
+  if(!paused) loop();
+}
+
+function clearCanvas(ctx) {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#faf8f4';
+  ctx.fillRect(0,0,W,H);
+}
+
+const cvSpecF = document.getElementById('cv-spec-f');
+const ctxSF   = cvSpecF?.getContext('2d');
+
+function drawSpectrum(activeN) {
+  if(!ctxSF || !fourier.length) return;
+  const sw = cvSpecF.width, sh = cvSpecF.height;
+  ctxSF.clearRect(0,0,sw,sh);
+  ctxSF.fillStyle = '#faf8f4';
+  ctxSF.fillRect(0,0,sw,sh);
+
+  // 周波数順に並べDC(n=0)だけ除く。負周波数(時計回りに回る円)も両側に出す。
+  const LIM = 20; // 表示する |freq| の上限
+  const byFreq = [...fourier]
+    .filter(f => f.freq !== 0 && Math.abs(f.freq) <= LIM)
+    .sort((a,b) => a.freq - b.freq);
+  const show = byFreq.length;
+  if(!show) return;
+  const maxAmp = Math.max(...byFreq.map(f=>f.amp), 0.001);
+  const barW = sw / show;
+
+  // Active set: which freqs are in the top activeN by amplitude
+  const activeFreqs = new Set(fourier.slice(0, activeN).map(f=>f.freq));
+
+  // f=0 の境目（負周波数と正周波数の区切り）を薄く示す
+  const zeroIdx = byFreq.findIndex(f => f.freq > 0);
+  if(zeroIdx > 0) {
+    ctxSF.strokeStyle = 'rgba(140,107,79,.4)';
+    ctxSF.setLineDash([3,3]);
+    ctxSF.beginPath();
+    ctxSF.moveTo(zeroIdx*barW, 2); ctxSF.lineTo(zeroIdx*barW, sh-14);
+    ctxSF.stroke();
+    ctxSF.setLineDash([]);
+  }
+
+  for(let i=0; i<show; i++) {
+    const {freq, amp} = byFreq[i];
+    const h = Math.max(2, (amp / maxAmp) * (sh - 18));
+    const active = activeFreqs.has(freq);
+    ctxSF.fillStyle = active ? TEAL : 'rgba(60,120,118,.18)';
+    ctxSF.fillRect(i*barW + 1, sh - h - 14, Math.max(1, barW - 2), h);
+    // tick label every 5本（0を含むよう間引き）
+    if(freq % 5 === 0) {
+      ctxSF.fillStyle = '#bbb5ac';
+      ctxSF.font = '8px JetBrains Mono, monospace';
+      ctxSF.fillText(freq, i*barW + 1, sh - 2);
+    }
+  }
+
+  ctxSF.fillStyle = '#aaa49b';
+  ctxSF.font = '8px JetBrains Mono, monospace';
+  ctxSF.fillText('← 負  周波数 freq  正 →', 2, 10);
+}
+
+function loop() {
+  if(paused || !fourier.length) return;
+  clearCanvas(ctxE);
+  const N = Math.min(parseInt(sliderN.value), fourier.length);
+  const speed = parseInt(sliderSpeed.value);
+  // dtは見せる円の本数Nではなく総サンプル数で決める。
+  // こうしないとNを増減するたびに一周の速さが変わってしまう。
+  const dt = (2*Math.PI / fourier.length) * speed * 0.01;
+
+  // Draw epicycles and get tip — start from (0,0): DC component carries us to centroid
+  const tip = drawEpicycles(ctxE, 0, 0, animTime, fourier.slice(0,N));
+
+  // Trace path
+  tracePath.push({x:tip.x, y:tip.y});
+  if(tracePath.length > 2000) tracePath.shift();
+
+  // Draw trace
+  ctxE.beginPath();
+  ctxE.moveTo(tracePath[0].x, tracePath[0].y);
+  for(let i=1; i<tracePath.length; i++) ctxE.lineTo(tracePath[i].x, tracePath[i].y);
+  ctxE.strokeStyle = TRACE_COL;
+  ctxE.lineWidth = 2;
+  ctxE.lineCap = 'round';
+  ctxE.stroke();
+
+  drawSpectrum(N);
+
+  animTime += dt;
+  animId = requestAnimationFrame(loop);
+}
+
+function drawEpicycles(ctx, x, y, t, fs) {
+  for(const f of fs) {
+    const px = x, py = y;
+    const angle = f.freq * t + f.phase;
+    x += f.amp * Math.cos(angle);
+    y += f.amp * Math.sin(angle);
+    if(f.amp < 0.5) continue;
+    // circle
+    ctx.beginPath();
+    ctx.arc(px, py, f.amp, 0, 2*Math.PI);
+    ctx.strokeStyle = TEAL2;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // arm
+    ctx.beginPath();
+    ctx.moveTo(px,py); ctx.lineTo(x,y);
+    ctx.strokeStyle = TEAL3;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // dot
+    ctx.beginPath();
+    ctx.arc(x,y,2.5,0,2*Math.PI);
+    ctx.fillStyle = TEAL;
+    ctx.fill();
+  }
+  return {x,y};
+}
+
+// ── Presets ───────────────────────────────────────
+function makeShape(name) {
+  const N = 300;
+  const pts = [];
+  for(let i=0; i<N; i++) {
+    const t = (2*Math.PI*i)/N;
+    let x,y;
+    switch(name) {
+      case 'square':
+        x = Math.sign(Math.cos(t));
+        y = Math.sign(Math.sin(t));
+        break;
+      case 'triangle':
+        x = (2/Math.PI)*Math.asin(Math.cos(t));
+        y = (2/Math.PI)*Math.asin(Math.sin(t));
+        break;
+      case 'sawtooth':
+        x = (t/Math.PI - Math.floor(t/Math.PI+0.5))*2;
+        y = Math.sin(t);
+        break;
+      case 'circle':
+        x = Math.cos(t); y = Math.sin(t);
+        break;
+      case 'lemniscate': {
+        const st = Math.sin(t);
+        const d = 1+Math.cos(t)*Math.cos(t);
+        x = Math.cos(t)/d; y = Math.cos(t)*st/d;
+        break;
+      }
+      case 'rf': {
+        // Stylized lightning bolt / RF symbol
+        const segs = [[-.6,.0],[-.2,-.5],[0,.0],[.4,-.5],[.6,.0]];
+        const s = i/N*(segs.length-1);
+        const si = Math.floor(s), sf = s-si;
+        const a = segs[Math.min(si, segs.length-1)];
+        const b = segs[Math.min(si+1, segs.length-1)];
+        x = a[0]*(1-sf)+b[0]*sf; y = a[1]*(1-sf)+b[1]*sf;
+        break;
+      }
+      default: x=Math.cos(t); y=Math.sin(t);
+    }
+    pts.push({x: CX + x*120, y: CY + y*120});
+  }
+  return pts;
+}
+
+document.querySelectorAll('.preset-btn[data-shape]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const shape = btn.dataset.shape;
+    rawPts = makeShape(shape);
+    // Draw on left canvas
+    clearCanvas(ctxD);
+    ctxD.beginPath();
+    ctxD.moveTo(rawPts[0].x, rawPts[0].y);
+    rawPts.forEach(p => ctxD.lineTo(p.x, p.y));
+    ctxD.closePath();
+    ctxD.strokeStyle = TEAL3; ctxD.lineWidth = 2.5; ctxD.lineCap='round';
+    ctxD.stroke();
+    statusEl.textContent = `プリセット「${btn.textContent}」を読み込んで解析中…`;
+    fourier = computeDFT(rawPts);
+    statusEl.textContent = `プリセット「${btn.textContent}」— N=${sliderN.value}本の円で近似中。`;
+    startAnimation();
+  });
+});
+
+function clearAll() {
+  if(animId) { cancelAnimationFrame(animId); animId = null; }
+  fourier = []; rawPts = []; tracePath = []; animTime = 0;
+  clearCanvas(ctxD); clearCanvas(ctxE);
+  statusEl.textContent = '左に描いてね。マウスを離したら解析が始まる。';
+  document.getElementById('btn-pause').textContent = '一時停止';
+  paused = false;
+}
+
+// Init
+clearCanvas(ctxD); clearCanvas(ctxE);
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Crystal Symmetry Playground
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv = document.getElementById('cv-cryst');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const CX = W/2, CY = H/2;
+  const TEAL = '#3c7876', TEAL2 = 'rgba(60,120,118,.18)';
+  const BG = '#faf8f4', GRID = 'rgba(227,219,208,.6)';
+  const AMBER = '#8c6d4f';
+
+  // 2D point groups with their symmetry operations
+  // Each op: (x,y) -> (x',y') as [a,b,c,d] meaning x'=ax+by, y'=cx+dy
+  const POINT_GROUPS = [
+    { name: '1',   sym: 'C₁',  ops: [[1,0,0,1]],                                                    desc: '対称操作なし（恒等のみ）' },
+    { name: '2',   sym: 'C₂',  ops: [[1,0,0,1],[-1,0,0,-1]],                                        desc: '2回回転' },
+    { name: 'm',   sym: 'Cₛ',  ops: [[1,0,0,1],[-1,0,0,1]],                                         desc: '鏡映（y軸）' },
+    { name: '2mm', sym: 'C₂ᵥ', ops: [[1,0,0,1],[-1,0,0,-1],[1,0,0,-1],[-1,0,0,1]],                 desc: '2回回転 + 鏡映2本' },
+    { name: '4',   sym: 'C₄',  ops: [[1,0,0,1],[0,-1,1,0],[-1,0,0,-1],[0,1,-1,0]],                  desc: '4回回転' },
+    { name: '4mm', sym: 'C₄ᵥ', ops: [[1,0,0,1],[0,-1,1,0],[-1,0,0,-1],[0,1,-1,0],[1,0,0,-1],[-1,0,0,1],[0,1,1,0],[0,-1,-1,0]], desc: '4回回転 + 鏡映4本' },
+    { name: '3',   sym: 'C₃',  ops: [[1,0,0,1],[-0.5,-0.866,0.866,-0.5],[-0.5,0.866,-0.866,-0.5]], desc: '3回回転（120°）' },
+    { name: '6',   sym: 'C₆',  ops: [[1,0,0,1],[0.5,-0.866,0.866,0.5],[-0.5,-0.866,0.866,-0.5],[-1,0,0,-1],[-0.5,0.866,-0.866,-0.5],[0.5,0.866,-0.866,0.5]], desc: '6回回転（60°）' },
+    { name: '6mm', sym: 'C₆ᵥ', ops: [[1,0,0,1],[0.5,-0.866,0.866,0.5],[-0.5,-0.866,0.866,-0.5],[-1,0,0,-1],[-0.5,0.866,-0.866,-0.5],[0.5,0.866,-0.866,0.5],[1,0,0,-1],[-1,0,0,1],[0.5,0.866,0.866,-0.5],[-0.5,0.866,0.866,0.5],[0.5,-0.866,-0.866,-0.5],[-0.5,-0.866,-0.866,0.5]], desc: '6回回転 + 鏡映6本' },
+  ];
+
+  let currentPG = POINT_GROUPS[1]; // default: 2-fold
+  let basePoints = [];
+  let animOn = false, animId = null, animPhase = 0;
+
+  // Build buttons
+  const pgBtns = document.getElementById('pg-buttons');
+  POINT_GROUPS.forEach((pg, i) => {
+    const b = document.createElement('button');
+    b.className = 'preset-btn';
+    b.style.cssText = 'text-align:left;display:flex;align-items:center;gap:.5rem;';
+    b.innerHTML = `<span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;min-width:2.5rem;color:#3c7876;">${pg.name}</span><span style="font-size:.7rem;color:#aaa49b;">${pg.desc}</span>`;
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#pg-buttons .preset-btn').forEach(x => { x.style.borderColor=''; x.style.color=''; });
+      b.style.borderColor = '#3c7876'; b.style.color = '#3c7876';
+      currentPG = pg;
+      updateInfo();
+      draw();
+    });
+    if (i === 1) { b.style.borderColor = '#3c7876'; b.style.color = '#3c7876'; }
+    pgBtns.appendChild(b);
+  });
+
+  function updateInfo() {
+    document.getElementById('cryst-info').textContent =
+      `${currentPG.name} (${currentPG.sym}) — ${currentPG.ops.length}個の対称操作\n${currentPG.desc}`;
+  }
+
+  function applyOps(x, y) {
+    return currentPG.ops.map(([a,b,c,d]) => ({
+      x: Math.round((a*x + b*y) * 1e9) / 1e9,
+      y: Math.round((c*x + d*y) * 1e9) / 1e9,
+    }));
+  }
+
+  function draw() {
+    ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const gx = W * i / 4, gy = H * i / 4;
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    }
+    // Center cross
+    ctx.strokeStyle = 'rgba(60,120,118,.3)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(CX, 0); ctx.lineTo(CX, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, CY); ctx.lineTo(W, CY); ctx.stroke();
+
+    if (basePoints.length === 0) {
+      ctx.fillStyle = '#ccc5bb'; ctx.font = '12px Zen Kaku Gothic New, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ここをクリックして点を置く', CX, CY + 4);
+      ctx.textAlign = 'left';
+      return;
+    }
+
+    basePoints.forEach((bp, bi) => {
+      const pts = applyOps(bp.rx, bp.ry);
+      const col = [TEAL, '#8c6d4f', '#5a6e9e', '#9e5a7a'][bi % 4];
+
+      // Draw symmetry-related points
+      pts.forEach(p => {
+        const px = CX + p.x * 110, py = CY - p.y * 110;
+        ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2);
+        ctx.fillStyle = col + '33'; ctx.fill();
+        ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+      });
+
+      // Draw base point (bigger)
+      const bpx = CX + bp.rx * 110, bpy = CY - bp.ry * 110;
+      ctx.beginPath(); ctx.arc(bpx, bpy, 8, 0, Math.PI*2);
+      ctx.fillStyle = col; ctx.fill();
+    });
+
+    // Draw symmetry axes / mirror lines
+    // Nmm 群は鏡映面が N 本ある（2mm:2, 4mm:4, 6mm:6）。m は1本だけ。
+    if (currentPG.name.includes('m')) {
+      // 'm','2mm','4mm','6mm' から回転次数 N を取り出す（先頭の数字、無ければ1）
+      const N = parseInt(currentPG.name) || 1;
+      const count = N >= 2 ? N : 1;               // 鏡映軸の本数
+      const step = N >= 2 ? Math.PI / N : 0;      // 軸の角度間隔
+      const baseAng = N >= 2 ? 0 : Math.PI/2;     // m は縦軸(90°)のみ
+      const len = Math.hypot(W, H);               // 端まで届く長さ
+      ctx.strokeStyle = 'rgba(140,107,79,.35)'; ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
+      for (let k = 0; k < count; k++) {
+        const a = baseAng + k * step;
+        const dx = Math.cos(a) * len, dy = Math.sin(a) * len;
+        ctx.beginPath();
+        ctx.moveTo(CX - dx, CY - dy);
+        ctx.lineTo(CX + dx, CY + dy);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+  }
+
+  cv.addEventListener('click', e => {
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    const rx = (px - CX) / 110, ry = -(py - CY) / 110;
+    basePoints.push({ rx, ry });
+    if (basePoints.length > 4) basePoints.shift();
+    if (!animOn) draw();
+  });
+
+  document.getElementById('cryst-clear').addEventListener('click', () => {
+    basePoints = [];
+    draw();
+  });
+
+  const animBtn = document.getElementById('cryst-anim-btn');
+  animBtn.addEventListener('click', () => {
+    animOn = !animOn;
+    animBtn.textContent = animOn ? 'アニメOFF' : 'アニメON';
+    if (animOn) {
+      // Reset to single point for clean animation
+      basePoints = [{ rx: 0.55, ry: 0 }];
+      animPhase = 0;
+      animLoop();
+    } else {
+      if (animId) cancelAnimationFrame(animId);
+      draw();
+    }
+  });
+
+  function animLoop() {
+    if (!animOn) return;
+    animPhase += 0.012;
+    // Slowly rotate the base point around a small circle
+    if (basePoints.length > 0) {
+      basePoints[0] = {
+        rx: 0.55 * Math.cos(animPhase),
+        ry: 0.55 * Math.sin(animPhase),
+      };
+    }
+    draw();
+    animId = requestAnimationFrame(animLoop);
+  }
+
+  updateInfo();
+  draw();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Lissajous Figures
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv = document.getElementById('cv-lissa');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const CX = W/2, CY = H/2, R = W * 0.43;
+  const TEAL = '#3c7876', BG = '#faf8f4', GRID = 'rgba(227,219,208,.65)';
+
+  const slFx    = document.getElementById('lissa-fx');
+  const slFy    = document.getElementById('lissa-fy');
+  const slPh    = document.getElementById('lissa-phase');
+  const slSp    = document.getElementById('lissa-speed');
+  const cbAnim  = document.getElementById('lissa-anim');
+  const elFxV   = document.getElementById('lissa-fx-val');
+  const elFyV   = document.getElementById('lissa-fy-val');
+  const elPhV   = document.getElementById('lissa-phase-val');
+  const elSpV   = document.getElementById('lissa-speed-val');
+  const infoEl  = document.getElementById('lissa-info');
+
+  let phase = 90, animId = null;
+
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+  function draw() {
+    const fx = parseInt(slFx.value);
+    const fy = parseInt(slFy.value);
+    const delta = phase * Math.PI / 180;
+
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle grid
+    ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+    [CX, CX - R*0.5, CX + R*0.5].forEach(x => {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    });
+    [CY, CY - R*0.5, CY + R*0.5].forEach(y => {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    });
+
+    // Lissajous curve
+    const N = Math.max(1200, fx * fy * 300);
+    ctx.beginPath();
+    ctx.strokeStyle = TEAL; ctx.lineWidth = 1.75;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i <= N; i++) {
+      const t = (2 * Math.PI * i) / N;
+      const x = CX + R * Math.sin(fx * t + delta);
+      const y = CY + R * Math.sin(fy * t);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Corner label
+    ctx.fillStyle = '#bbb5ac';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(`${fx}:${fy}  δ=${Math.round(phase)}°`, 6, 14);
+
+    // Info text
+    const g = gcd(fx, fy);
+    infoEl.textContent = `最簡比 ${fx/g}:${fy/g}  — X交差数 ${fy}本, Y交差数 ${fx}本`;
+  }
+
+  function tick() {
+    if (cbAnim.checked) {
+      const speed = parseFloat(slSp.value);
+      phase = (phase + speed * 0.18) % 360;
+      slPh.value = Math.round(phase);
+      elPhV.textContent = Math.round(phase) + '°';
+    }
+    draw();
+    animId = requestAnimationFrame(tick);
+  }
+
+  slFx.addEventListener('input', () => { elFxV.textContent = slFx.value; if (!cbAnim.checked) draw(); });
+  slFy.addEventListener('input', () => { elFyV.textContent = slFy.value; if (!cbAnim.checked) draw(); });
+  slPh.addEventListener('input', () => {
+    phase = parseFloat(slPh.value);
+    elPhV.textContent = Math.round(phase) + '°';
+    if (!cbAnim.checked) draw();
+  });
+  slSp.addEventListener('input', () => { elSpV.textContent = slSp.value; });
+  cbAnim.addEventListener('change', () => { if (cbAnim.checked && !animId) tick(); });
+
+  document.querySelectorAll('[data-lissa]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [fx, fy, ph] = btn.dataset.lissa.split(',').map(Number);
+      slFx.value = fx; slFy.value = fy;
+      elFxV.textContent = fx; elFyV.textContent = fy;
+      phase = ph; slPh.value = ph; elPhV.textContent = ph + '°';
+      if (!cbAnim.checked) draw();
+    });
+  });
+
+  // Start
+  tick();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Phased Array / Wave Interference + Beamforming
+═══════════════════════════════════════════════════ */
+(()=>{
+  const fc=document.getElementById('bf-field'); const fx=fc.getContext('2d');
+  const bc=document.getElementById('bf-beam');  const bx=bc.getContext('2d');
+  const FW=fc.width, FH=fc.height;
+  const GW=120, GH=120;                       // compute grid (scaled up for display)
+  const off=document.createElement('canvas'); off.width=GW; off.height=GH;
+  const ox=off.getContext('2d');
+  const img=ox.createImageData(GW,GH);
+  const buf=new Float32Array(GW*GH);
+
+  const TEAL='#3c7876', BG='#0d1614';
+  const slN=document.getElementById('bf-n'),  vN=document.getElementById('bf-n-val');
+  const slD=document.getElementById('bf-d'),  vD=document.getElementById('bf-d-val');
+  const slP=document.getElementById('bf-p'),  vP=document.getElementById('bf-p-val');
+  const cbS=document.getElementById('bf-sweep');
+  const info=document.getElementById('bf-info');
+
+  // teal→white colormap stops: [pos, r,g,b]
+  const STOPS=[[0,6,18,16],[0.35,14,59,57],[0.6,60,120,118],[0.82,127,208,201],[1,255,255,255]];
+  function cmap(t){
+    t=t<0?0:t>1?1:t;
+    for(let i=1;i<STOPS.length;i++){ if(t<=STOPS[i][0]){ const a=STOPS[i-1],b=STOPS[i],f=(t-a[0])/(b[0]-a[0]);
+      return [a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f, a[3]+(b[3]-a[3])*f]; } }
+    return [255,255,255];
+  }
+
+  function params(){
+    const N=parseInt(slN.value), d=parseFloat(slD.value), beta=parseFloat(slP.value)*Math.PI/180;
+    const lam=Math.min(13, (0.82*GW)/Math.max(1,(N-1)*d));   // shrink wavelength so the array always fits
+    const kw=2*Math.PI/lam, dpx=d*lam, cx=GW/2, cy=GH-5;
+    const src=[]; for(let k=0;k<N;k++) src.push({x:cx+(k-(N-1)/2)*dpx, y:cy, k});
+    return {N,d,beta,lam,kw,dpx,cx,cy,src};
+  }
+
+  function compute(){
+    const P=params();
+    let maxI=1e-9;
+    for(let yy=0;yy<GH;yy++) for(let xx=0;xx<GW;xx++){
+      let re=0,im=0;
+      for(const s of P.src){ let dx=xx-s.x, dy=yy-s.y, r=Math.sqrt(dx*dx+dy*dy); if(r<1)r=1;
+        const amp=1/Math.sqrt(r), ph=P.kw*r + s.k*P.beta; re+=amp*Math.cos(ph); im+=amp*Math.sin(ph); }
+      const I=re*re+im*im; buf[yy*GW+xx]=I; if(I>maxI)maxI=I;
+    }
+    const data=img.data;
+    for(let i=0;i<GW*GH;i++){ const t=Math.sqrt(buf[i]/maxI); const c=cmap(t), j=i*4;
+      data[j]=c[0]; data[j+1]=c[1]; data[j+2]=c[2]; data[j+3]=255; }
+    ox.putImageData(img,0,0);
+    fx.imageSmoothingEnabled=true; fx.clearRect(0,0,FW,FH); fx.drawImage(off,0,0,FW,FH);
+
+    // beam direction from the field itself: sample intensity along a far arc, pick the max
+    const sc=FW/GW, R=GH*0.82; let bestA=0, bestV=-1;
+    for(let a=-85;a<=85;a+=1){ const th=a*Math.PI/180;
+      const gx=P.cx+R*Math.sin(th), gy=P.cy-R*Math.cos(th);
+      const ix=Math.round(gx), iy=Math.round(gy);
+      if(ix<0||ix>=GW||iy<0||iy>=GH) continue;
+      const v=buf[iy*GW+ix]; if(v>bestV){bestV=v; bestA=th;}
+    }
+    // dashed beam line
+    const lcx=P.cx*sc, lcy=P.cy*sc, len=FH*0.92;
+    fx.strokeStyle='rgba(255,217,176,.85)'; fx.lineWidth=2; fx.setLineDash([6,5]);
+    fx.beginPath(); fx.moveTo(lcx,lcy); fx.lineTo(lcx+len*Math.sin(bestA), lcy-len*Math.cos(bestA)); fx.stroke(); fx.setLineDash([]);
+    // source dots
+    fx.fillStyle='#fff';
+    for(const s of P.src){ fx.beginPath(); fx.arc(s.x*sc, s.y*sc, 2.6, 0, 2*Math.PI); fx.fill(); }
+
+    drawBeam(P);
+
+    const deg=(bestA*180/Math.PI).toFixed(1);
+    info.innerHTML =
+      `主ビーム方向 θ ≈ <b>${deg}°</b> <span style="color:#9a8">（正面=0°）</span><br>`+
+      `素子 ${P.N} / 間隔 ${P.d.toFixed(2)}λ / 位相差 ${slP.value}°`+
+      (P.d>1 ? '<br><span style="color:#c98a4a;">⚠ d&gt;λ：グレーティングローブ（複数の主ビーム）</span>' : '');
+  }
+
+  function drawBeam(P){
+    const W=bc.width, H=bc.height, cx=W/2, cy=H-16, Rmax=Math.min(W/2-14, H-30);
+    bx.fillStyle=BG; bx.fillRect(0,0,W,H);
+    bx.font='8px JetBrains Mono, monospace';
+    // dB rings
+    [0,-10,-20,-30].forEach(db=>{ const r=Rmax*(1-(-db)/40);
+      bx.strokeStyle='rgba(127,208,201,.16)'; bx.beginPath(); bx.arc(cx,cy,r,Math.PI,2*Math.PI); bx.stroke();
+      bx.fillStyle='#5c6b68'; bx.fillText(db+'', cx+3, cy-r+9); });
+    // angle spokes
+    for(let a=-90;a<=90;a+=30){ const t=a*Math.PI/180;
+      bx.strokeStyle='rgba(127,208,201,.10)'; bx.beginPath(); bx.moveTo(cx,cy); bx.lineTo(cx+Rmax*Math.sin(t), cy-Rmax*Math.cos(t)); bx.stroke();
+      bx.fillStyle='#5c6b68'; bx.fillText(a+'°', cx+(Rmax+3)*Math.sin(t)-7, cy-(Rmax+3)*Math.cos(t)+3); }
+    // array factor: AF=|sin(Nψ/2)/sin(ψ/2)|, ψ=beta - 2π d sinθ  (same convention as the field)
+    bx.beginPath(); let started=false;
+    for(let a=-90;a<=90;a+=0.5){ const th=a*Math.PI/180; const psi=P.beta-2*Math.PI*P.d*Math.sin(th);
+      const den=Math.sin(psi/2); const af=Math.abs(den)<1e-6 ? P.N : Math.abs(Math.sin(P.N*psi/2)/den);
+      let db=20*Math.log10(af/P.N); if(db<-40)db=-40;
+      const r=Rmax*(1-(-db)/40), x=cx+r*Math.sin(th), y=cy-r*Math.cos(th);
+      started?bx.lineTo(x,y):bx.moveTo(x,y); started=true; }
+    bx.lineTo(cx,cy); bx.closePath(); bx.fillStyle='rgba(60,120,118,.22)'; bx.fill();
+    bx.strokeStyle=TEAL; bx.lineWidth=1.8; bx.stroke();
+  }
+
+  function syncLabels(){ vN.textContent=slN.value; vD.textContent=parseFloat(slD.value).toFixed(2); vP.textContent=slP.value; }
+  [slN,slD,slP].forEach(s=>s.addEventListener('input',()=>{ syncLabels(); if(!sweeping) compute(); }));
+
+  // sweep (首振り): animate Δφ back and forth
+  let sweeping=false, sweepDir=1, animId=null;
+  function sweepLoop(){
+    if(!sweeping) return;
+    let p=parseFloat(slP.value)+sweepDir*3;
+    if(p>=180){p=180;sweepDir=-1;} if(p<=-180){p=-180;sweepDir=1;}
+    slP.value=p; syncLabels(); compute();
+    animId=requestAnimationFrame(sweepLoop);
+  }
+  cbS.addEventListener('change',()=>{ sweeping=cbS.checked;
+    if(sweeping) sweepLoop(); else if(animId) cancelAnimationFrame(animId); });
+
+  document.querySelectorAll('[data-bf]').forEach(btn=>btn.addEventListener('click',()=>{
+    const [n,d,p]=btn.dataset.bf.split(',');
+    slN.value=n; slD.value=d; slP.value=p; syncLabels(); compute();
+  }));
+
+  syncLabels(); compute();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   2D Gaussian Splatting
+═══════════════════════════════════════════════════ */
+(()=>{
+  const out=document.getElementById('gs-out'); const octx=out.getContext('2d');
+  const tgt=document.getElementById('gs-target'); const tctx=tgt.getContext('2d');
+  const OW=out.width, OH=out.height;
+  const SW=150, SH=150;
+  const samp=document.createElement('canvas'); samp.width=SW; samp.height=SH;
+  const sctx=samp.getContext('2d');
+  let tdata=null, avg=[230,225,215];
+  const MAXN=1500;
+  const pts=[];
+  let forceIso=false;
+
+  const slN=document.getElementById('gs-n'), vN=document.getElementById('gs-n-val');
+  const slS=document.getElementById('gs-size'), vS=document.getElementById('gs-size-val');
+  const cbA=document.getElementById('gs-aniso');
+  const cbC=document.getElementById('gs-edge');
+  const statEl=document.getElementById('gs-stat'), noteEl=document.getElementById('gs-note');
+
+  function makeTarget(name){
+    sctx.clearRect(0,0,SW,SH);
+    if(name==='grad'){
+      const g=sctx.createLinearGradient(0,0,SW,SH);
+      g.addColorStop(0,'#ff6b6b'); g.addColorStop(0.5,'#ffd93d'); g.addColorStop(1,'#4d96ff');
+      sctx.fillStyle=g; sctx.fillRect(0,0,SW,SH);
+      const r=sctx.createRadialGradient(SW*0.5,SH*0.4,4,SW*0.5,SH*0.4,SW*0.6);
+      r.addColorStop(0,'rgba(255,255,255,.8)'); r.addColorStop(1,'rgba(255,255,255,0)');
+      sctx.fillStyle=r; sctx.fillRect(0,0,SW,SH);
+    } else if(name==='shapes'){
+      sctx.fillStyle='#1d3557'; sctx.fillRect(0,0,SW,SH);
+      sctx.fillStyle='#e63946'; sctx.beginPath(); sctx.arc(SW*0.35,SH*0.4,SW*0.22,0,7); sctx.fill();
+      sctx.fillStyle='#2a9d8f'; sctx.fillRect(SW*0.5,SH*0.48,SW*0.4,SH*0.4);
+      sctx.fillStyle='#f4a261'; sctx.beginPath(); sctx.moveTo(SW*0.18,SH*0.86); sctx.lineTo(SW*0.44,SH*0.55); sctx.lineTo(SW*0.7,SH*0.86); sctx.closePath(); sctx.fill();
+    } else if(name==='sunset'){
+      const g=sctx.createLinearGradient(0,0,0,SH*0.7);
+      g.addColorStop(0,'#2c1a4d'); g.addColorStop(0.55,'#e85d75'); g.addColorStop(1,'#ffce8a');
+      sctx.fillStyle=g; sctx.fillRect(0,0,SW,SH*0.7);
+      sctx.fillStyle='#fff3c4'; sctx.beginPath(); sctx.arc(SW*0.5,SH*0.5,SW*0.12,0,7); sctx.fill();
+      const s=sctx.createLinearGradient(0,SH*0.7,0,SH);
+      s.addColorStop(0,'#1a2f5a'); s.addColorStop(1,'#0d1b3a');
+      sctx.fillStyle=s; sctx.fillRect(0,SH*0.7,SW,SH*0.3);
+    } else {
+      sctx.fillStyle='#faf3e0'; sctx.fillRect(0,0,SW,SH);
+      sctx.fillStyle='#2b2118';
+      sctx.font='bold '+Math.round(SH*0.78)+'px serif';
+      sctx.textAlign='center'; sctx.textBaseline='middle';
+      sctx.fillText('光', SW/2, SH/2+SH*0.04);
+    }
+    tdata=sctx.getImageData(0,0,SW,SH);
+    let R=0,G=0,B=0; const d=tdata.data;
+    for(let i=0;i<d.length;i+=4){ R+=d[i]; G+=d[i+1]; B+=d[i+2]; }
+    const n=d.length/4; avg=[R/n|0,G/n|0,B/n|0];
+    tctx.imageSmoothingEnabled=true; tctx.clearRect(0,0,tgt.width,tgt.height);
+    tctx.drawImage(samp,0,0,tgt.width,tgt.height);
+  }
+
+  function idx(x,y){
+    let ix=x*(SW-1), iy=y*(SH-1);
+    ix=ix<0?0:ix>SW-1?SW-1:ix; iy=iy<0?0:iy>SH-1?SH-1:iy;
+    return ((iy|0)*SW+(ix|0))*4;
+  }
+  function lum(i){ const d=tdata.data; return 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; }
+  function gradAt(x,y){
+    const e=2/SW;
+    const gx=lum(idx(x+e,y))-lum(idx(x-e,y));
+    const gy=lum(idx(x,y+e))-lum(idx(x,y-e));
+    return { mag:Math.hypot(gx,gy), ang:Math.atan2(gy,gx) };
+  }
+
+  // スプラット中心の配置を作る。エッジ配置ONなら勾配の強い所ほど密に置く。
+  function makePoints(){
+    pts.length=0;
+    if(!(cbC && cbC.checked) || !tdata){
+      for(let i=0;i<MAXN;i++) pts.push({x:Math.random(), y:Math.random()});
+      return;
+    }
+    let maxM=1e-6;
+    for(let s=0;s<500;s++){ const m=gradAt(Math.random(),Math.random()).mag; if(m>maxM) maxM=m; }
+    let tries=0;
+    while(pts.length<MAXN && tries<MAXN*80){
+      tries++;
+      const x=Math.random(), y=Math.random();
+      const m=gradAt(x,y).mag/maxM;            // 0..1
+      if(Math.random() < 0.12 + 0.88*m) pts.push({x,y});   // 平坦部にも最低限の被覆
+    }
+    while(pts.length<MAXN) pts.push({x:Math.random(), y:Math.random()});
+  }
+
+  function splat(cx,cy,sx,sy,ang,col,a){
+    octx.save(); octx.translate(cx,cy); octx.rotate(ang); octx.scale(sx,sy);
+    const g=octx.createRadialGradient(0,0,0,0,0,1);
+    g.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+a+')');
+    g.addColorStop(0.5,'rgba('+col[0]+','+col[1]+','+col[2]+','+(a*0.5)+')');
+    g.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
+    octx.fillStyle=g; octx.beginPath(); octx.arc(0,0,1,0,7); octx.fill();
+    octx.restore();
+  }
+
+  function render(N){
+    if(!tdata) return;
+    const sizeMul=parseFloat(slS.value), aniso=cbA.checked && !forceIso;
+    octx.fillStyle='rgb('+avg[0]+','+avg[1]+','+avg[2]+')';
+    octx.fillRect(0,0,OW,OH);
+    const r0=OW*1.7/Math.sqrt(N)*sizeMul;
+    for(let k=0;k<N;k++){
+      const p=pts[k]; const i=idx(p.x,p.y);
+      const col=[tdata.data[i],tdata.data[i+1],tdata.data[i+2]];
+      let sx=r0, sy=r0, ang=0;
+      if(aniso){
+        const gr=gradAt(p.x,p.y);
+        const m=Math.min(1, gr.mag/60);
+        const e=1+3*m;
+        sx=r0/Math.sqrt(e);   // 勾配方向（エッジを横切る向き）に薄く
+        sy=r0*Math.sqrt(e);   // エッジに沿う向きに長く
+        ang=gr.ang;           // local-x = 勾配方向, local-y = エッジ方向
+      }
+      splat(p.x*OW, p.y*OH, sx, sy, ang, col, 0.55);
+    }
+    showStats(N);
+  }
+
+  function showStats(N){
+    const cmp=document.createElement('canvas'); cmp.width=SW; cmp.height=SH;
+    const cc=cmp.getContext('2d'); cc.drawImage(out,0,0,SW,SH);
+    const rd=cc.getImageData(0,0,SW,SH).data, td=tdata.data;
+    let se=0;
+    for(let i=0;i<td.length;i+=4){ for(let c=0;c<3;c++){ const dl=rd[i+c]-td[i+c]; se+=dl*dl; } }
+    const mse=se/(td.length/4*3), psnr=mse<=0?99:10*Math.log10(255*255/mse);
+    statEl.innerHTML='スプラット数: '+N+'<br>PSNR: '+psnr.toFixed(1)+' dB<br>'+(cbA.checked?'異方性: ON':'等方性: OFF');
+  }
+
+  function rerender(){ vN.textContent=slN.value; vS.textContent=parseFloat(slS.value).toFixed(1); render(parseInt(slN.value)); }
+  slN.addEventListener('input', rerender);
+  slS.addEventListener('input', rerender);
+  cbA.addEventListener('change', rerender);
+  document.querySelectorAll('[data-gs]').forEach(b=>b.addEventListener('click',()=>{ makeTarget(b.dataset.gs); makePoints(); render(parseInt(slN.value)); }));
+  cbC.addEventListener('change', ()=>{ makePoints(); render(parseInt(slN.value)); });
+  (function(){
+    const btn=document.getElementById('gs-compare');
+    const down=(e)=>{ e.preventDefault(); forceIso=true; render(parseInt(slN.value)); };
+    const up=()=>{ if(forceIso){ forceIso=false; render(parseInt(slN.value)); } };
+    btn.addEventListener('mousedown',down); btn.addEventListener('mouseup',up); btn.addEventListener('mouseleave',up);
+    btn.addEventListener('touchstart',down,{passive:false}); btn.addEventListener('touchend',up); btn.addEventListener('touchcancel',up);
+  })();
+
+  let animId=null;
+  document.getElementById('gs-anim').addEventListener('click',()=>{
+    if(animId){ cancelAnimationFrame(animId); animId=null; }
+    const target=parseInt(slN.value); let n=10;
+    const step=()=>{ render(n); n=Math.round(n*1.18)+2; if(n<target){ animId=requestAnimationFrame(step); } else { render(target); animId=null; } };
+    step();
+  });
+
+  noteEl.innerHTML='豆知識：にじみ1つは「色 × 楕円の形」。重ねるほど画像が立ち上がる。エッジに沿った楕円は、輪郭を少ない数で表せる ── これが3D版で点群より効率よく見える絵が作れる理由の一つだよ。';
+
+  // 数式メモを KaTeX で組版（読み込み完了まで軽くリトライ）
+  function renderTex(){
+    if(!window.katex){ setTimeout(renderTex, 120); return; }
+    document.querySelectorAll('#gs-math [data-tex]').forEach(el=>{
+      try{ window.katex.render(el.getAttribute('data-tex'), el, {throwOnError:false, displayMode:true}); }catch(e){}
+    });
+  }
+  renderTex();
+
+  makeTarget('sunset');
+  makePoints();
+  rerender();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   逆二乗じゃない重力 — 中心力 F ∝ 1/r^p の軌道
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cv=document.getElementById('orb-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=340,H=340;
+  const k=1, r0=1, VIEW=1.9, TMAX=5000;
+  let p=2, vfac=0.8, speed=1, playing=true;
+  let x,y,vx,vy,ax,ay, trail=[];
+  function accel(px,py){ const r=Math.hypot(px,py), re=Math.max(r,0.05), f=-k/Math.pow(re,p+1); return [f*px,f*py]; }
+  function reset(keep){ x=r0; y=0; vx=0; vy=vfac; [ax,ay]=accel(x,y); if(!keep) trail=[]; }
+  const wx=px=>W*(0.5+px/(2*VIEW)), wy=py=>H*(0.5-py/(2*VIEW));
+  function step(dt){
+    x+=vx*dt+0.5*ax*dt*dt; y+=vy*dt+0.5*ay*dt*dt;
+    const [nx,ny]=accel(x,y); vx+=0.5*(ax+nx)*dt; vy+=0.5*(ay+ny)*dt; ax=nx; ay=ny;
+    if(Math.hypot(x,y)>VIEW*1.6) reset(true);
+    trail.push([x,y]); if(trail.length>TMAX) trail.shift();
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fcfbf7'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#c98a2b'; ctx.beginPath(); ctx.arc(wx(0),wy(0),6,0,7); ctx.fill();
+    if(trail.length>1){ ctx.strokeStyle='rgba(60,120,118,0.45)'; ctx.lineWidth=1.3; ctx.beginPath();
+      for(let i=0;i<trail.length;i++){ const px=wx(trail[i][0]),py=wy(trail[i][1]); i?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.stroke(); }
+    ctx.fillStyle='#e0892f'; ctx.beginPath(); ctx.arc(wx(x),wy(y),4.5,0,7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.3; ctx.stroke();
+  }
+  function verdict(){
+    const el=document.getElementById('orb-info'); const closed=Math.abs(p-2)<0.005||Math.abs(p+1)<0.005;
+    if(Math.abs(vfac-1)<0.01) el.textContent='初速=1.00 → 円軌道（円はどの p でも作れる）';
+    else if(closed) el.textContent='p='+p.toFixed(2)+' → 閉じる（'+(Math.abs(p-2)<0.005?'逆二乗・3次元':'バネ')+'）';
+    else el.textContent='p='+p.toFixed(2)+' → 閉じない（歳差・バラ模様）';
+  }
+  let last=0;
+  function loop(ts){ const dtms=Math.min(40,ts-last||16); last=ts;
+    if(playing){ const dt=0.006*speed; for(let i=0;i<6;i++) step(dt); } draw(); requestAnimationFrame(loop); }
+  const pR=document.getElementById('orb-p'), vR=document.getElementById('orb-v'), sR=document.getElementById('orb-s');
+  pR.addEventListener('input',()=>{ p=parseFloat(pR.value); document.getElementById('orb-p-val').textContent=p.toFixed(2); reset(false); verdict(); });
+  vR.addEventListener('input',()=>{ vfac=parseFloat(vR.value); document.getElementById('orb-v-val').textContent=vfac.toFixed(2); reset(false); verdict(); });
+  sR.addEventListener('input',()=>{ speed=parseFloat(sR.value); document.getElementById('orb-s-val').textContent=speed.toFixed(2)+'×'; });
+  document.querySelectorAll('[data-orbp]').forEach(b=>b.addEventListener('click',()=>{ p=parseFloat(b.dataset.orbp); pR.value=p; document.getElementById('orb-p-val').textContent=p.toFixed(2); reset(false); verdict(); }));
+  document.getElementById('orb-play').addEventListener('click',e=>{ playing=!playing; e.target.textContent=playing?'⏸ 停止':'▶ 再生'; });
+  document.getElementById('orb-clear').addEventListener('click',()=>{ trail=[]; });
+  reset(false); verdict(); requestAnimationFrame(loop);
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   位相雑音スペクトル（Leeson モデル）
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cv=document.getElementById('pn-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=380,H=300, P={l:46,r:12,t:14,b:30};
+  const kB=1.38e-23, T=300;
+  let q=3, f0e=8, psdbm=0, fce=4, nf=6, mfe=3; // mfe: マーカーのオフセット指数(10^3=1kHz)
+  const FLO=1, FHI=8, DTOP=-30, DBOT=-180;
+
+  function Ldbc(f){
+    const F=Math.pow(10,nf/10), Ps=Math.pow(10,(psdbm-30)/10), Q=Math.pow(10,q), f0=Math.pow(10,f0e), fc=Math.pow(10,fce);
+    const floor=2*F*kB*T/Ps;
+    const term=floor*(1+Math.pow(f0/(2*Q*f),2))*(1+fc/f);
+    return 10*Math.log10(term);
+  }
+  const X=fe=>P.l+(fe-FLO)/(FHI-FLO)*(W-P.l-P.r);
+  const Y=db=>P.t+(DTOP-db)/(DTOP-DBOT)*(H-P.t-P.b);
+
+  function draw(){
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fcfbf7'; ctx.fillRect(0,0,W,H);
+    // grid
+    ctx.strokeStyle='#ece6da'; ctx.lineWidth=1; ctx.fillStyle='#b0a99a'; ctx.font='9px system-ui';
+    for(let e=FLO;e<=FHI;e++){ const x=X(e); ctx.beginPath();ctx.moveTo(x,P.t);ctx.lineTo(x,H-P.b);ctx.stroke();
+      const lab=e<3?(Math.pow(10,e)+''):e<6?(Math.pow(10,e-3)+'k'):(Math.pow(10,e-6)+'M'); ctx.fillText(lab,x-6,H-P.b+11); }
+    for(let d=DTOP;d>=DBOT;d-=30){ const y=Y(d); ctx.beginPath();ctx.moveTo(P.l,y);ctx.lineTo(W-P.r,y);ctx.stroke(); ctx.fillText(d+'',4,y+3); }
+    // axes
+    ctx.strokeStyle='#cfc7b6'; ctx.beginPath();ctx.moveTo(P.l,P.t);ctx.lineTo(P.l,H-P.b);ctx.lineTo(W-P.r,H-P.b);ctx.stroke();
+    // curve
+    ctx.strokeStyle='#3c7876'; ctx.lineWidth=2.2; ctx.beginPath();
+    let first=true;
+    for(let px=0;px<=240;px++){ const fe=FLO+(FHI-FLO)*px/240; const db=Ldbc(Math.pow(10,fe)); const x=X(fe),y=Y(Math.max(DBOT,Math.min(DTOP,db))); first?(ctx.moveTo(x,y),first=false):ctx.lineTo(x,y); }
+    ctx.stroke();
+    // marker
+    const mdb=Ldbc(Math.pow(10,mfe));
+    ctx.strokeStyle='rgba(224,137,47,0.9)';ctx.lineWidth=1.6;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(X(mfe),H-P.b);ctx.lineTo(X(mfe),Y(Math.max(DBOT,Math.min(DTOP,mdb))));ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#e0892f';ctx.beginPath();ctx.arc(X(mfe),Y(Math.max(DBOT,Math.min(DTOP,mdb))),4,0,7);ctx.fill();
+  }
+  function fmtHz(fe){ const f=Math.pow(10,fe); return f>=1e6?(f/1e6).toFixed(f<1e7?1:0)+' MHz':f>=1e3?(f/1e3).toFixed(f<1e4?1:0)+' kHz':f.toFixed(0)+' Hz'; }
+  function refresh(){
+    document.getElementById('pn-q-val').textContent='1e'+q.toFixed(1).replace('.0','');
+    document.getElementById('pn-f0-val').textContent=fmtHz(f0e);
+    document.getElementById('pn-ps-val').textContent=psdbm+' dBm';
+    document.getElementById('pn-fc-val').textContent=fmtHz(fce);
+    document.getElementById('pn-nf-val').textContent=nf+' dB';
+    const mdb=Ldbc(Math.pow(10,mfe));
+    document.getElementById('pn-info').innerHTML=`ℒ(${fmtHz(mfe)}) ≈ <b>${mdb.toFixed(1)} dBc/Hz</b><br>ℒ(1kHz) ≈ ${Ldbc(1e3).toFixed(1)} ／ ℒ(100kHz) ≈ ${Ldbc(1e5).toFixed(1)}`;
+    draw();
+  }
+  function setMarker(e){ const r=cv.getBoundingClientRect(); const px=((e.touches?e.touches[0].clientX:e.clientX)-r.left)*(W/r.width); let fe=FLO+(px-P.l)/(W-P.l-P.r)*(FHI-FLO); mfe=Math.max(FLO,Math.min(FHI,fe)); refresh(); }
+  let drag=false;
+  cv.addEventListener('pointerdown',e=>{drag=true;cv.setPointerCapture(e.pointerId);setMarker(e);});
+  cv.addEventListener('pointermove',e=>{if(drag)setMarker(e);});
+  cv.addEventListener('pointerup',()=>{drag=false;});
+  const bind=(id,fn)=>document.getElementById(id).addEventListener('input',e=>{fn(parseFloat(e.target.value));refresh();});
+  bind('pn-q',v=>q=v); bind('pn-f0',v=>f0e=v); bind('pn-ps',v=>psdbm=v); bind('pn-fc',v=>fce=v); bind('pn-nf',v=>nf=v);
+  document.querySelectorAll('[data-pn]').forEach(b=>b.addEventListener('click',()=>{
+    if(b.dataset.pn==='crystal'){q=5;document.getElementById('pn-q').value=5;f0e=7;document.getElementById('pn-f0').value=7;}
+    else{q=2;document.getElementById('pn-q').value=2;f0e=8;document.getElementById('pn-f0').value=8;}
+    refresh();
+  }));
+  refresh();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   畳み込みスライダ
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cvA=document.getElementById('cv-conv-a'); if(!cvA) return;
+  const cvB=document.getElementById('cv-conv-b'), cvC=document.getElementById('cv-conv-c');
+  const ctxA=cvA.getContext('2d'), ctxB=cvB.getContext('2d'), ctxC=cvC.getContext('2d');
+  const W=cvA.width, H=cvA.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.7)';
+  const TEALF='rgba(60,120,118,.20)', AMBERF='rgba(201,118,31,.16)';
+
+  const D=4;                 // τ の範囲 [-D, D]
+  const M=480;               // 積分グリッド数
+  const dτ=2*D/M;
+  const taus=[]; for(let i=0;i<=M;i++) taus.push(-D + i*dτ);
+
+  // 各信号は面積≈1になるよう正規化してある（畳み込みの高さが見やすい）
+  const SHAPES={
+    rect:  x=> (Math.abs(x)<=0.5 ? 1 : 0),                 // 幅1・高さ1
+    tri:   x=> Math.max(0, 1-Math.abs(x)),                 // 底辺2・面積1
+    exp:   x=> (x>=0 ? Math.exp(-x) : 0),                  // 面積≈1
+    gauss: x=> Math.exp(-x*x/(2*0.4*0.4))/(0.4*Math.sqrt(2*Math.PI)), // σ=0.4・面積1
+    two:   x=> 0.6*(Math.exp(-((x+1)**2)/(2*0.25*0.25))+Math.exp(-((x-1)**2)/(2*0.25*0.25)))/(0.25*Math.sqrt(2*Math.PI)),
+  };
+  let fName='rect', gName='rect';
+  let fArr=[], gAtTau=[];     // gAtTau: g(τ) を τ グリッドで持つ（反転は描画時に t-τ で評価）
+  let result=[], resMax=1;    // 結果 (f*g)(t) を t グリッドで
+  let t=-2.2, playing=false, rafId=null;
+
+  const slT=document.getElementById('conv-t');
+  const elTV=document.getElementById('conv-t-val');
+  const statusEl=document.getElementById('conv-status');
+
+  function gfn(x){ return SHAPES[gName](x); }
+  function ffn(x){ return SHAPES[fName](x); }
+
+  function recompute(){
+    fArr=taus.map(ffn);
+    // 結果を t グリッド全体で先に計算（下段の曲線用）
+    result=taus.map(tt=>{
+      let s=0;
+      for(let i=0;i<=M;i++) s+=ffn(taus[i])*gfn(tt-taus[i]);
+      return s*dτ;
+    });
+    resMax=Math.max(...result.map(Math.abs),1e-6);
+  }
+
+  // 座標変換
+  const xPx=(x,pad=14)=> pad + (x+D)/(2*D)*(W-2*pad);
+  function yPx(v,vmax,h,top=8,bot=18){ return h-bot - (v/vmax)*(h-top-bot); }
+
+  function axes(ctx,h){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,h);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1;
+    // 縦グリッド（整数 τ）
+    for(let x=-D;x<=D;x++){ const px=xPx(x); ctx.beginPath(); ctx.moveTo(px,4); ctx.lineTo(px,h-14); ctx.stroke(); }
+    // x軸（v=0）
+    const y0=yPx(0,1,h);
+    ctx.strokeStyle='rgba(60,120,118,.35)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(8,y0); ctx.lineTo(W-8,y0); ctx.stroke();
+    // 0 と t の目盛り
+    ctx.fillStyle='#bbb5ac'; ctx.font='8px JetBrains Mono, monospace';
+    ctx.fillText('0', xPx(0)+2, h-3);
+    ctx.fillText('τ→', W-22, h-3);
+  }
+
+  function plotFn(ctx,fn,vmax,h,col,fill){
+    ctx.beginPath();
+    for(let i=0;i<=M;i++){ const px=xPx(taus[i]), py=yPx(fn(taus[i]),vmax,h); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    if(fill){ ctx.lineTo(xPx(D),yPx(0,vmax,h)); ctx.lineTo(xPx(-D),yPx(0,vmax,h)); ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); ctx.beginPath();
+      for(let i=0;i<=M;i++){ const px=xPx(taus[i]), py=yPx(fn(taus[i]),vmax,h); i?ctx.lineTo(px,py):ctx.moveTo(px,py); } }
+    ctx.strokeStyle=col; ctx.lineWidth=1.8; ctx.stroke();
+  }
+
+  function draw(){
+    const vmaxFG=Math.max(...fArr, ...taus.map(x=>gfn(x)), 0.5)*1.1;
+
+    // ① f(τ) 固定 ＋ g(t−τ) 反転して移動
+    axes(ctxA,H);
+    plotFn(ctxA, ffn, vmaxFG, H, TEAL, null);
+    plotFn(ctxA, τ=>gfn(t-τ), vmaxFG, H, AMBER, null);
+    // t の位置に縦線
+    ctxA.strokeStyle='rgba(201,118,31,.5)'; ctxA.setLineDash([4,3]); ctxA.lineWidth=1;
+    ctxA.beginPath(); ctxA.moveTo(xPx(t),4); ctxA.lineTo(xPx(t),H-14); ctxA.stroke(); ctxA.setLineDash([]);
+    ctxA.fillStyle=TEAL; ctxA.font='9px JetBrains Mono, monospace'; ctxA.fillText('f(τ)',12,12);
+    ctxA.fillStyle=AMBER; ctxA.fillText('g(t−τ)',46,12);
+
+    // ② 積 = 重なり面積
+    const prod=τ=>ffn(τ)*gfn(t-τ);
+    const vmaxP=Math.max(...taus.map(prod),0.3)*1.1;
+    axes(ctxB,H);
+    plotFn(ctxB, prod, vmaxP, H, TEAL, TEALF);
+    let area=0; for(let i=0;i<=M;i++) area+=prod(taus[i])*dτ;
+    ctxB.fillStyle=TEAL; ctxB.font='9px JetBrains Mono, monospace';
+    ctxB.fillText('面積 = '+area.toFixed(3), 12, 12);
+
+    // ③ 結果曲線 ＋ 現在位置の点
+    axes(ctxC,H);
+    ctxC.beginPath();
+    for(let i=0;i<=M;i++){ const px=xPx(taus[i]), py=yPx(result[i],resMax*1.1,H); i?ctxC.lineTo(px,py):ctxC.moveTo(px,py); }
+    ctxC.strokeStyle='rgba(60,120,118,.55)'; ctxC.lineWidth=1.6; ctxC.stroke();
+    // 既になぞった所まで濃く
+    ctxC.beginPath(); let started=false;
+    for(let i=0;i<=M;i++){ if(taus[i]>t) break; const px=xPx(taus[i]), py=yPx(result[i],resMax*1.1,H); started?ctxC.lineTo(px,py):(ctxC.moveTo(px,py),started=true); }
+    ctxC.strokeStyle=TEAL; ctxC.lineWidth=2.4; ctxC.stroke();
+    // 現在点（＝②の面積と同じ値）
+    let curArea=0; for(let i=0;i<=M;i++) curArea+=ffn(taus[i])*gfn(t-taus[i])*dτ;
+    ctxC.fillStyle=AMBER; ctxC.beginPath(); ctxC.arc(xPx(t), yPx(curArea,resMax*1.1,H), 4.5, 0, 7); ctxC.fill();
+    ctxC.strokeStyle='#fff'; ctxC.lineWidth=1.2; ctxC.stroke();
+    ctxC.fillStyle=TEAL; ctxC.font='9px JetBrains Mono, monospace'; ctxC.fillText('(f∗g)(t)',12,12);
+
+    elTV.textContent=t.toFixed(2);
+    statusEl.textContent=`f=${jp(fName)} ／ g=${jp(gName)} ／ t=${t.toFixed(2)} のとき (f∗g)(t)=${curArea.toFixed(3)}`;
+  }
+
+  function jp(n){ return {rect:'矩形',tri:'三角',exp:'指数減衰',gauss:'ガウス',two:'二山'}[n]; }
+
+  function setActive(){
+    document.querySelectorAll('[data-conv-f]').forEach(b=>{ const on=b.dataset.convF===fName; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    document.querySelectorAll('[data-conv-g]').forEach(b=>{ const on=b.dataset.convG===gName; b.style.borderColor=on?AMBER:''; b.style.color=on?AMBER:''; });
+  }
+
+  slT.addEventListener('input',()=>{ t=parseFloat(slT.value); draw(); });
+  document.querySelectorAll('[data-conv-f]').forEach(b=>b.addEventListener('click',()=>{ fName=b.dataset.convF; recompute(); setActive(); draw(); }));
+  document.querySelectorAll('[data-conv-g]').forEach(b=>b.addEventListener('click',()=>{ gName=b.dataset.convG; recompute(); setActive(); draw(); }));
+
+  const playBtn=document.getElementById('conv-play');
+  function loop(){ if(!playing) return; t+=0.02; if(t>D){ t=-D; } slT.value=t; draw(); rafId=requestAnimationFrame(loop); }
+  playBtn.addEventListener('click',()=>{ playing=!playing; playBtn.textContent=playing?'⏸ 停止':'▶ 再生'; if(playing){ if(t>=D) t=-D; loop(); } else if(rafId) cancelAnimationFrame(rafId); });
+
+  // KaTeX（読み込み済みなら）
+  function renderMath(){
+    if(!window.katex){ setTimeout(renderMath,120); return; }
+    document.querySelectorAll('#conv-math [data-tex]').forEach(el=>{
+      try{ window.katex.render(el.getAttribute('data-tex'), el, {throwOnError:false, displayMode:true}); }catch(e){}
+    });
+  }
+  renderMath();
+
+  recompute(); setActive(); draw();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   中心極限定理
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cvS=document.getElementById('cv-clt-src'); if(!cvS) return;
+  const cvH=document.getElementById('cv-clt-hist');
+  const ctxS=cvS.getContext('2d'), ctxH=cvH.getContext('2d');
+  const W=cvS.width, HS=cvS.height, HH=cvH.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.7)';
+  const TEALF='rgba(60,120,118,.22)';
+
+  // 各分布: 平均μ・標準偏差σ・表示範囲[lo,hi]・サンプラ・形(描画用)
+  const SRC={
+    uniform:{ jp:'一様',   mu:0.5, sd:Math.sqrt(1/12), lo:0,   hi:1,   samp:()=>Math.random(),
+              pdf:x=>(x>=0&&x<=1?1:0) },
+    die:    { jp:'サイコロ', mu:3.5, sd:Math.sqrt(35/12), lo:0.5, hi:6.5, samp:()=>Math.floor(Math.random()*6)+1,
+              pmf:[1,2,3,4,5,6].map(v=>({v,p:1/6})) },
+    exp:    { jp:'指数',   mu:1,   sd:1,   lo:0,   hi:5,   samp:()=>-Math.log(1-Math.random()),
+              pdf:x=>(x>=0?Math.exp(-x):0) },
+    bimodal:{ jp:'二山',   mu:0.5, sd:0.35, lo:0,  hi:1,   samp:()=>Math.random()<0.5?0.15:0.85,
+              pmf:[{v:0.15,p:0.5},{v:0.85,p:0.5}] },
+    coin:   { jp:'コイン', mu:0.5, sd:0.5, lo:0,   hi:1,   samp:()=>Math.random()<0.5?0:1,
+              pmf:[{v:0,p:0.5},{v:1,p:0.5}] },
+  };
+  let name='uniform', S=SRC[name];
+  let n=1, BINS=64;
+  let counts=new Array(BINS).fill(0), total=0, sumM=0, sumM2=0;
+  let playing=false, rafId=null;
+
+  const slN=document.getElementById('clt-n'), elNV=document.getElementById('clt-n-val');
+  const statusEl=document.getElementById('clt-status');
+
+  const xPx=(x,pad=14)=> pad + (x-S.lo)/(S.hi-S.lo)*(W-2*pad);
+
+  function reset(){ counts=new Array(BINS).fill(0); total=0; sumM=0; sumM2=0; }
+
+  function addTrials(k){
+    const w=(S.hi-S.lo)/BINS;
+    for(let t=0;t<k;t++){
+      let s=0; for(let i=0;i<n;i++) s+=S.samp();
+      const m=s/n;
+      let b=Math.floor((m-S.lo)/w); if(b<0)b=0; if(b>=BINS)b=BINS-1;
+      counts[b]++; total++; sumM+=m; sumM2+=m*m;
+    }
+  }
+
+  function gridBox(ctx,h){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,h);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1;
+    const lo=Math.ceil(S.lo), hi=Math.floor(S.hi);
+    for(let x=lo;x<=hi;x++){ const px=xPx(x); ctx.beginPath(); ctx.moveTo(px,4); ctx.lineTo(px,h-14); ctx.stroke();
+      ctx.fillStyle='#bbb5ac'; ctx.font='8px JetBrains Mono, monospace'; ctx.fillText(x,px+2,h-3); }
+  }
+
+  function drawSource(){
+    gridBox(ctxS,HS);
+    const top=24, bot=16, hh=HS-top-bot;  // ラベル(y=12付近)と分布の塗りが重ならないよう上を空ける
+    if(S.pmf){
+      const pmax=Math.max(...S.pmf.map(d=>d.p));
+      S.pmf.forEach(d=>{
+        const px=xPx(d.v), bh=(d.p/pmax)*hh;
+        ctxS.fillStyle=TEALF; ctxS.fillRect(px-7,HS-bot-bh,14,bh);
+        ctxS.strokeStyle=TEAL; ctxS.lineWidth=1.6; ctxS.strokeRect(px-7,HS-bot-bh,14,bh);
+      });
+    } else {
+      let pmax=0; for(let i=0;i<=120;i++){ const x=S.lo+(S.hi-S.lo)*i/120; pmax=Math.max(pmax,S.pdf(x)); }
+      ctxS.beginPath();
+      for(let i=0;i<=120;i++){ const x=S.lo+(S.hi-S.lo)*i/120; const px=xPx(x), py=HS-bot-(S.pdf(x)/pmax)*hh; i?ctxS.lineTo(px,py):ctxS.moveTo(px,py); }
+      ctxS.lineTo(xPx(S.hi),HS-bot); ctxS.lineTo(xPx(S.lo),HS-bot); ctxS.closePath();
+      ctxS.fillStyle=TEALF; ctxS.fill();
+      ctxS.strokeStyle=TEAL; ctxS.lineWidth=1.8; ctxS.stroke();
+    }
+    ctxS.fillStyle=TEAL; ctxS.font='9px JetBrains Mono, monospace';
+    ctxS.fillText(`${S.jp}  μ=${S.mu.toFixed(2)}  σ=${S.sd.toFixed(2)}`, 12, 12);
+  }
+
+  function drawHist(){
+    gridBox(ctxH,HH);
+    const top=10, bot=16, hh=HH-top-bot;
+    const w=(S.hi-S.lo)/BINS;
+    const s=S.sd/Math.sqrt(n);                 // 理論標準偏差
+    const gPeak=1/(s*Math.sqrt(2*Math.PI));
+    // ヒストグラムは密度に正規化
+    let dmax=gPeak;
+    const dens=counts.map(c=> total? c/(total*w) : 0);
+    dmax=Math.max(dmax, ...dens)*1.1 || 1;
+
+    // bars
+    for(let i=0;i<BINS;i++){
+      if(!dens[i]) continue;
+      const x0=xPx(S.lo+i*w), x1=xPx(S.lo+(i+1)*w);
+      const bh=(dens[i]/dmax)*hh;
+      ctxH.fillStyle=TEALF; ctxH.fillRect(x0, HH-bot-bh, Math.max(1,x1-x0-0.5), bh);
+    }
+    // 理論ガウス（点線）
+    ctxH.strokeStyle=AMBER; ctxH.lineWidth=2; ctxH.setLineDash([5,4]);
+    ctxH.beginPath();
+    for(let i=0;i<=160;i++){ const x=S.lo+(S.hi-S.lo)*i/160;
+      const g=Math.exp(-((x-S.mu)**2)/(2*s*s))/(s*Math.sqrt(2*Math.PI));
+      const px=xPx(x), py=HH-bot-(g/dmax)*hh; i?ctxH.lineTo(px,py):ctxH.moveTo(px,py); }
+    ctxH.stroke(); ctxH.setLineDash([]);
+    // μ の縦線
+    ctxH.strokeStyle='rgba(60,120,118,.45)'; ctxH.lineWidth=1.2;
+    ctxH.beginPath(); ctxH.moveTo(xPx(S.mu),4); ctxH.lineTo(xPx(S.mu),HH-14); ctxH.stroke();
+
+    const measSD= total>1 ? Math.sqrt(Math.max(0, sumM2/total-(sumM/total)**2)) : 0;
+    ctxH.fillStyle=TEAL; ctxH.font='9px JetBrains Mono, monospace';
+    ctxH.fillText(`試行 ${total}回   n=${n}`, 12, 12);
+    statusEl.textContent=`${S.jp} ／ n=${n} ／ 試行 ${total}回 ｜ 理論σ=${s.toFixed(3)}（σ/√n）／ 実測σ=${measSD.toFixed(3)}`;
+  }
+
+  function draw(){ drawSource(); drawHist(); }
+
+  slN.addEventListener('input',()=>{ n=parseInt(slN.value); elNV.textContent=n; reset(); draw(); });
+  document.querySelectorAll('[data-clt]').forEach(b=>b.addEventListener('click',()=>{
+    name=b.dataset.clt; S=SRC[name]; reset(); setActive(); draw();
+  }));
+  function setActive(){ document.querySelectorAll('[data-clt]').forEach(b=>{ const on=b.dataset.clt===name; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; }); }
+
+  const playBtn=document.getElementById('clt-play');
+  const slSpeed=document.getElementById('clt-speed'), elSpV=document.getElementById('clt-speed-val');
+  let perFrame=20;
+  slSpeed.addEventListener('input',()=>{ perFrame=parseInt(slSpeed.value); elSpV.textContent=perFrame+' 回/フレーム'; });
+  function loop(){ if(!playing) return; addTrials(perFrame); draw(); if(total>=40000){ playing=false; playBtn.textContent='▶ 再生'; return; } rafId=requestAnimationFrame(loop); }
+  playBtn.addEventListener('click',()=>{ playing=!playing; playBtn.textContent=playing?'⏸ 停止':'▶ 再生'; if(playing) loop(); else if(rafId) cancelAnimationFrame(rafId); });
+  document.getElementById('clt-step').addEventListener('click',()=>{ addTrials(1); draw(); });
+  document.getElementById('clt-reset').addEventListener('click',()=>{ reset(); draw(); });
+  // 「平均する個数 n」の説明ポップアップ
+  const nPop=document.getElementById('clt-n-pop');
+  document.getElementById('clt-n-info').addEventListener('click',()=>{ nPop.hidden=!nPop.hidden; });
+  document.getElementById('clt-n-pop-close').addEventListener('click',()=>{ nPop.hidden=true; });
+
+  function renderMath(){ if(!window.katex){ setTimeout(renderMath,120); return; }
+    document.querySelectorAll('#clt-math [data-tex]').forEach(el=>{ try{ window.katex.render(el.getAttribute('data-tex'),el,{throwOnError:false,displayMode:true}); }catch(e){} }); }
+  renderMath();
+
+  setActive(); draw();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   NanoVNA / Touchstone (.s1p) ビューア
+   ═══════════════════════════════════════════════════ */
+(function(){
+  const cvS=document.getElementById('cv-vna-smith'); if(!cvS) return;
+  const cvR=document.getElementById('cv-vna-rl');
+  const ctxS=cvS.getContext('2d'), ctxR=cvR.getContext('2d');
+  const SZ=cvS.width, RW=cvR.width, RH=cvR.height;
+  const CX=SZ/2, CY=SZ/2, RAD=SZ/2-16;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(140,107,79,.28)';
+  const Z0=50;
+
+  // data: {f:[Hz], re:[Γre], im:[Γim], name}
+  let data=null, mk=50;
+  const slMk=document.getElementById('vna-marker');
+  const ro=document.getElementById('vna-readout');
+  const statusEl=document.getElementById('vna-status');
+
+  // ── デモ波形の生成 ──────────────────────────────
+  function demoAntenna(){
+    const f0=145e6, R=35, Q=8, w0=2*Math.PI*f0, L=Q*R/w0, C=1/(w0*w0*L);
+    const f=[],re=[],im=[]; const N=201, lo=100e6, hi=200e6;
+    for(let i=0;i<N;i++){ const fi=lo+(hi-lo)*i/(N-1); const w=2*Math.PI*fi;
+      const X=w*L-1/(w*C); const zr=R, zi=X;
+      // Γ=(Z-Z0)/(Z+Z0)
+      const dr=zr-Z0, di=zi, er=zr+Z0, ei=zi; const den=er*er+ei*ei;
+      f.push(fi); re.push((dr*er+di*ei)/den); im.push((di*er-dr*ei)/den); }
+    return {f,re,im,name:'デモ: アンテナ共振（直列RLC, f0≈145MHz）'};
+  }
+  function demoCoax(){
+    const v=2e8, Lc=1.0; const f=[],re=[],im=[]; const N=401, lo=1e6, hi=900e6;
+    for(let i=0;i<N;i++){ const fi=lo+(hi-lo)*i/(N-1);
+      const beta=2*Math.PI*fi/v; const phase=-2*beta*Lc;          // 往復
+      const rho=Math.exp(-0.9e-9*fi*Math.sqrt(fi/1e6));            // 周波数とともに損失で内側へ
+      f.push(fi); re.push(rho*Math.cos(phase)); im.push(rho*Math.sin(phase)); }
+    return {f,re,im,name:'デモ: 開放同軸 1m（先端開放, 反射が渦を巻く）'};
+  }
+  function demoLoad(){
+    const f=[],re=[],im=[]; const N=101, lo=1e6, hi=900e6;
+    for(let i=0;i<N;i++){ const fi=lo+(hi-lo)*i/(N-1);
+      // ほぼ50Ω、わずかに残留反射
+      f.push(fi); re.push(0.01*Math.cos(fi/3e8)); im.push(0.01*Math.sin(fi/3e8)); }
+    return {f,re,im,name:'デモ: 標準器 50Ω負荷（中心に集まる）'};
+  }
+  // Z(複素) から Γ を作るヘルパ
+  function zToGamma(zr,zi){ const dr=zr-Z0, di=zi, er=zr+Z0, ei=zi, den=er*er+ei*ei;
+    return [(dr*er+di*ei)/den,(di*er-dr*ei)/den]; }
+  function sweepFromZ(lo,hi,N,Zf,name){ const f=[],re=[],im=[];
+    for(let i=0;i<N;i++){ const fi=lo+(hi-lo)*i/(N-1); const w=2*Math.PI*fi; const z=Zf(fi,w); const g=zToGamma(z[0],z[1]); f.push(fi); re.push(g[0]); im.push(g[1]); }
+    return {f,re,im,name}; }
+  function demoPureC(){ const C=10e-12; // 10pF: 低周波で開放→高周波で短絡、外周の下半分(容量性)を動く
+    return sweepFromZ(1e6,900e6,201,(fi,w)=>[0,-1/(w*C)],'デモ: 純C（10pF）— 無損失で外周の下半分（容量性）'); }
+  function demoPureL(){ const L=100e-9; // 100nH: 低周波で短絡→高周波で開放、外周の上半分(誘導性)
+    return sweepFromZ(1e6,900e6,201,(fi,w)=>[0,w*L],'デモ: 純L（100nH）— 無損失で外周の上半分（誘導性）'); }
+  function demoParallel(){ // 並列共振 R∥L∥C: f0で高Z→中心付近、外れると外周へ（直列共振の逆）
+    const f0=145e6, w0=2*Math.PI*f0, L=120e-9, C=1/(w0*w0*L), Rp=300;
+    return sweepFromZ(100e6,200e6,201,(fi,w)=>{ const G=1/Rp, B=w*C-1/(w*L), yy=G*G+B*B; return [G/yy,-B/yy]; },'デモ: 並列共振（バンドストップ, f0≈145MHz）'); }
+  function demoLineLossless(){ const v=2e8, Lc=1.0; const f=[],re=[],im=[]; const N=401, lo=1e6, hi=900e6;
+    for(let i=0;i<N;i++){ const fi=lo+(hi-lo)*i/(N-1); const ph=-2*(2*Math.PI*fi/v)*Lc; // 先端開放・無損失: |Γ|=1のまま外周を回り続ける
+      f.push(fi); re.push(Math.cos(ph)); im.push(Math.sin(ph)); }
+    return {f,re,im,name:'デモ: 無損失線路 1m（先端開放）— 外周を回り続ける（損失版と対比）'}; }
+
+  // ── Touchstone .s1p パーサ ──────────────────────
+  function parseTouchstone(text){
+    const lines=text.split(/\r?\n/);
+    let unit=1e9, fmt='MA';   // 既定: GHz, MA
+    const UM={HZ:1,KHZ:1e3,MHZ:1e6,GHZ:1e9};
+    const f=[],re=[],im=[];
+    for(let raw of lines){
+      let line=raw.trim();
+      if(!line || line.startsWith('!')) continue;
+      const ci=line.indexOf('!'); if(ci>=0) line=line.slice(0,ci).trim();
+      if(line.startsWith('#')){
+        const t=line.slice(1).trim().toUpperCase().split(/\s+/);
+        for(let k=0;k<t.length;k++){ if(UM[t[k]]!=null) unit=UM[t[k]]; if(t[k]==='RI'||t[k]==='MA'||t[k]==='DB') fmt=t[k]; }
+        continue;
+      }
+      const n=line.split(/[\s,]+/).map(Number).filter(x=>!Number.isNaN(x));
+      if(n.length>=3){
+        const fi=n[0]*unit; let a=n[1], b=n[2], gr, gi;
+        if(fmt==='RI'){ gr=a; gi=b; }
+        else if(fmt==='DB'){ const m=Math.pow(10,a/20), r=b*Math.PI/180; gr=m*Math.cos(r); gi=m*Math.sin(r); }
+        else { const m=a, r=b*Math.PI/180; gr=m*Math.cos(r); gi=m*Math.sin(r); } // MA
+        f.push(fi); re.push(gr); im.push(gi);
+      }
+    }
+    if(f.length<2) throw new Error('有効なデータ点が見つからない');
+    return {f,re,im,name:'測定データ（.s1p）'};
+  }
+
+  // ── スミスチャート描画 ──────────────────────────
+  const gx=x=>CX + x*RAD, gy=y=>CY - y*RAD;
+  function smithGrid(){
+    ctxS.fillStyle=BG; ctxS.fillRect(0,0,SZ,SZ);
+    ctxS.save();
+    ctxS.beginPath(); ctxS.arc(CX,CY,RAD,0,2*Math.PI); ctxS.clip();
+    ctxS.strokeStyle=GRID; ctxS.lineWidth=1;
+    // 定抵抗円: 中心(r/(1+r),0) 半径1/(1+r)
+    [0,0.2,0.5,1,2,5].forEach(r=>{ const c=r/(1+r), rr=1/(1+r);
+      ctxS.beginPath(); ctxS.arc(gx(c),gy(0),rr*RAD,0,2*Math.PI); ctxS.stroke(); });
+    // 定リアクタンス弧: 中心(1,1/x) 半径1/x（±）
+    [0.2,0.5,1,2,5].forEach(x=>{ [1,-1].forEach(s=>{ const cy=s/x, rr=1/x;
+      ctxS.beginPath(); ctxS.arc(gx(1),gy(cy),rr*RAD,0,2*Math.PI); ctxS.stroke(); }); });
+    ctxS.restore();
+    // 外周＋実軸
+    ctxS.strokeStyle='rgba(60,120,118,.5)'; ctxS.lineWidth=1.4;
+    ctxS.beginPath(); ctxS.arc(CX,CY,RAD,0,2*Math.PI); ctxS.stroke();
+    ctxS.beginPath(); ctxS.moveTo(gx(-1),gy(0)); ctxS.lineTo(gx(1),gy(0)); ctxS.stroke();
+    // VSWR=2 の円（整合の目安）: |Γ|=(VSWR-1)/(VSWR+1)=1/3
+    const cbv=document.getElementById('vna-vswr');
+    if(cbv && cbv.checked){ ctxS.strokeStyle='rgba(201,118,31,.55)'; ctxS.lineWidth=1.2; ctxS.setLineDash([4,3]);
+      ctxS.beginPath(); ctxS.arc(CX,CY,RAD/3,0,2*Math.PI); ctxS.stroke(); ctxS.setLineDash([]);
+      ctxS.fillStyle='rgba(201,118,31,.8)'; ctxS.font='8px JetBrains Mono, monospace'; ctxS.fillText('VSWR=2',CX+RAD/3+3,CY-3); }
+    // ラベル
+    ctxS.fillStyle='#bbb5ac'; ctxS.font='9px JetBrains Mono, monospace';
+    ctxS.fillText('短絡',gx(-1)+3,CY-5); ctxS.fillText('開放',gx(1)-26,CY-5);
+    ctxS.fillStyle='#aaa49b'; ctxS.fillText('50Ω',CX+4,CY-5);
+  }
+
+  function drawSmith(){
+    smithGrid();
+    if(!data) return;
+    ctxS.beginPath();
+    for(let i=0;i<data.re.length;i++){ const px=gx(data.re[i]), py=gy(data.im[i]); i?ctxS.lineTo(px,py):ctxS.moveTo(px,py); }
+    ctxS.strokeStyle=TEAL; ctxS.lineWidth=2; ctxS.stroke();
+    // 始点・終点
+    const dot=(i,col)=>{ ctxS.beginPath(); ctxS.arc(gx(data.re[i]),gy(data.im[i]),3.5,0,7); ctxS.fillStyle=col; ctxS.fill(); };
+    dot(0,'rgba(60,120,118,.5)'); dot(data.re.length-1,'rgba(60,120,118,.5)');
+    // マーカー
+    const i=mIdx(); ctxS.beginPath(); ctxS.arc(gx(data.re[i]),gy(data.im[i]),5,0,7); ctxS.fillStyle=AMBER; ctxS.fill();
+    ctxS.strokeStyle='#fff'; ctxS.lineWidth=1.3; ctxS.stroke();
+  }
+
+  // ── リターンロス描画 ────────────────────────────
+  const RP={l:40,r:10,t:10,b:22}; const DBMIN=-40, DBMAX=0;
+  function rlX(i){ return RP.l + (data?i/(data.re.length-1):0)*(RW-RP.l-RP.r); }
+  function rlY(db){ const d=Math.max(DBMIN,Math.min(DBMAX,db)); return RP.t + (DBMAX-d)/(DBMAX-DBMIN)*(RH-RP.t-RP.b); }
+  function drawRL(){
+    ctxR.fillStyle=BG; ctxR.fillRect(0,0,RW,RH);
+    ctxR.strokeStyle='rgba(227,219,208,.8)'; ctxR.lineWidth=1; ctxR.fillStyle='#bbb5ac'; ctxR.font='9px JetBrains Mono, monospace';
+    for(let db=0;db>=-40;db-=10){ const y=rlY(db); ctxR.beginPath(); ctxR.moveTo(RP.l,y); ctxR.lineTo(RW-RP.r,y); ctxR.stroke(); ctxR.fillText(db,4,y+3); }
+    if(!data){ ctxR.fillStyle='#ccc5bb'; ctxR.fillText('デモを選ぶか .s1p を読み込んでね',RP.l+10,RH/2); return; }
+    ctxR.beginPath();
+    for(let i=0;i<data.re.length;i++){ const m=Math.hypot(data.re[i],data.im[i]); const db=20*Math.log10(Math.max(m,1e-6));
+      const px=rlX(i), py=rlY(db); i?ctxR.lineTo(px,py):ctxR.moveTo(px,py); }
+    ctxR.strokeStyle=TEAL; ctxR.lineWidth=2; ctxR.stroke();
+    // マーカー縦線
+    const i=mIdx(); ctxR.strokeStyle='rgba(201,118,31,.6)'; ctxR.setLineDash([4,3]); ctxR.lineWidth=1;
+    ctxR.beginPath(); ctxR.moveTo(rlX(i),RP.t); ctxR.lineTo(rlX(i),RH-RP.b); ctxR.stroke(); ctxR.setLineDash([]);
+    // 周波数軸ラベル
+    ctxR.fillStyle='#aaa49b'; ctxR.font='9px JetBrains Mono, monospace';
+    ctxR.fillText(fmtHz(data.f[0]),RP.l,RH-6);
+    ctxR.fillText(fmtHz(data.f[data.f.length-1]),RW-RP.r-54,RH-6);
+  }
+
+  function fmtHz(f){ if(f>=1e9) return (f/1e9).toFixed(3)+' GHz'; if(f>=1e6) return (f/1e6).toFixed(2)+' MHz'; if(f>=1e3) return (f/1e3).toFixed(1)+' kHz'; return f.toFixed(0)+' Hz'; }
+  function mIdx(){ if(!data) return 0; return Math.round(mk/100*(data.re.length-1)); }
+
+  function readout(){
+    if(!data){ ro.textContent='— デモを選ぶか .s1p を読み込んでね'; return; }
+    const i=mIdx(); const gr=data.re[i], gi=data.im[i]; const m=Math.hypot(gr,gi);
+    const db=20*Math.log10(Math.max(m,1e-6)); const vswr=(1+m)/Math.max(1e-9,1-m);
+    // Z=Z0(1+Γ)/(1-Γ)
+    const nr=1+gr, ni=gi, dr=1-gr, di=-gi; const den=dr*dr+di*di;
+    const zr=Z0*(nr*dr+ni*di)/den, zi=Z0*(ni*dr-nr*di)/den;
+    const ang=Math.atan2(gi,gr)*180/Math.PI;
+    ro.innerHTML=`f = <b>${fmtHz(data.f[i])}</b><br>`+
+      `S11 = ${db.toFixed(2)} dB （|Γ|=${m.toFixed(3)} ∠${ang.toFixed(0)}°）<br>`+
+      `Z = ${zr.toFixed(1)} ${zi>=0?'+':'−'} j${Math.abs(zi).toFixed(1)} Ω<br>`+
+      `VSWR = ${vswr.toFixed(2)}`;
+  }
+
+  function redraw(){ drawSmith(); drawRL(); readout(); }
+  function setData(d,keepMk){ data=d; if(!keepMk){ mk=50; slMk.value=50; } statusEl.textContent=d.name+`（${d.re.length}点, ${fmtHz(d.f[0])}〜${fmtHz(d.f[d.f.length-1])}）`; redraw(); }
+
+  slMk.addEventListener('input',()=>{ mk=parseFloat(slMk.value); redraw(); });
+  const DEMOS={ antenna:demoAntenna, parallel:demoParallel, pureC:demoPureC, pureL:demoPureL, coax:demoCoax, line:demoLineLossless, load:demoLoad };
+  document.querySelectorAll('[data-vna-demo]').forEach(b=>b.addEventListener('click',()=>{
+    const fn=DEMOS[b.dataset.vnaDemo]||demoLoad; setData(fn());
+  }));
+  const cbVswr=document.getElementById('vna-vswr');
+  cbVswr.addEventListener('change',redraw);
+
+  // インタラクティブ直列RLC（バーで素子値を動かす）
+  const slR=document.getElementById('vna-R'), slL=document.getElementById('vna-L'), slC=document.getElementById('vna-C');
+  function buildRLC(){
+    const R=+slR.value, Lh=+slL.value, Cp=+slC.value, L=Lh*1e-9, C=Cp*1e-12;
+    document.getElementById('vna-R-val').textContent=R+' Ω';
+    document.getElementById('vna-L-val').textContent=Lh+' nH';
+    document.getElementById('vna-C-val').textContent=Cp+' pF';
+    const f0=1/(2*Math.PI*Math.sqrt(L*C));
+    return sweepFromZ(1e6,900e6,201,(fi,w)=>[R, w*L-1/(w*C)], `直列RLC: R=${R}Ω L=${Lh}nH C=${Cp}pF（共振 f0≈${fmtHz(f0)}）`);
+  }
+  [slR,slL,slC].forEach(s=>s.addEventListener('input',()=>setData(buildRLC(),true)));
+
+  // ファイル読み込み（ドロップ＆選択）
+  const drop=document.getElementById('vna-drop'), fileIn=document.getElementById('vna-file');
+  function loadFile(file){ const r=new FileReader();
+    r.onload=()=>{ try{ setData(parseTouchstone(String(r.result))); statusEl.textContent=`${file.name} を読み込んだ ／ `+statusEl.textContent; }
+      catch(e){ statusEl.textContent='読み込み失敗: '+e.message; } };
+    r.readAsText(file); }
+  drop.addEventListener('click',()=>fileIn.click());
+  fileIn.addEventListener('change',e=>{ if(e.target.files[0]) loadFile(e.target.files[0]); });
+  ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{ e.preventDefault(); drop.style.borderColor='#3c7876'; drop.style.background='rgba(60,120,118,.05)'; }));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{ e.preventDefault(); drop.style.borderColor=''; drop.style.background=''; }));
+  drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) loadFile(f); });
+
+  setData(demoAntenna());
+})();
+
+/* ===================================================
+   LCフィルタ設計（ボード線図＋回路図）
+   =================================================== */
+(function(){
+  const cvM=document.getElementById('cv-lc-mag'); if(!cvM) return;
+  const cvP=document.getElementById('cv-lc-phase'), cvS=document.getElementById('cv-lc-sch');
+  const ctxM=cvM.getContext('2d'), ctxP=cvP.getContext('2d'), ctxS=cvS.getContext('2d');
+  const MW=cvM.width, MH=cvM.height, PW=cvP.width, PH=cvP.height, SW=cvS.width, SH=cvS.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.8)', INK='#4a463f';
+  const FLO=10, FHI=1e6, DBTOP=20, DBBOT=-80, P={l:40,r:12,t:10,b:22};
+
+  let type='lpf', order=2;
+  let R=447, L=10e-3, C=100e-9, fc=5000, Q=0.707;
+  const slR=document.getElementById('lc-R'), elR=document.getElementById('lc-R-val');
+  const slL=document.getElementById('lc-L'), elL=document.getElementById('lc-L-val');
+  const slC=document.getElementById('lc-C'), elC=document.getElementById('lc-C-val');
+  const lGroup=document.getElementById('lc-L-group');
+  const statusEl=document.getElementById('lc-status');
+
+  const fR=v=> v>=1000? (v/1000).toFixed(v>=1e4?0:2)+' kΩ' : v.toFixed(v<10?1:0)+' Ω';
+  const fL=v=> v>=1? v.toFixed(2)+' H' : v>=1e-3? (v*1e3).toFixed(2)+' mH' : v>=1e-6? (v*1e6).toFixed(2)+' µH' : (v*1e9).toFixed(0)+' nH';
+  const fC=v=> v>=1e-6? (v*1e6).toFixed(2)+' µF' : v>=1e-9? (v*1e9).toFixed(2)+' nF' : (v*1e12).toFixed(0)+' pF';
+  const fHz=f=> f>=1e6?(f/1e6).toFixed(2)+'MHz':f>=1e3?(f/1e3).toFixed(2)+'kHz':f.toFixed(0)+'Hz';
+
+  function compute(){
+    R=Math.pow(10,parseFloat(slR.value));
+    L=Math.pow(10,parseFloat(slL.value));
+    C=Math.pow(10,parseFloat(slC.value));
+    if(order===1){ fc=1/(2*Math.PI*R*C); Q=NaN; }
+    else { fc=1/(2*Math.PI*Math.sqrt(L*C)); Q=(1/R)*Math.sqrt(L/C); }
+    elR.textContent=fR(R); elL.textContent=fL(L); elC.textContent=fC(C);
+  }
+
+  function H(f){
+    const x=f/fc;
+    if(order===1){
+      if(type==='hpf'){ const d=1+x*x; return [x*x/d, x/d]; }
+      const d=1+x*x; return [1/d, -x/d];
+    }
+    const dr=1-x*x, di=x/Q, dd=dr*dr+di*di;
+    if(type==='lpf'){ return [dr/dd, -di/dd]; }
+    if(type==='hpf'){ const nr=-x*x; return [nr*dr/dd, -nr*di/dd]; }
+    const ni=x/Q; return [(ni*di)/dd, (ni*dr)/dd];
+  }
+  const mag=h=>Math.hypot(h[0],h[1]);
+  const db=v=>20*Math.log10(Math.max(v,1e-9));
+  const ph=h=>Math.atan2(h[1],h[0])*180/Math.PI;
+  const fx=f=>P.l+(Math.log10(f)-Math.log10(FLO))/(Math.log10(FHI)-Math.log10(FLO))*(MW-P.l-P.r);
+  const my=d=>P.t+(DBTOP-Math.max(DBBOT,Math.min(DBTOP,d)))/(DBTOP-DBBOT)*(MH-P.t-P.b);
+  const py=p=>P.t+(180-Math.max(-180,Math.min(180,p)))/360*(PH-P.t-P.b);
+
+  function gridMag(){
+    ctxM.fillStyle=BG; ctxM.fillRect(0,0,MW,MH);
+    ctxM.strokeStyle=GRID; ctxM.lineWidth=1; ctxM.fillStyle='#bbb5ac'; ctxM.font='8px JetBrains Mono, monospace';
+    for(let d=DBTOP;d>=DBBOT;d-=20){ const y=my(d); ctxM.beginPath(); ctxM.moveTo(P.l,y); ctxM.lineTo(MW-P.r,y); ctxM.stroke(); ctxM.fillText(d,3,y+3); }
+    for(let e=1;e<=6;e++){ const f=Math.pow(10,e); const x=fx(f); ctxM.beginPath(); ctxM.moveTo(x,P.t); ctxM.lineTo(x,MH-P.b); ctxM.stroke(); ctxM.fillText(f>=1000?(f/1000)+'k':f+'',x+1,MH-3); }
+  }
+  function gridPhase(){
+    ctxP.fillStyle=BG; ctxP.fillRect(0,0,PW,PH);
+    ctxP.strokeStyle=GRID; ctxP.lineWidth=1; ctxP.fillStyle='#bbb5ac'; ctxP.font='8px JetBrains Mono, monospace';
+    for(let p=180;p>=-180;p-=90){ const y=py(p); ctxP.beginPath(); ctxP.moveTo(P.l,y); ctxP.lineTo(PW-P.r,y); ctxP.stroke(); ctxP.fillText(p,3,y+3); }
+    for(let e=1;e<=6;e++){ const f=Math.pow(10,e); const x=fx(f); ctxP.beginPath(); ctxP.moveTo(x,P.t); ctxP.lineTo(x,PH-P.b); ctxP.stroke(); }
+  }
+  function drawBode(){
+    gridMag(); gridPhase();
+    ctxM.beginPath(); ctxP.beginPath(); let first=true; const N=400;
+    for(let k=0;k<=N;k++){ const f=Math.pow(10, Math.log10(FLO)+(Math.log10(FHI)-Math.log10(FLO))*k/N);
+      const h=H(f), mx=fx(f), mY=my(db(mag(h))), pY=py(ph(h));
+      if(first){ctxM.moveTo(mx,mY);ctxP.moveTo(mx,pY);first=false;}else{ctxM.lineTo(mx,mY);ctxP.lineTo(mx,pY);} }
+    ctxM.strokeStyle=TEAL; ctxM.lineWidth=2; ctxM.stroke();
+    ctxP.strokeStyle=TEAL; ctxP.lineWidth=2; ctxP.stroke();
+    [[ctxM,MH],[ctxP,PH]].forEach(a=>{ const c=a[0],h=a[1]; c.strokeStyle='rgba(201,118,31,.6)'; c.setLineDash([4,3]); c.lineWidth=1; c.beginPath(); c.moveTo(fx(fc),P.t); c.lineTo(fx(fc),h-P.b); c.stroke(); c.setLineDash([]); });
+    ctxM.fillStyle=AMBER; ctxM.font='9px JetBrains Mono, monospace'; ctxM.fillText('fc',fx(fc)+2,P.t+10);
+  }
+
+  function box(x,y,label){ const w=30,h=16; ctxS.strokeStyle=INK; ctxS.lineWidth=1.6; ctxS.strokeRect(x-w/2,y-h/2,w,h); ctxS.fillStyle=INK; ctxS.font='bold 11px JetBrains Mono, monospace'; ctxS.textAlign='center'; ctxS.textBaseline='middle'; ctxS.fillText(label,x,y); }
+  function wire(x1,y1,x2,y2){ ctxS.strokeStyle=INK; ctxS.lineWidth=1.6; ctxS.beginPath(); ctxS.moveTo(x1,y1); ctxS.lineTo(x2,y2); ctxS.stroke(); }
+  function dot(x,y){ ctxS.fillStyle=INK; ctxS.beginPath(); ctxS.arc(x,y,2.6,0,7); ctxS.fill(); }
+  function gnd(x,y){ ctxS.strokeStyle=INK; ctxS.lineWidth=1.6; for(let i=0;i<3;i++){ const w=12-i*4; ctxS.beginPath(); ctxS.moveTo(x-w/2,y+i*4); ctxS.lineTo(x+w/2,y+i*4); ctxS.stroke(); } }
+  function lab(x,y,t,col){ ctxS.fillStyle=col||'#aaa49b'; ctxS.font='9px JetBrains Mono, monospace'; ctxS.textAlign='center'; ctxS.textBaseline='alphabetic'; ctxS.fillText(t,x,y); }
+
+  function drawSchematic(){
+    ctxS.fillStyle=BG; ctxS.fillRect(0,0,SW,SH);
+    const yM=50, xIn=26, xOut=255, yG=120;
+    let series, shunt, sv, shv;
+    if(order===1){
+      if(type==='hpf'){ series=['C']; shunt='R'; sv=[fC(C)]; shv=fR(R); }
+      else { series=['R']; shunt='C'; sv=[fR(R)]; shv=fC(C); }
+    } else {
+      if(type==='lpf'){ series=['R','L']; shunt='C'; sv=[fR(R),fL(L)]; shv=fC(C); }
+      else if(type==='hpf'){ series=['R','C']; shunt='L'; sv=[fR(R),fC(C)]; shv=fL(L); }
+      else { series=['L','C']; shunt='R'; sv=[fL(L),fC(C)]; shv=fR(R); }
+    }
+    lab(xIn-2,yM-8,'IN','#3c7876');
+    const n=series.length, x0=70, x1=215, step=(x1-x0)/n;
+    wire(xIn,yM,x0-15,yM); let prev=x0-15;
+    for(let i=0;i<n;i++){ const bx = n===1? (x0+x1)/2 : x0+step*i+step/2;
+      wire(prev,yM,bx-15,yM); box(bx,yM,series[i]); lab(bx,yM-12,sv[i]); prev=bx+15; }
+    wire(prev,yM,xOut,yM); dot(xOut,yM); wire(xOut,yM,xOut+18,yM); lab(xOut+10,yM-8,'OUT','#c9761f');
+    wire(xOut,yM,xOut,yG-9); box(xOut,yG,shunt); lab(xOut+34,yG+3,shv); wire(xOut,yG+9,xOut,yG+18); gnd(xOut,yG+18);
+    ctxS.textAlign='left'; ctxS.textBaseline='alphabetic';
+  }
+
+  function draw(){
+    compute(); drawBode(); drawSchematic();
+    const tn={lpf:'ローパス',hpf:'ハイパス',bpf:'バンドパス'}[type];
+    const slope=order===1?'±20':'±40';
+    let extra='';
+    if(order===2 && type!=='bpf' && Q>0.7072){ const up=Math.sqrt(Math.max(0,1-1/(2*Q*Q))); const peak=db(1/((1/Q)*Math.sqrt(Math.max(1e-9,1-1/(4*Q*Q))))); if(peak>0.1) extra=' ／ 共振ピーク ≈ +'+peak.toFixed(1)+'dB @ '+fHz(fc*up); }
+    if(order===2 && type==='bpf'){ extra=' ／ 帯域幅 BW=fc/Q≈'+fHz(fc/Q); }
+    statusEl.textContent=tn+'・'+order+'次 ／ fc≈'+fHz(fc)+(order===2?' ／ Q≈'+Q.toFixed(2):'')+' ／ 漸近傾き '+slope+'dB/dec'+extra;
+  }
+
+  function setActive(){
+    if(order===1 && type==='bpf') type='lpf';
+    document.querySelectorAll('[data-lc-type]').forEach(b=>{ const on=b.dataset.lcType===type; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    document.querySelectorAll('[data-lc-order]').forEach(b=>{ const on=(+b.dataset.lcOrder)===order; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    lGroup.style.display = order===2? 'flex':'none';
+  }
+  [slR,slL,slC].forEach(s=>s.addEventListener('input',draw));
+  document.querySelectorAll('[data-lc-type]').forEach(b=>b.addEventListener('click',()=>{ type=b.dataset.lcType; setActive(); draw(); }));
+  document.querySelectorAll('[data-lc-order]').forEach(b=>b.addEventListener('click',()=>{ order=+b.dataset.lcOrder; setActive(); draw(); }));
+
+  slR.value=2.65; slL.value=-2; slC.value=-7;
+  setActive(); draw();
+})();
+
+/* ===================================================
+   熱力学サイクル（PV線図・TS線図）
+   =================================================== */
+(function(){
+  const cvPV=document.getElementById('cv-th-pv'); if(!cvPV) return;
+  const cvTS=document.getElementById('cv-th-ts');
+  const ctxPV=cvPV.getContext('2d'), ctxTS=cvTS.getContext('2d');
+  const W=cvPV.width, H=cvPV.height;
+  const TEAL='#3c7876', FILL='rgba(60,120,118,.13)', AMBER='#c9761f', BLUE='#5a6e9e', BG='#faf8f4', GRID='rgba(227,219,208,.8)', INK='#4a463f';
+  const g=1.4, cv=1/(g-1), cp=g/(g-1);
+
+  let cyc='otto', p1=8, p2=3;
+  const slP1=document.getElementById('th-p1'), elP1=document.getElementById('th-p1-val'), labP1=document.getElementById('th-p1-label');
+  const slP2=document.getElementById('th-p2'), elP2=document.getElementById('th-p2-val'), labP2=document.getElementById('th-p2-label');
+  const p2group=slP2.closest('.ctrl-group');
+  const statusEl=document.getElementById('th-status');
+
+  function sampleProc(a,b,type,M){
+    const out=[];
+    for(let k=0;k<=M;k++){ const t=k/M; let V,P,T,S;
+      if(type==='adiab'){ V=a.V+(b.V-a.V)*t; P=a.P*Math.pow(a.V/V,g); T=P*V; S=a.S; }
+      else if(type==='isot'){ V=a.V+(b.V-a.V)*t; T=a.T; P=T/V; S=a.S+Math.log(V/a.V); }
+      else if(type==='isov'){ V=a.V; T=a.T+(b.T-a.T)*t; P=T/V; S=a.S+cv*Math.log(T/a.T); }
+      else { P=a.P; T=a.T+(b.T-a.T)*t; V=T/P; S=a.S+cp*Math.log(T/a.T); }
+      out.push({V,P,T,S}); }
+    return out;
+  }
+
+  function build(){
+    let st=[], procs=[], eta=0, name='', formula='';
+    if(cyc==='carnot'){
+      const Tc=300, Th=Tc*p1; const Vexp=2;
+      const s1={V:1,T:Th,P:Th}; const s2={V:Vexp,T:Th,P:Th/Vexp};
+      const rr=Math.pow(Th/Tc,1/(g-1));
+      const s3={V:Vexp*rr,T:Tc,P:Tc/(Vexp*rr)};
+      const s4={V:1*rr,T:Tc,P:Tc/(1*rr)};
+      st=[s1,s2,s3,s4]; procs=['isot','adiab','isot','adiab']; eta=1-Tc/Th;
+      name='Carnot'; formula='η = 1 − Tc/Th';
+    } else if(cyc==='otto'){
+      const r=p1, T1=300; const s1={V:r,T:T1,P:T1/r};
+      const T2=T1*Math.pow(r,g-1); const s2={V:1,T:T2,P:T2};
+      const T3=T2*p2; const s3={V:1,T:T3,P:T3};
+      const T4=T3*Math.pow(r,1-g); const s4={V:r,T:T4,P:T4/r};
+      st=[s1,s2,s3,s4]; procs=['adiab','isov','adiab','isov']; eta=1-Math.pow(r,1-g);
+      name='Otto'; formula='η = 1 − r^(1−γ)';
+    } else {
+      const rp=p1, T1=300; const s1={V:T1,T:T1,P:1};
+      const T2=T1*Math.pow(rp,(g-1)/g); const s2={V:T2/rp,T:T2,P:rp};
+      const T3=T2*p2; const s3={V:T3/rp,T:T3,P:rp};
+      const T4=T3*Math.pow(rp,(1-g)/g); const s4={V:T4,T:T4,P:1};
+      st=[s1,s2,s3,s4]; procs=['adiab','isop','adiab','isop']; eta=1-Math.pow(rp,(1-g)/g);
+      name='Brayton'; formula='η = 1 − rp^((1−γ)/γ)';
+    }
+    // エントロピーを s1.S=1 から巡って割り当て
+    st[0].S=1;
+    for(let i=0;i<4;i++){ const a=st[i], b=st[(i+1)%4], ty=procs[i];
+      let dS=0;
+      if(ty==='adiab') dS=0;
+      else if(ty==='isot') dS=Math.log(b.V/a.V);
+      else if(ty==='isov') dS=cv*Math.log(b.T/a.T);
+      else dS=cp*Math.log(b.T/a.T);
+      if(i<3) st[i+1].S=a.S+dS;
+    }
+    // サンプリング
+    const pv=[], ts=[], marks=[];
+    for(let i=0;i<4;i++){ const a=st[i], b=st[(i+1)%4]; const seg=sampleProc(a,b,procs[i],36);
+      marks.push({V:a.V,P:a.P,S:a.S,T:a.T,n:i+1});
+      for(let k=(i===0?0:1);k<seg.length;k++){ pv.push({x:seg[k].V,y:seg[k].P}); ts.push({x:seg[k].S,y:seg[k].T}); } }
+    return {pv,ts,marks,eta,name,formula};
+  }
+
+  function plot(ctx,pts,marks,key,xlab,ylab){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+    const P={l:38,r:14,t:14,b:26};
+    let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+    pts.forEach(p=>{ xmin=Math.min(xmin,p.x); xmax=Math.max(xmax,p.x); ymin=Math.min(ymin,p.y); ymax=Math.max(ymax,p.y); });
+    const dx=(xmax-xmin)||1, dy=(ymax-ymin)||1; xmin-=dx*0.08; xmax+=dx*0.08; ymin-=dy*0.10; ymax+=dy*0.10;
+    const X=v=>P.l+(v-xmin)/(xmax-xmin)*(W-P.l-P.r);
+    const Y=v=>H-P.b-(v-ymin)/(ymax-ymin)*(H-P.t-P.b);
+    // 枠
+    ctx.strokeStyle=GRID; ctx.lineWidth=1; ctx.strokeRect(P.l,P.t,W-P.l-P.r,H-P.t-P.b);
+    // ループ塗り＋線
+    ctx.beginPath(); pts.forEach((p,i)=>{ const x=X(p.x),y=Y(p.y); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.closePath();
+    ctx.fillStyle=FILL; ctx.fill();
+    ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.stroke();
+    // 状態点
+    ctx.font='bold 10px JetBrains Mono, monospace';
+    marks.forEach(m=>{ const x=X(m[key==='pv'?'V':'S']), y=Y(m[key==='pv'?'P':'T']);
+      ctx.fillStyle=TEAL; ctx.beginPath(); ctx.arc(x,y,3.5,0,7); ctx.fill();
+      ctx.fillStyle=INK; ctx.fillText(m.n, x+5, y-4); });
+    // 軸ラベル
+    ctx.fillStyle='#9a9384'; ctx.font='9px JetBrains Mono, monospace';
+    ctx.fillText(xlab, W-P.r-34, H-6); ctx.save(); ctx.translate(10,P.t+30); ctx.rotate(-Math.PI/2); ctx.fillText(ylab,0,0); ctx.restore();
+  }
+
+  function draw(){
+    const d=build();
+    plot(ctxPV, d.pv, d.marks, 'pv', 'V →', 'P →');
+    plot(ctxTS, d.ts, d.marks, 'ts', 'S →', 'T →');
+    elP1.textContent = cyc==='carnot'? p1.toFixed(1)+'×' : p1.toFixed(1);
+    elP2.textContent = p2.toFixed(2)+'×';
+    statusEl.textContent = `${d.name} ／ ${d.formula} ／ 熱効率 η ≈ ${(d.eta*100).toFixed(1)}%`;
+  }
+
+  function setActive(){
+    document.querySelectorAll('[data-th]').forEach(b=>{ const on=b.dataset.th===cyc; b.style.borderColor=on?TEAL:''; b.style.color=on?TEAL:''; });
+    if(cyc==='carnot'){ labP1.textContent='温度比 Th/Tc'; p2group.style.display='none'; }
+    else if(cyc==='otto'){ labP1.textContent='圧縮比 r'; labP2.textContent='加熱比 T3/T2'; p2group.style.display='flex'; }
+    else { labP1.textContent='圧力比 rp'; labP2.textContent='加熱比 T3/T2'; p2group.style.display='flex'; }
+  }
+  slP1.addEventListener('input',()=>{ p1=parseFloat(slP1.value); draw(); });
+  slP2.addEventListener('input',()=>{ p2=parseFloat(slP2.value); draw(); });
+  document.querySelectorAll('[data-th]').forEach(b=>b.addEventListener('click',()=>{ cyc=b.dataset.th; setActive(); draw(); }));
+
+  setActive(); draw();
+})();
+
+/* ===================================================
+   PLLシミュレータ（引き込み・整定）
+   =================================================== */
+(function(){
+  const cvF=document.getElementById('cv-pll-f'); if(!cvF) return;
+  const cvE=document.getElementById('cv-pll-e');
+  const ctxF=cvF.getContext('2d'), ctxE=cvE.getContext('2d');
+  const FW=cvF.width, FH=cvF.height, EW=cvE.width, EH=cvE.height;
+  const TEAL='#3c7876', AMBER='#c9761f', BG='#faf8f4', GRID='rgba(227,219,208,.8)';
+  const P={l:46,r:12,t:12,b:22};
+
+  let fn=100, z=0.707, df=1000;
+  let sim=null, playing=false, rafId=null, frac=1;
+  const slFn=document.getElementById('pll-fn'), elFn=document.getElementById('pll-fn-val');
+  const slZ=document.getElementById('pll-z'), elZ=document.getElementById('pll-z-val');
+  const slDf=document.getElementById('pll-df'), elDf=document.getElementById('pll-df-val');
+  const statusEl=document.getElementById('pll-status');
+  const playBtn=document.getElementById('pll-play');
+
+  const fHz=f=> f>=1000?(f/1000).toFixed(2)+' kHz':f.toFixed(0)+' Hz';
+
+  function simulate(){
+    const wn=2*Math.PI*fn, a=2*z*wn, b=wn*wn, win=2*Math.PI*df;
+    const Tmax=Math.max(8/(z*wn), 6/wn);
+    const N=1500, dt=Tmax/N;
+    // 状態: θe(x), I(積分). ω_vco = a*θe + b*I
+    let th=0, I=0;
+    const t=[], fv=[], te=[];
+    function deriv(th,I){ const wv=a*th+b*I; return [win-wv, th, wv]; }
+    for(let k=0;k<=N;k++){
+      const tk=k*dt;
+      const wv=a*th+b*I;
+      t.push(tk); fv.push(wv/(2*Math.PI)); te.push(th);
+      // RK4
+      const k1=deriv(th,I);
+      const k2=deriv(th+0.5*dt*k1[0], I+0.5*dt*k1[1]);
+      const k3=deriv(th+0.5*dt*k2[0], I+0.5*dt*k2[1]);
+      const k4=deriv(th+dt*k3[0], I+dt*k3[1]);
+      th += dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+      I  += dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    }
+    const fpeak=Math.max(...fv), tepeak=Math.max(...te.map(Math.abs));
+    const Mp = z<1? Math.exp(-Math.PI*z/Math.sqrt(1-z*z)) : 0;
+    const ts = 4/(z*wn);
+    return {t,fv,te,Tmax,fpeak,tepeak,Mp,ts};
+  }
+
+  function axes(ctx,W,Hh,ymin,ymax,Tmax,ylab,zeroLine){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,Hh);
+    ctx.strokeStyle=GRID; ctx.lineWidth=1; ctx.strokeRect(P.l,P.t,W-P.l-P.r,Hh-P.t-P.b);
+    ctx.fillStyle='#9a9384'; ctx.font='8px JetBrains Mono, monospace';
+    // y目盛り（上端/下端/0）
+    const Y=v=>P.t+(ymax-v)/(ymax-ymin)*(Hh-P.t-P.b);
+    [ymax,(ymax+ymin)/2,ymin].forEach(v=>{ const y=Y(v); ctx.fillText(v.toPrecision(2),2,y+3); });
+    if(zeroLine && ymin<0 && ymax>0){ const y0=Y(0); ctx.strokeStyle='rgba(60,120,118,.35)'; ctx.beginPath(); ctx.moveTo(P.l,y0); ctx.lineTo(W-P.r,y0); ctx.stroke(); }
+    ctx.fillStyle='#9a9384'; ctx.fillText('time →',W-P.r-40,Hh-4); ctx.save(); ctx.translate(10,P.t+34); ctx.rotate(-Math.PI/2); ctx.fillText(ylab,0,0); ctx.restore();
+    return Y;
+  }
+
+  function render(){
+    if(!sim) return;
+    const upto=Math.max(2,Math.floor(sim.t.length*frac));
+    const Tmax=sim.Tmax;
+    const fX=t=>P.l+t/Tmax*(FW-P.l-P.r);
+    const fmax=Math.max(df*1.05, sim.fpeak*1.05);
+    const fY=axes(ctxF,FW,FH,0,fmax,Tmax,'f [Hz]',false);
+    // 目標線
+    ctxF.strokeStyle='rgba(201,118,31,.7)'; ctxF.setLineDash([5,4]); ctxF.lineWidth=1.2;
+    ctxF.beginPath(); ctxF.moveTo(P.l,fY(df)); ctxF.lineTo(FW-P.r,fY(df)); ctxF.stroke(); ctxF.setLineDash([]);
+    ctxF.fillStyle='#c9761f'; ctxF.font='8px JetBrains Mono, monospace'; ctxF.fillText('目標 '+fHz(df),P.l+3,fY(df)-3);
+    ctxF.beginPath(); for(let k=0;k<upto;k++){ const x=fX(sim.t[k]),y=fY(sim.fv[k]); k?ctxF.lineTo(x,y):ctxF.moveTo(x,y); }
+    ctxF.strokeStyle=TEAL; ctxF.lineWidth=2; ctxF.stroke();
+
+    const eX=t=>P.l+t/Tmax*(EW-P.l-P.r);
+    const em=Math.max(0.05, sim.tepeak*1.15);
+    const eY=axes(ctxE,EW,EH,-em*0.2,em,Tmax,'θe [rad]',true);
+    ctxE.beginPath(); for(let k=0;k<upto;k++){ const x=eX(sim.t[k]),y=eY(sim.te[k]); k?ctxE.lineTo(x,y):ctxE.moveTo(x,y); }
+    ctxE.strokeStyle=TEAL; ctxE.lineWidth=2; ctxE.stroke();
+  }
+
+  function refresh(){
+    fn=Math.pow(10,parseFloat(slFn.value)); z=parseFloat(slZ.value); df=Math.pow(10,parseFloat(slDf.value));
+    elFn.textContent=fHz(fn); elZ.textContent=z.toFixed(2); elDf.textContent=fHz(df);
+    sim=simulate(); frac=1; render();
+    const regime = z<0.98?'不足減衰（リンギング）': z>1.02?'過減衰（ゆっくり）':'臨界減衰ぎみ';
+    statusEl.textContent=`fn=${fHz(fn)} ／ ζ=${z.toFixed(2)}（${regime}）／ オーバーシュート ${(sim.Mp*100).toFixed(0)}% ／ 整定時間 ≈ ${(sim.ts*1000).toFixed(2)} ms`;
+  }
+
+  slFn.addEventListener('input',refresh); slZ.addEventListener('input',refresh); slDf.addEventListener('input',refresh);
+  function loop(){ if(!playing) return; frac+=0.02; if(frac>=1){ frac=1; playing=false; playBtn.textContent='▶ 引き込み再生'; render(); return; } render(); rafId=requestAnimationFrame(loop); }
+  playBtn.addEventListener('click',()=>{ if(playing){ playing=false; playBtn.textContent='▶ 引き込み再生'; if(rafId)cancelAnimationFrame(rafId); return; } playing=true; frac=0; playBtn.textContent='⏸ 停止'; loop(); });
+
+  refresh();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+</script>
+  </main>
+  <Footer />
+</body>
+</html>
