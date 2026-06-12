@@ -151,23 +151,20 @@ import Footer from '../components/Footer.astro';
     ctx.fillStyle='#7d7568'; ctx.font='600 10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('ダイオード（向きと状態）', x0, BY0-2);
     var fwd=V>0.02, rev=V<-0.02;
     var on=fwd, col=on?'#2f9e6e':'#9a8f80';
-    // wires
-    var ax=x0+58, kx=x1-58;  // anode tip / cathode bar x
-    ctx.strokeStyle='#888'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0+10,cy); ctx.lineTo(ax-24,cy); ctx.moveTo(kx,cy); ctx.lineTo(x1-10,cy); ctx.stroke();
-    // triangle (anode -> cathode)
+    // compact diode symbol (proper arrowhead proportions)
+    var tcx=(x0+x1)/2, tw=17, th=15, baseX=tcx-tw, tipX=tcx+tw;
+    ctx.strokeStyle='#888'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0+32,cy); ctx.lineTo(baseX,cy); ctx.moveTo(tipX,cy); ctx.lineTo(x1-32,cy); ctx.stroke();
     ctx.fillStyle=on?'rgba(47,158,122,.85)':'rgba(154,143,128,.5)'; ctx.strokeStyle=col; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(ax-24,cy-16); ctx.lineTo(kx,cy); ctx.lineTo(ax-24,cy+16); ctx.closePath(); ctx.fill(); ctx.stroke();
-    // cathode bar
-    ctx.beginPath(); ctx.moveTo(kx,cy-16); ctx.lineTo(kx,cy+16); ctx.stroke();
-    // terminals P / N
-    ctx.fillStyle='#c2543d'; ctx.font='700 11px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('P', x0+18, cy-12);
-    ctx.fillStyle='#3a6df0'; ctx.fillText('N', x1-18, cy-12);
+    ctx.beginPath(); ctx.moveTo(baseX,cy-th); ctx.lineTo(tipX,cy); ctx.lineTo(baseX,cy+th); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tipX,cy-th-2); ctx.lineTo(tipX,cy+th+2); ctx.stroke();
+    ctx.fillStyle='#c2543d'; ctx.font='700 11px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('P', x0+22, cy-12);
+    ctx.fillStyle='#3a6df0'; ctx.fillText('N', x1-22, cy-12);
     // polarity (+ on whichever side is higher potential)
     ctx.font='700 13px "JetBrains Mono",monospace';
     if(Math.abs(V)>0.02){
       ctx.fillStyle=col;
-      ctx.fillText(fwd?'＋':'−', x0+14, cy+20);
-      ctx.fillText(fwd?'−':'＋', x1-14, cy+20);
+      ctx.fillText(fwd?'＋':'−', x0+22, cy+20);
+      ctx.fillText(fwd?'−':'＋', x1-22, cy+20);
     }
     // state
     ctx.font='700 12px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillStyle=col;
