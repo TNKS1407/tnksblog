@@ -1,0 +1,163 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="PN接合のバンド図 — ダイオードの中身" description="ダイオードはなぜ一方向にしか流れないのか。バイアス電圧を動かすと、バンドの曲がり(内蔵障壁)・空乏層・電流が連動して変わる。順方向で壁が下がり指数関数的に流れ出す、を見る。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style is:global>
+    .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .intro h1{font-size:1.25rem;margin:0 0 .5rem;}
+    .intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin:0 0 .4rem;}
+    .intro a{color:#3c7876;}
+    .card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;background:#faf8f4;
+      width:100%;height:auto;}
+    .controls{display:flex;flex-wrap:wrap;gap:.7rem 1rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);white-space:nowrap;}
+    .ctrl-group input[type=range]{width:200px;accent-color:#3c7876;}
+    .ctrl-group .vv{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#3c7876;font-weight:700;min-width:4.2em;}
+    .btn{padding:.34rem .8rem;border:1px solid var(--border,#e3dbd0);border-radius:8px;background:none;
+      font-family:inherit;font-size:.78rem;color:var(--text-muted,#7d7568);cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .readout{margin-top:1rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);
+      border-radius:10px;padding:.85rem 1.1rem;font-size:.85rem;color:#33433f;line-height:1.75;}
+    .readout b{color:#c9761f;}
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.7rem;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main class="wrap">
+    <div class="intro">
+      <h1>PN接合のバンド図 — ダイオードの中身</h1>
+      <p>ダイオードが一方向にしか流れないのは、接合の所に <strong>内蔵電位の壁</strong> があるから。P型とN型をくっつけると、境界でキャリアが拡散して打ち消し合い、<strong>空乏層</strong>（動ける電荷が居ない帯）ができて、バンドが曲がる。この曲がり＝電子が越えなきゃいけない壁だ。</p>
+      <p>バイアス電圧を動かすと：<strong style="color:#2f9e6e">順方向</strong>（P側を＋）にすると壁が下がって空乏層が縮み、電子がワッと越えて<strong>電流が指数関数的に</strong>流れ出す。<strong style="color:#c2543d">逆方向</strong>にすると壁が高くなり空乏層が広がって、ほぼ流れない。これがダイオードの「弁」の正体。<a href="/play">← /play に戻る</a></p>
+    </div>
+
+    <div class="card">
+      <canvas id="cv" width="680" height="380"></canvas>
+      <div class="controls">
+        <div class="ctrl-group"><label>バイアス電圧 V</label><input type="range" id="bias" min="-100" max="72" value="0"><span class="vv" id="biasv">0.00 V</span></div>
+        <button class="btn" id="fwd" type="button">順方向 0.6V</button>
+        <button class="btn" id="zero" type="button">0V（平衡）</button>
+        <button class="btn" id="rev" type="button">逆方向 -0.8V</button>
+      </div>
+      <div class="readout" id="readout"></div>
+      <div class="status" id="status"></div>
+    </div>
+  </main>
+  <Footer />
+
+<script is:inline>
+(function(){
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var Vbi=0.80, Egap=1.10, kT=0.026, Is=1e-12;
+  var V=0;
+
+  var PX0=44, PX1=636, PY0=32, PY1=286, xJ=(PX0+PX1)/2;
+  var EMIN=-1.5, EMAX=2.1;
+  function yE(E){ return PY1-(E-EMIN)/(EMAX-EMIN)*(PY1-PY0); }
+  function smooth(t){ t=t<0?0:t>1?1:t; return t*t*(3-2*t); }
+  function dE(){ return Vbi - V; }                 // band bend = barrier (eV)
+  function depHalf(){ return 150*Math.sqrt(Math.max(0.02,dE())/Vbi); } // px, half width
+  function EcAt(x){ var W=depHalf(), L=xJ-W, R=xJ+W, de=dE();
+    if(x<=L) return de; if(x>=R) return 0; return de*(1-smooth((x-L)/(R-L))); }
+
+  function bandCurve(off, col, lw){
+    ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath();
+    for(var x=PX0;x<=PX1;x+=2){ var y=yE(EcAt(x)+off); if(x===PX0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+  }
+
+  function diodeI(){ return Is*(Math.exp(V/kT)-1); }
+
+  function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    var W=depHalf(), L=xJ-W, R=xJ+W, de=dE();
+    // P / N background tint
+    ctx.fillStyle='rgba(224,121,91,.06)'; ctx.fillRect(PX0,PY0,xJ-PX0,PY1-PY0);
+    ctx.fillStyle='rgba(93,155,220,.06)'; ctx.fillRect(xJ,PY0,PX1-xJ,PY1-PY0);
+    // depletion region
+    ctx.fillStyle='rgba(150,140,170,.16)'; ctx.fillRect(L,PY0,R-L,PY1-PY0);
+    ctx.strokeStyle='rgba(150,140,170,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(L,PY0); ctx.lineTo(L,PY1); ctx.moveTo(R,PY0); ctx.lineTo(R,PY1); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#8a7ba0'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center';
+    ctx.fillText('空乏層', xJ, PY0+12);
+    // region labels
+    ctx.fillStyle='#c2543d'; ctx.font='700 14px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('P型', PX0+6, PY0+16);
+    ctx.fillStyle='#3a6df0'; ctx.textAlign='right'; ctx.fillText('N型', PX1-6, PY0+16);
+    // bands
+    bandCurve(0, '#1d6f4a', 2.4);            // Ec (conduction)
+    bandCurve(-Egap, '#1d6f4a', 2.4);        // Ev (valence)
+    ctx.fillStyle='#1d6f4a'; ctx.font='11px "JetBrains Mono",monospace'; ctx.textAlign='left';
+    ctx.fillText('Ec 伝導帯', PX1-78, yE(0)-6);
+    ctx.fillText('Ev 価電子帯', PX1-86, yE(-Egap)-6);
+    // Fermi level (dashed): p-side near Ev, n-side near Ec ; split by V
+    var Efp=de-0.95, Efn=-0.15;
+    ctx.strokeStyle='#c9761f'; ctx.setLineDash([6,4]); ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.moveTo(PX0, yE(Efp)); ctx.lineTo(L, yE(Efp)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R, yE(Efn)); ctx.lineTo(PX1, yE(Efn)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#c9761f'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('Ef', PX0+4, yE(Efp)-4);
+    if(Math.abs(V)>0.02){ var mx=R+8; ctx.strokeStyle='#c9761f'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(mx,yE(Efp)); ctx.lineTo(mx,yE(Efn)); ctx.stroke();
+      ctx.textAlign='left'; ctx.fillText('qV', mx+3, (yE(Efp)+yE(Efn))/2+3); }
+    // barrier arrow (the step electrons in N face)
+    var bx=R+30; ctx.strokeStyle='#555'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(bx,yE(0)); ctx.lineTo(bx,yE(de)); ctx.stroke();
+    ctx.fillStyle='#555'; ctx.textAlign='left'; ctx.fillText('障壁', bx+4, (yE(0)+yE(de))/2);
+    // carriers over the barrier (forward = many)
+    var I=diodeI(); var flux=Math.max(0, Math.min(1, Math.log10(Math.abs(I)/Is+1)/12));
+    if(V>0.05){ ctx.fillStyle='#2f9e6e';
+      var ne=Math.round(2+flux*9);
+      for(var k=0;k<ne;k++){ var fx=L+Math.random()*(R-L); ctx.beginPath(); ctx.arc(fx, yE(EcAt(fx))-3, 2.4,0,7); ctx.fill(); }
+      ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('電子が壁を越える →', xJ, PY1-6);
+    }
+    // ---- I-V inset ----
+    var ix0=PX0, ix1=PX1, iy0=PY1+26, iy1=362, w=ix1-ix0, h=iy1-iy0, midx=ix0+w*0.62;
+    ctx.fillStyle='#fff'; ctx.fillRect(ix0,iy0,w,h); ctx.strokeStyle='#e3dbd0'; ctx.strokeRect(ix0+.5,iy0+.5,w,h);
+    ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(ix0,iy0+h*0.8); ctx.lineTo(ix1,iy0+h*0.8); ctx.moveTo(midx,iy0); ctx.lineTo(midx,iy1); ctx.stroke();
+    ctx.fillStyle='#7d7568'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('I–V特性', ix0+4, iy0+12);
+    ctx.textAlign='center'; ctx.fillText('V', ix1-8, iy0+h*0.8-3);
+    function ivx(v){ return midx + (v/0.75)*(ix1-midx-6); }
+    function ivy(i){ var n=Math.log10(Math.abs(i)/Is+1)/13; return iy0+h*0.8 - Math.min(1,n)*(h*0.74); }
+    ctx.strokeStyle='#3c7876'; ctx.lineWidth=2; ctx.beginPath();
+    for(var v=-1.0; v<=0.72; v+=0.01){ var ii=Is*(Math.exp(v/kT)-1); var X=ivx(v), Yy=ivy(ii);
+      if(v<=-1.0+1e-9)ctx.moveTo(X,Yy); else ctx.lineTo(X,Yy); }
+    ctx.stroke();
+    var opx=ivx(V), opy=ivy(diodeI());
+    ctx.fillStyle='#c9761f'; ctx.beginPath(); ctx.arc(opx,opy,4,0,7); ctx.fill();
+  }
+
+  function setReadout(){
+    var I=diodeI(), de=dE();
+    var mode = V>0.02?'<b style="color:#2f9e6e">順方向</b>':(V<-0.02?'<b style="color:#c2543d">逆方向</b>':'平衡（バイアス無し）');
+    var Itxt = Math.abs(I)<1e-9 ? (I*1e12).toFixed(2)+' pA' : (Math.abs(I)<1e-3 ? (I*1e6).toFixed(2)+' µA' : (I*1e3).toFixed(2)+' mA');
+    document.getElementById('readout').innerHTML =
+      mode+'　印加電圧 V = <b>'+V.toFixed(2)+' V</b>　／　内蔵電位 Vbi = '+Vbi.toFixed(2)+' V<br>'+
+      '障壁の高さ q(Vbi−V) = <b>'+de.toFixed(2)+' eV</b>　／　空乏層の幅 ∝ √(Vbi−V) ＝ <b>'+(Math.sqrt(Math.max(0.02,de)/Vbi)).toFixed(2)+'</b>（平衡=1.00）<br>'+
+      '電流 I = Is(e^(V/kT)−1) ≈ <b>'+Itxt+'</b>';
+    document.getElementById('status').textContent =
+      'kT/q='+kT+'V。順方向は V が 0.026V 増えるごとに電流が約 e 倍（指数）。逆方向は壁が上がり空乏層が広がって、ほぼ Is だけ。';
+  }
+  function render(){ draw(); setReadout(); }
+
+  var eb=document.getElementById('bias'), ebv=document.getElementById('biasv');
+  function setV(v){ V=v; eb.value=Math.round(v*100); ebv.textContent=v.toFixed(2)+' V'; render(); }
+  eb.oninput=function(){ V=(+eb.value)/100; ebv.textContent=V.toFixed(2)+' V'; render(); };
+  document.getElementById('fwd').onclick=function(){ setV(0.6); };
+  document.getElementById('zero').onclick=function(){ setV(0); };
+  document.getElementById('rev').onclick=function(){ setV(-0.8); };
+
+  render();
+})();
+</script>
+</body>
+</html>
