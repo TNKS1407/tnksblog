@@ -58,12 +58,20 @@ import Footer from '../components/Footer.astro';
       <div class="readout" id="readout"></div>
       <div class="status" id="status">地図をドラッグ（スマホはタップして動かす）すると音が出る。あ・い・う・え・お のボタンでその母音へ。</div>
     </div>
+
+    <div class="card">
+      <div style="font-size:.84rem;color:#7d7568;margin-bottom:.7rem;line-height:1.7;">なぜ F1・F2 なのか——声道は <b>声帯側が閉じた1本の管</b>で、その共鳴のいちばん低い2つが F1・F2 だ。下の管はいまの母音の形。舌や唇でできる <b style="color:#c9761f">くびれ</b> の場所・深さが変わると、共鳴（＝F1・F2）がずれて別の母音になる。<span style="color:#c2543d">赤</span>＝F1の定在波（1/4波長）、<span style="color:#3a6df0">青</span>＝F2（3/4波長）。地図を動かすと管も連動するよ。</div>
+      <canvas id="tube" width="680" height="180"></canvas>
+    </div>
   </main>
   <Footer />
 
 <script is:inline>
 (function(){
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var tcv=document.getElementById('tube'), tctx=tcv.getContext('2d');
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function mapc(v,a,b,c,d){ var t=(v-a)/(b-a); t=t<0?0:t>1?1:t; return c+(d-c)*t; }
   var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0', INK='#1d1b17', MUT='#7d7568';
 
   var MX0=58, MX1=622, MY0=40, MY1=312;
@@ -155,7 +163,32 @@ import Footer from '../components/Footer.astro';
   function setStatus(){ document.getElementById('status').textContent =
     (playing?'♪ 鳴らしてる':'停止中')+'　— のこぎり波 '+pitch+'Hz を F1/F2/F3 のバンドパスに通したフォルマント合成。地図をドラッグで母音が変わる。'; }
 
-  function render(){ draw(); setReadout(); }
+  function drawTube(){
+    var W=tcv.width, H=tcv.height; tctx.clearRect(0,0,W,H);
+    var GL=78, GR=W-26, cy=H/2-4, R0=46;
+    var cpos=mapc(F2, 900, 2300, 0.22, 0.84);
+    var deg=mapc(F1, 300, 820, 0.72, 0.06);
+    function rad(t){ return R0*(1 - deg*Math.exp(-Math.pow((t-cpos)/0.15,2))); }
+    var N=120, i, t, x;
+    tctx.fillStyle='rgba(201,160,122,.12)'; tctx.strokeStyle='#c9a07a'; tctx.lineWidth=2;
+    tctx.beginPath(); tctx.moveTo(GL, cy-rad(0));
+    for(i=0;i<=N;i++){ t=i/N; x=lerp(GL,GR,t); tctx.lineTo(x, cy-rad(t)); }
+    for(i=N;i>=0;i--){ t=i/N; x=lerp(GL,GR,t); tctx.lineTo(x, cy+rad(t)); }
+    tctx.closePath(); tctx.fill(); tctx.stroke();
+    tctx.strokeStyle='#8a6a4a'; tctx.lineWidth=3; tctx.beginPath(); tctx.moveTo(GL, cy-rad(0)-4); tctx.lineTo(GL, cy+rad(0)+4); tctx.stroke();
+    tctx.fillStyle='#7d7568'; tctx.font='11px "JetBrains Mono",monospace'; tctx.textAlign='center';
+    tctx.fillText('声帯（閉）', GL, cy+R0+26); tctx.fillText('唇（開）', GR-6, cy+R0+26);
+    function waveDraw(mult,col){ tctx.strokeStyle=col; tctx.lineWidth=2; tctx.beginPath();
+      for(i=0;i<=N;i++){ t=i/N; x=lerp(GL,GR,t); var amp=Math.cos(mult*Math.PI*t)*(R0-10);
+        if(i===0)tctx.moveTo(x,cy-amp); else tctx.lineTo(x,cy-amp); }
+      tctx.stroke(); }
+    waveDraw(0.5,'#c2543d'); waveDraw(1.5,'#3a6df0');
+    tctx.font='10px "JetBrains Mono",monospace';
+    tctx.fillStyle='#c2543d'; tctx.textAlign='left'; tctx.fillText('赤 F1 (1/4波長)', GL+4, cy-R0-4);
+    tctx.fillStyle='#3a6df0'; tctx.textAlign='right'; tctx.fillText('青 F2 (3/4波長)', GR-2, cy-R0-4);
+    if(deg>0.14){ var cx=lerp(GL,GR,cpos); tctx.fillStyle='#c9761f'; tctx.textAlign='center'; tctx.fillText('くびれ', cx, cy-rad(cpos)-6); }
+  }
+  function render(){ draw(); drawTube(); setReadout(); }
 
   function setFromXY(cx,cy){
     var r=cv.getBoundingClientRect(); var sx=(cx-r.left)*(cv.width/r.width), sy=(cy-r.top)*(cv.height/r.height);
