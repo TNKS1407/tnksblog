@@ -7,7 +7,7 @@ import Footer from '../components/Footer.astro';
 <!doctype html>
 <html lang="ja">
 <head>
-  <BaseHead title="PN接合のバンド図 — ダイオードの中身" description="ダイオードはなぜ一方向にしか流れないのか。バイアス電圧を動かすと、バンドの曲がり(内蔵障壁)・空乏層・電流が連動して変わる。順方向で壁が下がり指数関数的に流れ出す、を見る。" />
+  <BaseHead title="PN接合のバンド図 — ダイオードの中身" description="ダイオードはなぜ一方向にしか流れないのか。バイアス電圧で、バンドの曲がり(内蔵障壁)・空乏層・キャリア分布(多数/少数)・電流が連動して変わる。順方向で壁が下がり少数キャリアが注入されて指数で流れ出す、を見る。" />
   <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style is:global>
     .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
@@ -39,11 +39,11 @@ import Footer from '../components/Footer.astro';
     <div class="intro">
       <h1>PN接合のバンド図 — ダイオードの中身</h1>
       <p>ダイオードが一方向にしか流れないのは、接合の所に <strong>内蔵電位の壁</strong> があるから。P型とN型をくっつけると、境界でキャリアが拡散して打ち消し合い、<strong>空乏層</strong>（動ける電荷が居ない帯）ができて、バンドが曲がる。この曲がり＝電子が越えなきゃいけない壁だ。</p>
-      <p>バイアス電圧を動かすと：<strong style="color:#2f9e6e">順方向</strong>（P側を＋）にすると壁が下がって空乏層が縮み、電子がワッと越えて<strong>電流が指数関数的に</strong>流れ出す。<strong style="color:#c2543d">逆方向</strong>にすると壁が高くなり空乏層が広がって、ほぼ流れない。これがダイオードの「弁」の正体。<a href="/play">← /play に戻る</a></p>
+      <p>バイアスを動かすと：<strong style="color:#2f9e6e">順方向</strong>（P側を＋）にすると壁が下がって空乏層が縮み、<strong>少数キャリアが接合の近くにドッと注入され</strong>、電流が指数関数的に流れ出す。<strong style="color:#c2543d">逆方向</strong>だと壁が高くなり空乏層が広がって、ほぼ流れない。中段の<strong>キャリア分布</strong>（青＝電子, 赤＝正孔）で、その注入の山／凹みがいちばんよく見える。<a href="/play">← /play に戻る</a></p>
     </div>
 
     <div class="card">
-      <canvas id="cv" width="680" height="380"></canvas>
+      <canvas id="cv" width="680" height="498"></canvas>
       <div class="controls">
         <div class="ctrl-group"><label>バイアス電圧 V</label><input type="range" id="bias" min="-100" max="72" value="0"><span class="vv" id="biasv">0.00 V</span></div>
         <button class="btn" id="fwd" type="button">順方向 0.6V</button>
@@ -61,80 +61,131 @@ import Footer from '../components/Footer.astro';
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
   var Vbi=0.80, Egap=1.10, kT=0.026, Is=1e-12;
   var V=0;
+  var PX0=44, PX1=636, xJ=(PX0+PX1)/2;
+  // band panel
+  var PY0=28, PY1=196, EMIN=-1.5, EMAX=2.1;
+  // carrier panel
+  var CY0=224, CY1=360, LMIN=2.4, LMAX=16.8;
+  // bottom row
+  var BY0=380, BY1=470;
+  var Ndop=1e16, ni=1e10, m0=ni*ni/Ndop;  // minority equilibrium = 1e4
 
-  var PX0=44, PX1=636, PY0=32, PY1=286, xJ=(PX0+PX1)/2;
-  var EMIN=-1.5, EMAX=2.1;
   function yE(E){ return PY1-(E-EMIN)/(EMAX-EMIN)*(PY1-PY0); }
+  function yC(L){ return CY1-(L-LMIN)/(LMAX-LMIN)*(CY1-CY0); }
   function smooth(t){ t=t<0?0:t>1?1:t; return t*t*(3-2*t); }
-  function dE(){ return Vbi - V; }                 // band bend = barrier (eV)
-  function depHalf(){ return 150*Math.sqrt(Math.max(0.02,dE())/Vbi); } // px, half width
-  function EcAt(x){ var W=depHalf(), L=xJ-W, R=xJ+W, de=dE();
-    if(x<=L) return de; if(x>=R) return 0; return de*(1-smooth((x-L)/(R-L))); }
-
-  function bandCurve(off, col, lw){
-    ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath();
-    for(var x=PX0;x<=PX1;x+=2){ var y=yE(EcAt(x)+off); if(x===PX0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
-    ctx.stroke();
-  }
-
+  function dE(){ return Vbi - V; }
+  function depHalf(){ return 150*Math.sqrt(Math.max(0.02,dE())/Vbi); }
+  function L(){ return xJ-depHalf(); }
+  function R(){ return xJ+depHalf(); }
+  function EcAt(x){ var de=dE(), l=L(), r=R(); if(x<=l) return de; if(x>=r) return 0; return de*(1-smooth((x-l)/(r-l))); }
+  function ex(){ return Math.exp(Math.max(-42,Math.min(42, V/kT))); }
   function diodeI(){ return Is*(Math.exp(V/kT)-1); }
 
-  function draw(){
-    ctx.clearRect(0,0,cv.width,cv.height);
-    var W=depHalf(), L=xJ-W, R=xJ+W, de=dE();
-    // P / N background tint
+  // carrier concentrations (cm^-3), depletion bridged by log-interp
+  function nAt(x){ var l=L(), r=R(), e=ex();
+    if(x>=r) return Ndop;
+    var nl=Math.max(1, m0+(m0*e-m0));                 // electrons at edge L (P side, injected minority)
+    if(x<=l){ var d=Math.exp(-(l-x)/64); return Math.max(1, m0+(m0*e-m0)*d); }
+    var t=(x-l)/(r-l); return Math.pow(10, Math.log10(nl)*(1-t)+Math.log10(Ndop)*t);
+  }
+  function pAt(x){ var l=L(), r=R(), e=ex();
+    if(x<=l) return Ndop;
+    var pr=Math.max(1, m0+(m0*e-m0));                 // holes at edge R (N side, injected minority)
+    if(x>=r){ var d=Math.exp(-(x-r)/64); return Math.max(1, m0+(m0*e-m0)*d); }
+    var t=(x-l)/(r-l); return Math.pow(10, Math.log10(Ndop)*(1-t)+Math.log10(pr)*t);
+  }
+
+  function depShade(y0,y1){ var l=L(), r=R();
+    ctx.fillStyle='rgba(150,140,170,.16)'; ctx.fillRect(l,y0,r-l,y1-y0);
+    ctx.strokeStyle='rgba(150,140,170,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(l,y0); ctx.lineTo(l,y1); ctx.moveTo(r,y0); ctx.lineTo(r,y1); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  function drawBand(){
     ctx.fillStyle='rgba(224,121,91,.06)'; ctx.fillRect(PX0,PY0,xJ-PX0,PY1-PY0);
     ctx.fillStyle='rgba(93,155,220,.06)'; ctx.fillRect(xJ,PY0,PX1-xJ,PY1-PY0);
-    // depletion region
-    ctx.fillStyle='rgba(150,140,170,.16)'; ctx.fillRect(L,PY0,R-L,PY1-PY0);
-    ctx.strokeStyle='rgba(150,140,170,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(L,PY0); ctx.lineTo(L,PY1); ctx.moveTo(R,PY0); ctx.lineTo(R,PY1); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='#8a7ba0'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center';
-    ctx.fillText('空乏層', xJ, PY0+12);
-    // region labels
-    ctx.fillStyle='#c2543d'; ctx.font='700 14px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('P型', PX0+6, PY0+16);
-    ctx.fillStyle='#3a6df0'; ctx.textAlign='right'; ctx.fillText('N型', PX1-6, PY0+16);
-    // bands
-    bandCurve(0, '#1d6f4a', 2.4);            // Ec (conduction)
-    bandCurve(-Egap, '#1d6f4a', 2.4);        // Ev (valence)
-    ctx.fillStyle='#1d6f4a'; ctx.font='11px "JetBrains Mono",monospace'; ctx.textAlign='left';
-    ctx.fillText('Ec 伝導帯', PX1-78, yE(0)-6);
-    ctx.fillText('Ev 価電子帯', PX1-86, yE(-Egap)-6);
-    // Fermi level (dashed): p-side near Ev, n-side near Ec ; split by V
-    var Efp=de-0.95, Efn=-0.15;
-    ctx.strokeStyle='#c9761f'; ctx.setLineDash([6,4]); ctx.lineWidth=1.6;
-    ctx.beginPath(); ctx.moveTo(PX0, yE(Efp)); ctx.lineTo(L, yE(Efp)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(R, yE(Efn)); ctx.lineTo(PX1, yE(Efn)); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='#c9761f'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('Ef', PX0+4, yE(Efp)-4);
-    if(Math.abs(V)>0.02){ var mx=R+8; ctx.strokeStyle='#c9761f'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(mx,yE(Efp)); ctx.lineTo(mx,yE(Efn)); ctx.stroke();
-      ctx.textAlign='left'; ctx.fillText('qV', mx+3, (yE(Efp)+yE(Efn))/2+3); }
-    // barrier arrow (the step electrons in N face)
-    var bx=R+30; ctx.strokeStyle='#555'; ctx.lineWidth=1.4;
-    ctx.beginPath(); ctx.moveTo(bx,yE(0)); ctx.lineTo(bx,yE(de)); ctx.stroke();
-    ctx.fillStyle='#555'; ctx.textAlign='left'; ctx.fillText('障壁', bx+4, (yE(0)+yE(de))/2);
-    // carriers over the barrier (forward = many)
-    var I=diodeI(); var flux=Math.max(0, Math.min(1, Math.log10(Math.abs(I)/Is+1)/12));
-    if(V>0.05){ ctx.fillStyle='#2f9e6e';
-      var ne=Math.round(2+flux*9);
-      for(var k=0;k<ne;k++){ var fx=L+Math.random()*(R-L); ctx.beginPath(); ctx.arc(fx, yE(EcAt(fx))-3, 2.4,0,7); ctx.fill(); }
-      ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('電子が壁を越える →', xJ, PY1-6);
-    }
-    // ---- I-V inset ----
-    var ix0=PX0, ix1=PX1, iy0=PY1+26, iy1=362, w=ix1-ix0, h=iy1-iy0, midx=ix0+w*0.62;
-    ctx.fillStyle='#fff'; ctx.fillRect(ix0,iy0,w,h); ctx.strokeStyle='#e3dbd0'; ctx.strokeRect(ix0+.5,iy0+.5,w,h);
-    ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(ix0,iy0+h*0.8); ctx.lineTo(ix1,iy0+h*0.8); ctx.moveTo(midx,iy0); ctx.lineTo(midx,iy1); ctx.stroke();
-    ctx.fillStyle='#7d7568'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('I–V特性', ix0+4, iy0+12);
-    ctx.textAlign='center'; ctx.fillText('V', ix1-8, iy0+h*0.8-3);
-    function ivx(v){ return midx + (v/0.75)*(ix1-midx-6); }
-    function ivy(i){ var n=Math.log10(Math.abs(i)/Is+1)/13; return iy0+h*0.8 - Math.min(1,n)*(h*0.74); }
-    ctx.strokeStyle='#3c7876'; ctx.lineWidth=2; ctx.beginPath();
-    for(var v=-1.0; v<=0.72; v+=0.01){ var ii=Is*(Math.exp(v/kT)-1); var X=ivx(v), Yy=ivy(ii);
-      if(v<=-1.0+1e-9)ctx.moveTo(X,Yy); else ctx.lineTo(X,Yy); }
-    ctx.stroke();
-    var opx=ivx(V), opy=ivy(diodeI());
-    ctx.fillStyle='#c9761f'; ctx.beginPath(); ctx.arc(opx,opy,4,0,7); ctx.fill();
+    depShade(PY0,PY1);
+    ctx.fillStyle='#8a7ba0'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('空乏層', xJ, PY0+11);
+    ctx.fillStyle='#c2543d'; ctx.font='700 13px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('P型', PX0+6, PY0+14);
+    ctx.fillStyle='#3a6df0'; ctx.textAlign='right'; ctx.fillText('N型', PX1-6, PY0+14);
+    function band(off){ ctx.strokeStyle='#1d6f4a'; ctx.lineWidth=2.3; ctx.beginPath();
+      for(var x=PX0;x<=PX1;x+=2){ var y=yE(EcAt(x)+off); if(x===PX0)ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
+    band(0); band(-Egap);
+    ctx.fillStyle='#1d6f4a'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left';
+    ctx.fillText('Ec', PX1-150, yE(0)-5); ctx.fillText('Ev', PX1-150, yE(-Egap)-5);
+    var Efp=dE()-0.95, Efn=-0.15;
+    ctx.strokeStyle='#c9761f'; ctx.setLineDash([6,4]); ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(PX0,yE(Efp)); ctx.lineTo(L(),yE(Efp)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R(),yE(Efn)); ctx.lineTo(PX1,yE(Efn)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#c9761f'; ctx.fillText('Ef', PX0+4, yE(Efp)-4);
+    if(Math.abs(V)>0.02){ var mx=R()+6; ctx.strokeStyle='#c9761f'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(mx,yE(Efp)); ctx.lineTo(mx,yE(Efn)); ctx.stroke(); ctx.fillText('qV', mx+3,(yE(Efp)+yE(Efn))/2+3); }
   }
+
+  function drawCarriers(){
+    ctx.fillStyle='#fff'; ctx.fillRect(PX0,CY0,PX1-PX0,CY1-CY0);
+    ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1; ctx.strokeRect(PX0+.5,CY0+.5,PX1-PX0,CY1-CY0);
+    depShade(CY0,CY1);
+    // gridlines per decade
+    ctx.fillStyle='#bbb3a6'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='right';
+    for(var d=4; d<=16; d+=4){ var y=yC(d); ctx.strokeStyle='#f0ebe2'; ctx.beginPath(); ctx.moveTo(PX0,y); ctx.lineTo(PX1,y); ctx.stroke(); ctx.fillStyle='#bbb3a6'; ctx.fillText('1e'+d, PX0-2, y+3); }
+    ctx.fillStyle='#7d7568'; ctx.font='600 10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('キャリア濃度（対数）  cm⁻³', PX0+4, CY0+12);
+    function curve(fn,col){ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
+      for(var x=PX0;x<=PX1;x+=2){ var c=Math.log10(Math.max(1,fn(x))); var y=yC(Math.max(LMIN,Math.min(LMAX,c)));
+        if(x===PX0)ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
+    curve(pAt,'#c2543d');   // holes
+    curve(nAt,'#3a6df0');   // electrons
+    // labels: majority / minority
+    ctx.font='10px "JetBrains Mono",monospace';
+    ctx.fillStyle='#c2543d'; ctx.textAlign='left'; ctx.fillText('正孔 p（P:多数）', PX0+6, yC(16)-4);
+    ctx.fillStyle='#3a6df0'; ctx.textAlign='right'; ctx.fillText('電子 n（N:多数）', PX1-6, yC(16)-4);
+    ctx.fillStyle='#3a6df0'; ctx.textAlign='left'; ctx.fillText('電子（少数）', PX0+6, yC(5.6));
+    ctx.fillStyle='#c2543d'; ctx.textAlign='right'; ctx.fillText('正孔（少数）', PX1-6, yC(5.6));
+    if(V>0.06){ ctx.fillStyle='#2f9e6e'; ctx.textAlign='center'; ctx.fillText('↑ 少数キャリア注入', xJ, CY1-6); }
+    else if(V<-0.06){ ctx.fillStyle='#c2543d'; ctx.textAlign='center'; ctx.fillText('↓ 少数キャリア吸い出し', xJ, CY1-6); }
+  }
+
+  function drawDiode(){
+    var x0=PX0, x1=352, cy=(BY0+BY1)/2;
+    ctx.fillStyle='#7d7568'; ctx.font='600 10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('ダイオード（向きと状態）', x0, BY0-2);
+    var fwd=V>0.02, rev=V<-0.02;
+    var on=fwd, col=on?'#2f9e6e':'#9a8f80';
+    // wires
+    var ax=x0+58, kx=x1-58;  // anode tip / cathode bar x
+    ctx.strokeStyle='#888'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0+10,cy); ctx.lineTo(ax-24,cy); ctx.moveTo(kx,cy); ctx.lineTo(x1-10,cy); ctx.stroke();
+    // triangle (anode -> cathode)
+    ctx.fillStyle=on?'rgba(47,158,122,.85)':'rgba(154,143,128,.5)'; ctx.strokeStyle=col; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(ax-24,cy-16); ctx.lineTo(kx,cy); ctx.lineTo(ax-24,cy+16); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // cathode bar
+    ctx.beginPath(); ctx.moveTo(kx,cy-16); ctx.lineTo(kx,cy+16); ctx.stroke();
+    // terminals P / N
+    ctx.fillStyle='#c2543d'; ctx.font='700 11px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('P', x0+18, cy-12);
+    ctx.fillStyle='#3a6df0'; ctx.fillText('N', x1-18, cy-12);
+    // polarity (+ on whichever side is higher potential)
+    ctx.font='700 13px "JetBrains Mono",monospace';
+    if(Math.abs(V)>0.02){
+      ctx.fillStyle=col;
+      ctx.fillText(fwd?'＋':'−', x0+14, cy+20);
+      ctx.fillText(fwd?'−':'＋', x1-14, cy+20);
+    }
+    // state
+    ctx.font='700 12px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillStyle=col;
+    ctx.fillText(fwd?'順方向 → 導通 ON':(rev?'逆方向 → 遮断 OFF':'バイアス 0V'), (x0+x1)/2, BY1-2);
+  }
+
+  function drawIV(){
+    var ix0=372, ix1=PX1, iy0=BY0, iy1=BY1, w=ix1-ix0, h=iy1-iy0, midx=ix0+w*0.6;
+    ctx.fillStyle='#fff'; ctx.fillRect(ix0,iy0,w,h); ctx.strokeStyle='#e3dbd0'; ctx.strokeRect(ix0+.5,iy0+.5,w,h);
+    ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(ix0,iy0+h*0.82); ctx.lineTo(ix1,iy0+h*0.82); ctx.moveTo(midx,iy0); ctx.lineTo(midx,iy1); ctx.stroke();
+    ctx.fillStyle='#7d7568'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('I–V特性', ix0+4, iy0+12);
+    function ivx(v){ return midx + (v/0.75)*(ix1-midx-6); }
+    function ivy(i){ var n=Math.log10(Math.abs(i)/Is+1)/13; return iy0+h*0.82 - Math.min(1,n)*(h*0.74); }
+    ctx.strokeStyle='#3c7876'; ctx.lineWidth=2; ctx.beginPath();
+    for(var v=-1.0; v<=0.72; v+=0.01){ var ii=Is*(Math.exp(v/kT)-1); if(v<=-1.0+1e-9)ctx.moveTo(ivx(v),ivy(ii)); else ctx.lineTo(ivx(v),ivy(ii)); }
+    ctx.stroke();
+    ctx.fillStyle='#c9761f'; ctx.beginPath(); ctx.arc(ivx(V),ivy(diodeI()),4,0,7); ctx.fill();
+  }
+
+  function draw(){ ctx.clearRect(0,0,cv.width,cv.height); drawBand(); drawCarriers(); drawDiode(); drawIV(); }
 
   function setReadout(){
     var I=diodeI(), de=dE();
@@ -142,10 +193,10 @@ import Footer from '../components/Footer.astro';
     var Itxt = Math.abs(I)<1e-9 ? (I*1e12).toFixed(2)+' pA' : (Math.abs(I)<1e-3 ? (I*1e6).toFixed(2)+' µA' : (I*1e3).toFixed(2)+' mA');
     document.getElementById('readout').innerHTML =
       mode+'　印加電圧 V = <b>'+V.toFixed(2)+' V</b>　／　内蔵電位 Vbi = '+Vbi.toFixed(2)+' V<br>'+
-      '障壁の高さ q(Vbi−V) = <b>'+de.toFixed(2)+' eV</b>　／　空乏層の幅 ∝ √(Vbi−V) ＝ <b>'+(Math.sqrt(Math.max(0.02,de)/Vbi)).toFixed(2)+'</b>（平衡=1.00）<br>'+
-      '電流 I = Is(e^(V/kT)−1) ≈ <b>'+Itxt+'</b>';
+      '障壁 q(Vbi−V) = <b>'+de.toFixed(2)+' eV</b>　／　空乏層幅 ∝ √(Vbi−V) = <b>'+(Math.sqrt(Math.max(0.02,de)/Vbi)).toFixed(2)+'</b>（平衡=1.00）<br>'+
+      '少数キャリアは接合端で約 <b>e^(V/kT)='+(ex()>1e3?ex().toExponential(1):ex().toFixed(2))+'</b> 倍　／　電流 I ≈ <b>'+Itxt+'</b>';
     document.getElementById('status').textContent =
-      'kT/q='+kT+'V。順方向は V が 0.026V 増えるごとに電流が約 e 倍（指数）。逆方向は壁が上がり空乏層が広がって、ほぼ Is だけ。';
+      'kT/q='+kT+'V。順方向は V が 0.026V 増えるごとに注入も電流も約 e 倍（指数）。逆方向は少数キャリアが吸い出され、ほぼ Is だけ。';
   }
   function render(){ draw(); setReadout(); }
 
