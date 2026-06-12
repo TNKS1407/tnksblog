@@ -49,6 +49,7 @@ import Footer from '../components/Footer.astro';
         <button class="btn" id="fwd" type="button">順方向 0.6V</button>
         <button class="btn" id="zero" type="button">0V（平衡）</button>
         <button class="btn" id="rev" type="button">逆方向 -0.8V</button>
+        <button class="btn" id="trr" type="button" style="border-color:#c2543d;color:#c2543d;">⚡ 逆回復を見る</button>
       </div>
       <div class="readout" id="readout"></div>
       <div class="status" id="status"></div>
@@ -61,6 +62,7 @@ import Footer from '../components/Footer.astro';
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
   var Vbi=0.80, Egap=1.10, kT=0.026, Is=1e-12;
   var V=0;
+  var injF=1, trrOn=false, trrProg=0, trrRaf=null, trrT0=0, TRRDUR=2600; // reverse-recovery transient
   var PX0=44, PX1=636, xJ=(PX0+PX1)/2;
   // band panel
   var PY0=28, PY1=196, EMIN=-1.5, EMAX=2.1;
@@ -82,13 +84,13 @@ import Footer from '../components/Footer.astro';
   function diodeI(){ return Is*(Math.exp(V/kT)-1); }
 
   // carrier concentrations (cm^-3), depletion bridged by log-interp
-  function nAt(x){ var l=L(), r=R(), e=ex();
+  function nAt(x){ var l=L(), r=R(), e=injF;
     if(x>=r) return Ndop;
     var nl=Math.max(1, m0+(m0*e-m0));                 // electrons at edge L (P side, injected minority)
     if(x<=l){ var d=Math.exp(-(l-x)/64); return Math.max(1, m0+(m0*e-m0)*d); }
     var t=(x-l)/(r-l); return Math.pow(10, Math.log10(nl)*(1-t)+Math.log10(Ndop)*t);
   }
-  function pAt(x){ var l=L(), r=R(), e=ex();
+  function pAt(x){ var l=L(), r=R(), e=injF;
     if(x<=l) return Ndop;
     var pr=Math.max(1, m0+(m0*e-m0));                 // holes at edge R (N side, injected minority)
     if(x>=r){ var d=Math.exp(-(x-r)/64); return Math.max(1, m0+(m0*e-m0)*d); }
@@ -185,9 +187,13 @@ import Footer from '../components/Footer.astro';
     ctx.fillStyle='#c9761f'; ctx.beginPath(); ctx.arc(ivx(V),ivy(diodeI()),4,0,7); ctx.fill();
   }
 
-  function draw(){ ctx.clearRect(0,0,cv.width,cv.height); drawBand(); drawCarriers(); drawDiode(); drawIV(); }
+  function draw(){ ctx.clearRect(0,0,cv.width,cv.height); drawBand(); drawCarriers(); drawDiode(); if(trrOn) drawTRR(); else drawIV(); }
 
   function setReadout(){
+    if(trrOn){ var ph = trrProg<0.18?'順方向：少数キャリアを蓄積中':(trrProg<0.62?'逆にスイッチ → 蓄積電荷を掃き出し中（逆向きに電流が流れる）':(trrProg<0.88?'回復：電流が 0 へ snap':'遮断完了'));
+      document.getElementById('readout').innerHTML='<b style="color:#c2543d">逆回復(trr) 実演中</b>　— '+ph+'<br>順方向で溜めた少数キャリアの山が抜け切るまで、逆方向でも電流が流れ続ける。これが逆回復だ。';
+      document.getElementById('status').textContent='順→逆スイッチ直後は、蓄積電荷のせいで一瞬ダイオードが「効かない」。スイッチング電源では効率・ノイズ・サージに効いてくる所。';
+      return; }
     var I=diodeI(), de=dE();
     var mode = V>0.02?'<b style="color:#2f9e6e">順方向</b>':(V<-0.02?'<b style="color:#c2543d">逆方向</b>':'平衡（バイアス無し）');
     var Itxt = Math.abs(I)<1e-9 ? (I*1e12).toFixed(2)+' pA' : (Math.abs(I)<1e-3 ? (I*1e6).toFixed(2)+' µA' : (I*1e3).toFixed(2)+' mA');
@@ -198,14 +204,52 @@ import Footer from '../components/Footer.astro';
     document.getElementById('status').textContent =
       'kT/q='+kT+'V。順方向は V が 0.026V 増えるごとに注入も電流も約 e 倍（指数）。逆方向は少数キャリアが吸い出され、ほぼ Is だけ。';
   }
-  function render(){ draw(); setReadout(); }
+  function render(){ if(!trrOn) injF=ex(); draw(); setReadout(); }
+
+  // ---- reverse recovery (trr) transient ----
+  function trrI(p){
+    if(p<0.15) return 1;
+    if(p<0.20) return 1+(-2.6)*((p-0.15)/0.05);
+    if(p<0.62) return -1.6;
+    if(p<0.88) return -1.6*(1-smooth((p-0.62)/0.26));
+    return 0;
+  }
+  function trrLogInj(p){ var lf=0.6/kT, lr=-0.8/kT;
+    if(p<0.18) return lf;
+    if(p<0.62){ var k=(p-0.18)/0.44; return lf*(1-k)+lr*k; }
+    return lr;
+  }
+  function drawTRR(){
+    var ix0=372, ix1=PX1, iy0=BY0, iy1=BY1, w=ix1-ix0, h=iy1-iy0, midY=iy0+h*0.46;
+    ctx.fillStyle='#fff'; ctx.fillRect(ix0,iy0,w,h); ctx.strokeStyle='#e3dbd0'; ctx.strokeRect(ix0+.5,iy0+.5,w,h);
+    ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(ix0,midY); ctx.lineTo(ix1,midY); ctx.stroke();
+    ctx.fillStyle='#7d7568'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('i–t（逆回復 trr）', ix0+4, iy0+12);
+    function tx(p){ return ix0+8 + p*(w-16); }
+    function ty(i){ return midY - i*(h*0.32); }
+    ctx.strokeStyle='#c2543d'; ctx.lineWidth=2; ctx.beginPath();
+    for(var p=0;p<=trrProg+0.0001;p+=0.004){ var X=tx(p),Y=ty(trrI(p)); if(p===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); }
+    ctx.stroke();
+    var mx=tx(trrProg), my=ty(trrI(trrProg)); ctx.fillStyle='#c9761f'; ctx.beginPath(); ctx.arc(mx,my,4,0,7); ctx.fill();
+    ctx.fillStyle='#bbb3a6'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='left';
+    ctx.fillText('順電流', ix0+8, ty(1)-2); ctx.fillText('逆電流(回復)', ix0+8, ty(-1.6)+11);
+  }
+  function stopTRR(){ if(trrRaf){ cancelAnimationFrame(trrRaf); trrRaf=null; } trrOn=false; var b=document.getElementById('bias'); if(b)b.disabled=false; }
+  function startTRR(){ stopTRR(); trrOn=true; trrProg=0; trrT0=performance.now(); document.getElementById('bias').disabled=true; trrLoop(); }
+  function trrLoop(){
+    var p=(performance.now()-trrT0)/TRRDUR;
+    if(p>=1){ trrOn=false; V=-0.8; eb.value=-80; ebv.textContent='-0.80 V'; render(); document.getElementById('bias').disabled=false; return; }
+    trrProg=p; V=(p<0.17?0.6:-0.8); injF=Math.exp(trrLogInj(p));
+    draw(); setReadout();
+    trrRaf=requestAnimationFrame(trrLoop);
+  }
 
   var eb=document.getElementById('bias'), ebv=document.getElementById('biasv');
-  function setV(v){ V=v; eb.value=Math.round(v*100); ebv.textContent=v.toFixed(2)+' V'; render(); }
+  function setV(v){ stopTRR(); V=v; eb.value=Math.round(v*100); ebv.textContent=v.toFixed(2)+' V'; render(); }
   eb.oninput=function(){ V=(+eb.value)/100; ebv.textContent=V.toFixed(2)+' V'; render(); };
   document.getElementById('fwd').onclick=function(){ setV(0.6); };
   document.getElementById('zero').onclick=function(){ setV(0); };
   document.getElementById('rev').onclick=function(){ setV(-0.8); };
+  document.getElementById('trr').onclick=function(){ startTRR(); };
 
   render();
 })();
