@@ -50,6 +50,8 @@ import Footer from '../components/Footer.astro';
         <button class="btn" id="zero" type="button">0V（平衡）</button>
         <button class="btn" id="rev" type="button">逆方向 -0.8V</button>
         <button class="btn" id="trr" type="button" style="border-color:#c2543d;color:#c2543d;">⚡ 逆回復を見る</button>
+        <div class="ctrl-group"><label>τ寿命</label><input type="range" id="ttau" min="4" max="30" value="12"><span class="vv" id="ttauv">0.12</span></div>
+        <div class="ctrl-group"><label>di/dt</label><input type="range" id="tdidt" min="3" max="20" value="8"><span class="vv" id="tdidtv">8</span></div>
       </div>
       <div class="readout" id="readout"></div>
       <div class="status" id="status"></div>
@@ -187,9 +189,11 @@ import Footer from '../components/Footer.astro';
   function draw(){ ctx.clearRect(0,0,cv.width,cv.height); drawBand(); drawCarriers(); drawDiode(); if(trrOn) drawTRR(); else drawIV(); }
 
   function setReadout(){
-    if(trrOn){ var ph = trrProg<0.18?'順方向：少数キャリアを蓄積中':(trrProg<0.62?'逆にスイッチ → 蓄積電荷を掃き出し中（逆向きに電流が流れる）':(trrProg<0.88?'回復：電流が 0 へ snap':'遮断完了'));
-      document.getElementById('readout').innerHTML='<b style="color:#c2543d">逆回復(trr) 実演中</b>　— '+ph+'<br>順方向で溜めた少数キャリアの山が抜け切るまで、逆方向でも電流が流れ続ける。これが逆回復だ。';
-      document.getElementById('status').textContent='順→逆スイッチ直後は、蓄積電荷のせいで一瞬ダイオードが「効かない」。スイッチング電源では効率・ノイズ・サージに効いてくる所。';
+    if(trrOn){ var ph = trrPhase==='store'?'蓄積電荷を掃き出し中（接合はまだ導通）':(trrPhase==='recover'?'回復：電流が 0 へ snap':'遮断完了');
+      document.getElementById('readout').innerHTML='<b style="color:#c2543d">逆回復(trr)：dQ/dt = i − Q/τ を1ステップずつ積分</b>　— '+ph+'<br>'+
+        'τ='+trrTau.toFixed(2)+', di/dt='+trrDidt+'　いま Q=<b>'+(Math.max(0,trrQ)).toFixed(3)+'</b>, i=<b>'+trrI_.toFixed(2)+'</b>'+
+        (trrPhase!=='store'?'　／　蓄積時間 ts='+trrTs.toFixed(3)+', 逆電流ピーク I_RM='+(-trrIRM).toFixed(2):'');
+      document.getElementById('status').textContent='τ（少数キャリア寿命）を短く／di/dt を緩くするほど、逆回復は速く浅くなる。速いダイオードは τ が小さい。';
       return; }
     var I=diodeI(), de=dE();
     var mode = V>0.02?'<b style="color:#2f9e6e">順方向</b>':(V<-0.02?'<b style="color:#c2543d">逆方向</b>':'平衡（バイアス無し）');
@@ -204,40 +208,52 @@ import Footer from '../components/Footer.astro';
   function render(){ if(!trrOn) injF=ex(); draw(); setReadout(); }
 
   // ---- reverse recovery (trr) transient ----
-  function trrI(p){
-    if(p<0.15) return 1;
-    if(p<0.20) return 1+(-2.6)*((p-0.15)/0.05);
-    if(p<0.62) return -1.6;
-    if(p<0.88) return -1.6*(1-smooth((p-0.62)/0.26));
-    return 0;
+  var trrTau=0.12, trrDidt=8, IF=1;
+  var trrQ=0, trrI_=0, trrT=0, trrPhase='idle', trrIRM=0, trrTs=0, trrTzc=0, trrTwin=1, trrHist=[];
+  function trrInit(){
+    trrTau=(+document.getElementById('ttau').value)/100;
+    trrDidt=(+document.getElementById('tdidt').value);
+    IF=1; trrQ=IF*trrTau; trrI_=IF; trrT=0; trrPhase='store'; trrIRM=0; trrTs=0;
+    trrTzc=IF/trrDidt; trrTwin=Math.max(2.0*trrTzc, 10*trrTau, 0.45); trrHist=[[0,IF]];
   }
-  function trrLogInj(p){ var lf=0.6/kT, lr=-0.8/kT;
-    if(p<0.18) return lf;
-    if(p<0.62){ var k=(p-0.18)/0.44; return lf*(1-k)+lr*k; }
-    return lr;
+  function trrStep(dt){
+    if(trrPhase==='store'){
+      var i=IF - trrDidt*trrT;
+      trrQ += (i - trrQ/trrTau)*dt; trrI_=i; trrT+=dt;
+      if(trrQ<=0){ trrQ=0; trrTs=trrT; trrIRM=i; trrPhase='recover'; }
+    } else if(trrPhase==='recover'){
+      var tr=Math.max(0.01, 0.45*trrTau);
+      trrI_=trrIRM*Math.exp(-(trrT-trrTs)/tr); trrT+=dt;
+      if(Math.abs(trrI_)<0.02 || trrT>trrTwin){ trrI_=0; trrPhase='done'; }
+    }
+    trrHist.push([trrT, trrI_]);
+    var q0=IF*trrTau, frac=q0>0?Math.max(0,trrQ/q0):0;
+    injF=Math.max(Math.exp(-0.8/kT), frac*Math.exp(0.6/kT));
+    V=(trrPhase==='store' && trrQ>0.01*q0)?0.45:-0.8;
   }
   function drawTRR(){
     var ix0=372, ix1=PX1, iy0=BY0, iy1=BY1, w=ix1-ix0, h=iy1-iy0, midY=iy0+h*0.46;
     ctx.fillStyle='#fff'; ctx.fillRect(ix0,iy0,w,h); ctx.strokeStyle='#e3dbd0'; ctx.strokeRect(ix0+.5,iy0+.5,w,h);
     ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(ix0,midY); ctx.lineTo(ix1,midY); ctx.stroke();
     ctx.fillStyle='#7d7568'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('i–t（逆回復 trr）', ix0+4, iy0+12);
-    function tx(p){ return ix0+8 + p*(w-16); }
-    function ty(i){ return midY - i*(h*0.32); }
+    function tx(t){ return ix0+8 + Math.min(1,t/trrTwin)*(w-16); }
+    function ty(i){ return midY - i*(h*0.30); }
     ctx.strokeStyle='#c2543d'; ctx.lineWidth=2; ctx.beginPath();
-    for(var p=0;p<=trrProg+0.0001;p+=0.004){ var X=tx(p),Y=ty(trrI(p)); if(p===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); }
+    for(var k=0;k<trrHist.length;k++){ var X=tx(trrHist[k][0]),Y=ty(trrHist[k][1]); if(k===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); }
     ctx.stroke();
-    var mx=tx(trrProg), my=ty(trrI(trrProg)); ctx.fillStyle='#c9761f'; ctx.beginPath(); ctx.arc(mx,my,4,0,7); ctx.fill();
+    var lp=trrHist[trrHist.length-1]; ctx.fillStyle='#c9761f'; ctx.beginPath(); ctx.arc(tx(lp[0]),ty(lp[1]),4,0,7); ctx.fill();
+    if(trrIRM<0){ ctx.fillStyle='#c2543d'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('I_RM='+(-trrIRM).toFixed(2), tx(trrTs)+2, ty(trrIRM)+11); }
     ctx.fillStyle='#bbb3a6'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='left';
-    ctx.fillText('順電流', ix0+8, ty(1)-2); ctx.fillText('逆電流(回復)', ix0+8, ty(-1.6)+11);
+    ctx.fillText('順', ix0+9, ty(1)-1); ctx.fillText('逆', ix0+9, ty(-1)+9);
   }
   function stopTRR(){ if(trrRaf){ cancelAnimationFrame(trrRaf); trrRaf=null; } trrOn=false; var b=document.getElementById('bias'); if(b)b.disabled=false; }
-  function startTRR(){ stopTRR(); trrOn=true; trrProg=0; trrT0=performance.now(); document.getElementById('bias').disabled=true; trrLoop(); }
+  function startTRR(){ stopTRR(); trrOn=true; trrInit(); document.getElementById('bias').disabled=true; trrLoop(); }
   function trrLoop(){
-    var p=(performance.now()-trrT0)/TRRDUR;
-    if(p>=1){ trrOn=false; V=-0.8; eb.value=-80; ebv.textContent='-0.80 V'; render(); document.getElementById('bias').disabled=false; return; }
-    trrProg=p; V=(p<0.17?0.6:-0.8); injF=Math.exp(trrLogInj(p));
+    var dt=0.0016, steps=Math.max(1, Math.round(trrTwin/dt/150));
+    for(var s=0;s<steps && trrPhase!=='done'; s++) trrStep(dt);
     draw(); setReadout();
-    trrRaf=requestAnimationFrame(trrLoop);
+    if(trrPhase!=='done'){ trrRaf=requestAnimationFrame(trrLoop); }
+    else { document.getElementById('bias').disabled=false; }
   }
 
   var eb=document.getElementById('bias'), ebv=document.getElementById('biasv');
@@ -247,6 +263,8 @@ import Footer from '../components/Footer.astro';
   document.getElementById('zero').onclick=function(){ setV(0); };
   document.getElementById('rev').onclick=function(){ setV(-0.8); };
   document.getElementById('trr').onclick=function(){ startTRR(); };
+  document.getElementById('ttau').oninput=function(){ document.getElementById('ttauv').textContent=(+this.value/100).toFixed(2); if(trrOn&&trrPhase==='done') startTRR(); };
+  document.getElementById('tdidt').oninput=function(){ document.getElementById('tdidtv').textContent=this.value; if(trrOn&&trrPhase==='done') startTRR(); };
 
   render();
 })();
