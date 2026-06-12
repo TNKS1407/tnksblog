@@ -1,0 +1,135 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="ゾーンプレート — エイリアシングの王様" description="sin(α·r²) の同心円。サンプリングを粗くすると、ニセの渦・モアレが湧く。点サンプリング vs 面積平均(アンチエイリアス)を左右で比べ、エイリアシングが出始める半径も描く。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style is:global>
+    .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .intro h1{font-size:1.25rem;margin:0 0 .5rem;}
+    .intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin:0 0 .4rem;}
+    .intro a{color:#3c7876;}
+    .card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;background:#111;
+      width:100%;height:auto;}
+    .controls{display:flex;flex-wrap:wrap;gap:.7rem 1rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);white-space:nowrap;}
+    .ctrl-group input[type=range]{width:130px;accent-color:#3c7876;}
+    .ctrl-group .vv{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;min-width:2.6em;}
+    .btn{padding:.38rem .9rem;border:1px solid var(--border,#e3dbd0);border-radius:8px;background:none;
+      font-family:inherit;font-size:.8rem;color:var(--text-muted,#7d7568);cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .btn.on{background:#3c7876;color:#fff;border-color:#3c7876;}
+    .readout{margin-top:1rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);
+      border-radius:10px;padding:.85rem 1.1rem;font-size:.84rem;color:#33433f;line-height:1.7;}
+    .readout b{color:#c9761f;}
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.7rem;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main class="wrap">
+    <div class="intro">
+      <h1>ゾーンプレート — エイリアシングの王様</h1>
+      <p>同心円が外ほど詰まっていくこの模様、中身は <strong>sin(α·r²)</strong>。半径の2乗に比例して位相が回るから、外側ほど縞が細かくなる「2次元のチャープ信号」だ。だから<strong>エイリアシングのテストパターンの王様</strong>——少しでも粗くサンプルすると、本物には無いニセの渦やモアレがブワッと湧く。</p>
+      <p>左は<strong>点サンプリング</strong>（その点の値だけ拾う＝普通の縮小）、右は<strong>面積平均</strong>（升目の中をならす＝アンチエイリアス）。サンプリング間隔を上げると、左にはニセ模様が暴れ、右は素直に縮むだけ。左の<strong style="color:#e0795b">赤い円</strong>は「ここから外は縞が細かすぎてナイキストを超える＝嘘が出る」境界。<a href="/play">← /play に戻る</a></p>
+    </div>
+
+    <div class="card">
+      <canvas id="cv" width="620" height="356"></canvas>
+      <div class="controls">
+        <div class="ctrl-group"><label>縞の細かさ α</label><input type="range" id="alpha" min="12" max="100" value="48"><span class="vv" id="alphav">48</span></div>
+        <div class="ctrl-group"><label>サンプリング間隔</label><input type="range" id="step" min="1" max="9" value="3"><span class="vv" id="stepv">3px</span></div>
+        <button class="btn" id="anim" type="button">▶ 息づかせる</button>
+      </div>
+      <div class="readout" id="readout"></div>
+      <div class="status" id="status"></div>
+    </div>
+  </main>
+  <Footer />
+
+<script is:inline>
+(function(){
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var S=280;                       // panel size
+  var LX=12, RX=328, PY=30;        // panel origins
+  var alpha=0.00288, step=3, phase=0, anim=false, raf=null;
+
+  function val(dx,dy){ return 0.5+0.5*Math.sin(alpha*(dx*dx+dy*dy)+phase); }
+
+  function buildPanel(ox, area){
+    var img=ctx.createImageData(S,S), d=img.data, c=S/2;
+    for(var py=0;py<S;py++){ for(var px=0;px<S;px++){
+      var g;
+      if(step<=1){ g=val(px-c,py-c); }
+      else if(!area){ var sx=Math.floor(px/step)*step+step*0.5-c, sy=Math.floor(py/step)*step+step*0.5-c; g=val(sx,sy); }
+      else { var x0=Math.floor(px/step)*step, y0=Math.floor(py/step)*step, N=step<4?step:4, acc=0;
+        for(var i=0;i<N;i++)for(var j=0;j<N;j++){ acc+=val(x0+(i+0.5)*step/N-c, y0+(j+0.5)*step/N-c); }
+        g=acc/(N*N); }
+      var v=g*255|0, idx=(py*S+px)*4; d[idx]=d[idx+1]=d[idx+2]=v; d[idx+3]=255;
+    }}
+    ctx.putImageData(img, ox, PY);
+  }
+
+  function aliasRadius(){ // local cycles/pixel = alpha*r/PI ; Nyquist for step s = 0.5/s
+    if(step<=1) return null;
+    return Math.PI/(2*alpha*step);
+  }
+
+  function draw(){
+    ctx.fillStyle='#111'; ctx.fillRect(0,0,cv.width,cv.height);
+    buildPanel(LX, false);
+    buildPanel(RX, true);
+    // panel borders + labels
+    ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=1;
+    ctx.strokeRect(LX+.5,PY+.5,S,S); ctx.strokeRect(RX+.5,PY+.5,S,S);
+    ctx.font='600 13px "JetBrains Mono",monospace'; ctx.textAlign='center';
+    ctx.fillStyle='#e0795b'; ctx.fillText('点サンプリング（エイリアス）', LX+S/2, PY-9);
+    ctx.fillStyle='#5ad1ff'; ctx.fillText('面積平均（アンチエイリアス）', RX+S/2, PY-9);
+    // alias-onset circle on the point panel
+    var ra=aliasRadius();
+    if(ra && ra < S*0.72){
+      ctx.strokeStyle='#e0795b'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.arc(LX+S/2, PY+S/2, ra, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='#e0795b'; ctx.font='10px "JetBrains Mono",monospace';
+      ctx.fillText('ここから外は嘘', LX+S/2, PY+S/2-ra-5);
+    }
+  }
+
+  function setReadout(){
+    var ra=aliasRadius();
+    var rings=Math.round(alpha*(S/2)*(S/2)/(2*Math.PI));
+    document.getElementById('readout').innerHTML =
+      'sin(α·r²)、α='+alpha.toFixed(5)+'　中心から端までで約 <b>'+rings+'</b> 本の縞。'+
+      (step<=1
+        ? 'サンプリング間隔 1px ＝ 縮小なしなので、左右とも本物。間隔を上げてみて。'
+        : 'サンプリング間隔 <b>'+step+'px</b>。エイリアシングが出始める半径 ≈ <b>'+Math.round(ra)+' px</b>（左の赤い円）。その外側で、左はニセ模様、右は素直にボケて消える。');
+    document.getElementById('status').textContent =
+      '局所周波数 α·r/π がナイキスト 0.5/'+step+' を超えると折り返す → r > π/(2α·間隔) で嘘が出る。'+(anim?' ／ 息づき中':'');
+  }
+
+  function render(){ draw(); setReadout(); }
+
+  function loop(){ phase+=0.06; render(); raf=requestAnimationFrame(loop); }
+  function startAnim(){ if(raf) return; anim=true; document.getElementById('anim').classList.add('on'); document.getElementById('anim').textContent='■ 止める'; loop(); }
+  function stopAnim(){ if(raf){ cancelAnimationFrame(raf); raf=null; } anim=false; var b=document.getElementById('anim'); b.classList.remove('on'); b.textContent='▶ 息づかせる'; render(); }
+
+  var ea=document.getElementById('alpha'), eav=document.getElementById('alphav');
+  ea.oninput=function(){ alpha=(+ea.value)*0.00006; eav.textContent=ea.value; if(!anim) render(); };
+  var es=document.getElementById('step'), esv=document.getElementById('stepv');
+  es.oninput=function(){ step=+es.value; esv.textContent=step+'px'; if(!anim) render(); };
+  document.getElementById('anim').onclick=function(){ if(anim) stopAnim(); else startAnim(); };
+
+  render();
+})();
+</script>
+</body>
+</html>
