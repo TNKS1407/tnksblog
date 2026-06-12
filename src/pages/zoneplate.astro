@@ -44,7 +44,7 @@ import Footer from '../components/Footer.astro';
     </div>
 
     <div class="card">
-      <canvas id="cv" width="620" height="356"></canvas>
+      <canvas id="cv" width="620" height="500"></canvas>
       <div class="controls">
         <div class="ctrl-group"><label>縞の細かさ α</label><input type="range" id="alpha" min="12" max="100" value="48"><span class="vv" id="alphav">48</span></div>
         <div class="ctrl-group"><label>サンプリング間隔</label><input type="range" id="step" min="1" max="9" value="3"><span class="vv" id="stepv">3px</span></div>
@@ -61,6 +61,8 @@ import Footer from '../components/Footer.astro';
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
   var S=280;                       // panel size
   var LX=12, RX=328, PY=30;        // panel origins
+  var SX0=12, SX1=608, SY0=328, SY1=478, RMAX=140; // 1D cross-section strip (RMAX = panel half-width)
+  function r2sx(r){ return SX0 + r/RMAX*(SX1-SX0); }
   var alpha=0.00288, step=3, phase=0, anim=false, raf=null;
 
   function val(dx,dy){ return 0.5+0.5*Math.sin(alpha*(dx*dx+dy*dy)+phase); }
@@ -84,6 +86,36 @@ import Footer from '../components/Footer.astro';
     return Math.PI/(2*alpha*step);
   }
 
+  // 1D look-down: the radial cross-section sin(α r²) is a chirp; equally-spaced samples
+  // trace an apparent low-frequency wave (the alias) past where true freq crosses Nyquist.
+  function drawStrip(){
+    var midY=(SY0+SY1)/2, amp=(SY1-SY0)/2-22;
+    ctx.fillStyle='#faf8f4'; ctx.fillRect(SX0,SY0,SX1-SX0,SY1-SY0);
+    ctx.strokeStyle='#d9d2c6'; ctx.lineWidth=1; ctx.strokeRect(SX0+.5,SY0+.5,SX1-SX0,SY1-SY0);
+    ctx.fillStyle='#3c7876'; ctx.font='600 11px "JetBrains Mono",monospace'; ctx.textAlign='left';
+    ctx.fillText('中心からの断面 = 1次元チャープ sin(α·r²)　／　●＝等間隔サンプル, 橙線＝見かけの波(エイリアス)', SX0+5, SY0+14);
+    ctx.strokeStyle='#eee7db'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(SX0,midY); ctx.lineTo(SX1,midY); ctx.stroke();
+    // true chirp
+    ctx.strokeStyle='#3c7876'; ctx.lineWidth=1.3; ctx.beginPath();
+    for(var sx=0; sx<=(SX1-SX0); sx++){ var r=sx/(SX1-SX0)*RMAX, y=midY-amp*Math.sin(alpha*r*r+phase);
+      if(sx===0)ctx.moveTo(SX0+sx,y); else ctx.lineTo(SX0+sx,y); }
+    ctx.stroke();
+    // samples + alias polyline
+    var pts=[], r;
+    for(r=0; r<=RMAX+0.001; r+=step){ pts.push([r2sx(r), midY-amp*Math.sin(alpha*r*r+phase)]); }
+    if(step>1){ ctx.strokeStyle='#c9761f'; ctx.lineWidth=1.6; ctx.beginPath();
+      for(var i=0;i<pts.length;i++){ if(i===0)ctx.moveTo(pts[i][0],pts[i][1]); else ctx.lineTo(pts[i][0],pts[i][1]); } ctx.stroke(); }
+    ctx.fillStyle='#c9761f';
+    for(var k=0;k<pts.length;k++){ ctx.beginPath(); ctx.arc(pts[k][0],pts[k][1],2.4,0,7); ctx.fill(); }
+    // onset marker (matches the 2D red circle radius)
+    var ra=aliasRadius();
+    if(ra && ra<RMAX){ var ox=r2sx(ra); ctx.strokeStyle='#e0795b'; ctx.setLineDash([5,4]); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(ox,SY0+20); ctx.lineTo(ox,SY1-4); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='#e0795b'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center';
+      ctx.fillText('折り返し開始（＝左の円の半径）', ox, SY1-7); }
+    ctx.textAlign='left';
+  }
+
   function draw(){
     ctx.fillStyle='#111'; ctx.fillRect(0,0,cv.width,cv.height);
     buildPanel(LX, false);
@@ -102,6 +134,10 @@ import Footer from '../components/Footer.astro';
       ctx.fillStyle='#e0795b'; ctx.font='10px "JetBrains Mono",monospace';
       ctx.fillText('ここから外は嘘', LX+S/2, PY+S/2-ra-5);
     }
+    // mark which radius the 1D strip below is a cross-section of
+    ctx.strokeStyle='rgba(90,209,255,.9)'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(LX+S/2, PY+S/2); ctx.lineTo(LX+S/2+RMAX, PY+S/2); ctx.stroke(); ctx.setLineDash([]);
+    drawStrip();
   }
 
   function setReadout(){
