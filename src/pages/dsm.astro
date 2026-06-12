@@ -59,6 +59,10 @@ import Footer from '../components/Footer.astro';
       <div class="row"><span class="rlab">入力</span><div class="ops" id="sigs"></div>
         <div class="ctrl-group" id="invalGroup" style="margin-left:.4rem;"><label>値</label><input type="range" id="inval" min="5" max="95" value="30"><span id="invalv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;">0.30</span></div>
       </div>
+      <div class="row"><span class="rlab">復元の窓</span>
+        <div class="ctrl-group"><input type="range" id="win" min="1" max="48" value="16"><span id="winv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;min-width:2.2em;">16</span></div>
+        <span class="status" style="margin:0 0 0 .3rem;">※ 1ビット列をならして信号を取り戻す窓。広い＝滑らかだが遅延大／狭い＝遅延小だがギザつく</span>
+      </div>
 
       <canvas id="cv" width="680" height="320"></canvas>
 
@@ -82,8 +86,8 @@ import Footer from '../components/Footer.astro';
 (function(){
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
   var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0';
-  var mode='on', sig='const', inval=0.30, acc=0, n=0, ones=0, bits=[], avgHist=[], inHist=[], fired=false, timer=null, speed=55;
-  var K=64; // 表示するサンプル数
+  var mode='on', sig='const', inval=0.30, win=16, acc=0, n=0, ones=0, bits=[], inHist=[], fired=false, timer=null, speed=55;
+  var K=80; // 表示するサンプル数
 
   function inputAt(i){
     if(sig==='const') return inval;
@@ -127,7 +131,7 @@ import Footer from '../components/Footer.astro';
     // ベースライン
     ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(GX,y0); ctx.lineTo(GX+GW,y0); ctx.moveTo(GX,y1); ctx.lineTo(GX+GW,y1); ctx.stroke();
     ctx.fillStyle=GRAY; ctx.font='11px "JetBrains Mono",monospace'; ctx.textAlign='left';
-    ctx.fillText('出力 1bit ／ 平均 → 入力', GX, GY-12);
+    ctx.fillText('出力 1bit ／ 復元（橙＝窓'+win+'の移動平均）と 入力（破線）', GX, GY-12);
     ctx.textAlign='left'; ctx.fillText('1', GX+4, y1+12); ctx.fillText('0', GX+4, y0-4);
     var st=Math.max(0,bits.length-K), m=bits.length-st, bw=GW/K;
     // 入力の線（破線）
@@ -141,9 +145,11 @@ import Footer from '../components/Footer.astro';
     ctx.stroke();
     // 1のビットを縦線で強調
     for(var i=0;i<m;i++){ if(bits[st+i]){ var gx=GX+(i+0.5)*bw; ctx.strokeStyle='rgba(60,120,118,.35)'; ctx.lineWidth=Math.max(1,bw*0.5); ctx.beginPath(); ctx.moveTo(gx,y0); ctx.lineTo(gx,y1); ctx.stroke(); } }
-    // 平均の線（橙）
-    ctx.strokeStyle=WARM; ctx.lineWidth=2; ctx.beginPath();
-    for(var i=0;i<m;i++){ var av=avgHist[st+i], gx=GX+(i+0.5)*bw, gy=y0-av*GHh; if(i===0)ctx.moveTo(gx,gy); else ctx.lineTo(gx,gy); }
+    // 復元（窓ぶんの移動平均）＝1ビット列をならして信号を取り戻す。窓の半分ぶん遅れる（群遅延）
+    ctx.strokeStyle=WARM; ctx.lineWidth=2.4; ctx.beginPath();
+    for(var i=0;i<m;i++){ var j=st+i, lo=Math.max(0,j-win+1), s=0, c2=0;
+      for(var t=lo;t<=j;t++){ s+=bits[t]; c2++; }
+      var av=s/c2, gx=GX+(i+0.5)*bw, gy=y0-av*GHh; if(i===0)ctx.moveTo(gx,gy); else ctx.lineTo(gx,gy); }
     ctx.stroke();
   }
 
@@ -162,25 +168,25 @@ import Footer from '../components/Footer.astro';
       calc='<div class="calc">入力 '+x.toFixed(2)+' を近いほうへ丸め → <b>'+b+'</b>　（'+x.toFixed(2)+(x>=0.5?' ≥ 0.5':' &lt; 0.5')+'）。タンクは使わない。</div>';
     }
     var note;
-    if(mode==='on') note='<div class="note2">平均 = '+ones+' / '+n+' = <b>'+avg.toFixed(3)+'</b> → 入力 '+ (sig==='const'?inval.toFixed(2):'(時々変わる)') +' に吸い寄せられていく。橙の線がそれ。1ビット列をならすと信号が戻る、が目で分かる。</div>';
-    else note='<div class="note2">平均 = '+avg.toFixed(3)+'。素の丸めだと、一定入力は毎回同じ値に丸まって平ら＝0と1の間（0.3 など）を表せない。だから OFF はパタパタしない。</div>';
+    if(mode==='on') note='<div class="note2">橙＝1ビット列を<b>窓 '+win+' サンプル</b>でならした<b>復元波</b>。1ビットなのに、ならせば信号が戻る。ただし「ならす」ぶん、復元は入力より<b>約 '+Math.round(win/2)+' サンプル遅れる</b>（群遅延）。窓を<b>広げる</b>と滑らかだが遅延が増え、<b>狭める</b>と遅延は消えるがギザつく——避けられないトレードオフだ。「さざ波」にすると遅れがはっきり見える。</div>';
+    else note='<div class="note2">素の丸めだと、一定入力（0.3 など）は毎回 0 に丸まって平ら＝0と1の間を表せない。だから橙の復元線も入力に届かず、ここでは 0 のまま。OFFはパタパタしないし、いくらならしても信号は戻らない。</div>';
     document.getElementById('readout').innerHTML=head+calc+note;
   }
-  function setStatus(){ document.getElementById('status').textContent=(mode==='on'?'ΔΣ 1次（誤差フィードバック）':'素の1bit量子化')+'　— '+n+' サンプル　平均 '+(n>0?(ones/n).toFixed(3):'—'); }
+  function setStatus(){ document.getElementById('status').textContent=(mode==='on'?'ΔΣ 1次（誤差フィードバック）':'素の1bit量子化')+'　— '+n+' サンプル　復元の窓 '+win+'（遅延 ≈ '+Math.round(win/2)+' サンプル）'; }
 
   function step(){
     var x=inputAt(n); fired=false;
     var out;
     if(mode==='on'){ acc+=x; if(acc>=1-1e-9){ out=1; acc-=1; if(acc<0)acc=0; fired=true; } else out=0; }
     else { out=(x>=0.5)?1:0; acc=0; }
-    bits.push(out); inHist.push(x); ones+=out; n++; avgHist.push(ones/n);
+    bits.push(out); inHist.push(x); ones+=out; n++;
     draw(); showReadout(); setStatus();
   }
   function runAll(){ stop(); for(var k=0;k<240 && n<400;k++) step(); }
   function delay(){ return Math.round(260-speed*2.2); }
   function play(){ if(timer)return; var b=document.getElementById('play'); b.textContent='⏸ 停止'; timer=setInterval(function(){ if(n>=400){stop();return;} step(); }, delay()); }
   function stop(){ if(timer){clearInterval(timer);timer=null;} document.getElementById('play').textContent='▶ 再生'; }
-  function reset(){ stop(); acc=0; n=0; ones=0; bits=[]; avgHist=[]; inHist=[]; fired=false; draw(); showReadout(); setStatus(); }
+  function reset(){ stop(); acc=0; n=0; ones=0; bits=[]; inHist=[]; fired=false; draw(); showReadout(); setStatus(); }
 
   function mkpills(wrap, arr, cur, fn){ var w=document.getElementById(wrap); arr.forEach(function(it){ var b=document.createElement('div'); b.className='opill'+(it[0]===cur?' on':''); b.setAttribute('data-v',it[0]); b.textContent=it[1]; b.onclick=function(){ fn(it[0]); }; w.appendChild(b); }); }
   function sel(wrap,v){ document.querySelectorAll(wrap+' .opill').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-v')===v); }); }
@@ -189,6 +195,8 @@ import Footer from '../components/Footer.astro';
 
   var iv=document.getElementById('inval'), ivv=document.getElementById('invalv');
   iv.oninput=function(){ inval=+iv.value/100; ivv.textContent=inval.toFixed(2); reset(); };
+  var wn=document.getElementById('win'), wnv=document.getElementById('winv');
+  wn.oninput=function(){ win=+wn.value; wnv.textContent=win; draw(); showReadout(); };
   document.getElementById('play').onclick=function(){ if(timer)stop(); else { if(n>=400)reset(); play(); } };
   document.getElementById('step').onclick=function(){ stop(); if(n>=400)reset(); step(); };
   document.getElementById('run').onclick=runAll;
