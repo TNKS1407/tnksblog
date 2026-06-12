@@ -1403,14 +1403,14 @@ import Footer from '../components/Footer.astro';
     <div class="app-card">
       <div class="app-title">ΔΣ変調 — 1bitはどうやって滑らかな信号を運ぶのか</div>
       <div class="app-desc">
-        ΔΣ変調器は、なめらかな入力を「+1 か −1 か」だけの1bitストリームに変える。秘密は<strong>ノイズシェーピング</strong>——量子化で出る粗さ（ノイズ）を、信号のある低い周波数から<strong>高い周波数へ追い出す</strong>こと。あとから低域だけ通せば、1bitなのに高分解能の信号が戻ってくる。<br>
-        上＝入力と復元出力、中＝1bit出力ストリーム（濃淡が入力を追う）、下＝スペクトル。「ノイズシェーピング」を OFF にすると、ループ無しの素の1bit量子化になって、余計な成分が帯域内に居座る。デモ用の素朴な実装だよ。
+        ΔΣ変調器は、なめらかな入力を「+1 か −1 か」だけの1bitストリームに変える。秘密は<strong>ノイズシェイピング</strong>——量子化で出る粗さ（ノイズ）を、信号のある低い周波数から<strong>高い周波数へ追い出す</strong>こと。あとから低域だけ通せば、1bitなのに高分解能の信号が戻ってくる。<br>
+        上＝入力と復元出力、中＝1bit出力ストリーム（濃淡が入力を追う）、下＝スペクトル。「ノイズシェイピング」を OFF にすると、<strong>誤差を持ち越すループ（ΔΣの心臓）を外した状態</strong>＝ΔΣをOFFにするのと同じで、過去を見ずにその場を丸めるだけの素の1bit量子化に退化する。Δ（差分）もΣ（積分）もそのループの中の操作だから、OFFはどちらも止めるということ。だから余計な成分が帯域内に居座る。溜まって吐く様子を1サンプルずつ追うなら <a href="/dsm" style="color:#3c7876;">/dsm（ΔΣを一歩ずつ）</a> へ。デモ用の素朴な実装だよ。
       </div>
       <div class="canvas-label">ΔΣ MODULATOR — 入力 / 1bit出力 / スペクトル</div>
       <canvas id="ds-cv" width="720" height="545" style="width:100%;height:auto;cursor:default;"></canvas>
       <div class="controls">
         <div class="ctrl-group">
-          <button class="btn primary" id="ds-on" type="button">ノイズシェーピング ON</button>
+          <button class="btn primary" id="ds-on" type="button">ノイズシェイピング ON</button>
           <button class="btn" id="ds-off" type="button">OFF（素の1bit）</button>
         </div>
         <div class="ctrl-group">
@@ -1610,7 +1610,7 @@ import Footer from '../components/Footer.astro';
 
         var enob=(an.snr-1.76)/6.02;
         document.getElementById('ds-status').textContent =
-          'モード: '+(shaping?('ΔΣ '+order+'次・ノイズシェーピング'):'素の1bit量子化（ループ無し）')+
+          'モード: '+(shaping?('ΔΣ '+order+'次・ノイズシェイピング'):'素の1bit量子化（ループ無し）')+
           ' ／ OSR='+OSR+' ／ 帯域内S/N ≈ '+an.snr.toFixed(1)+' dB （実効 ≈ '+(enob>0?enob.toFixed(1):'0.0')+' bit 相当）';
       }
 
