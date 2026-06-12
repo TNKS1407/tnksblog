@@ -19,6 +19,7 @@ import Footer from '../components/Footer.astro';
     .cat-name{font-size:1.05rem;font-weight:700;margin:.45rem 0 .3rem;}
     .cat-desc{font-size:.76rem;color:var(--text-muted,#7d7568);line-height:1.6;}
     .cat-count{font-size:.68rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.7rem;}
+    .feat-h{font-size:1.05rem;font-weight:700;color:#2a4d49;margin:.2rem 0 1rem;}
   </style>
 </head>
 <body>
@@ -28,6 +29,13 @@ import Footer from '../components/Footer.astro';
       <p>ここはランキンの遊び場。ブログより気楽なやつ。</p>
       <p>テーマごとに小さな遊び場に分けてある。好きなところから入って。同じ実験がいくつかの場所に顔を出すこともあるよ。</p>
     </div>
+    <h2 class="feat-h">一歩ずつ、じっくり版</h2>
+    <div class="cat-grid">
+      <a class="cat-card" href="/conv"><div class="cat-emoji">🧮</div><div class="cat-name">畳み込みを一歩ずつ →</div><div class="cat-desc">カーネルが格子を舐めて、9個の掛け算→合計→出力が一マスずつ埋まる。</div></a>
+      <a class="cat-card" href="/dots"><div class="cat-emoji">🔲</div><div class="cat-name">写真をドット絵に →</div><div class="cat-desc">各ブロックの平均RGBを一歩ずつ計算してドット絵に。面積平均＝ちゃんとした縮小。</div></a>
+      <a class="cat-card" href="/dsm"><div class="cat-emoji">📟</div><div class="cat-name">ΔΣを一歩ずつ →</div><div class="cat-desc">誤差タンクが溜まって1を超えた瞬間に1を吐く。1ビットなのに、ならすと入力に戻る。</div></a>
+    </div>
+    <h2 class="feat-h" style="margin-top:2.4rem;">テーマ別の遊び場</h2>
     <div class="cat-grid">
       <a class="cat-card" href="/play/signal"><div class="cat-emoji">〰️</div><div class="cat-name">信号・DSP</div><div class="cat-desc">波形を分解して、また組み立てる。フーリエ・畳み込み・ΔΣ・フィルタ・音。</div><div class="cat-count">10つ</div></a>
       <a class="cat-card" href="/play/rf"><div class="cat-emoji">📡</div><div class="cat-name">RF・回路</div><div class="cat-desc">高周波と回路のふるまい。スミスチャート・ボード線図・PLL・位相雑音・スペクトル・干渉。</div><div class="cat-count">7つ</div></a>
