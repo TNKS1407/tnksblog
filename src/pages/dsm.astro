@@ -83,6 +83,10 @@ import Footer from '../components/Footer.astro';
         <div class="ctrl-group"><input type="range" id="win" min="1" max="48" value="16"><span id="winv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;min-width:2.2em;">16</span></div>
         <span class="status" style="margin:0 0 0 .3rem;">※ 1ビット列をならして信号を取り戻す窓。広い＝滑らかだが遅延大／狭い＝遅延小だがギザつく</span>
       </div>
+      <div class="row"><span class="rlab">サンプリング</span>
+        <div class="ctrl-group"><input type="range" id="os" min="1" max="8" value="1"><span id="osv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;min-width:2.2em;">×1</span></div>
+        <span class="status" style="margin:0 0 0 .3rem;">※ 1周期あたりのサンプル数（オーバーサンプリング）。上げるほど1ビット列が細かくなり、復元が信号にぴったり追従する。さざ波・階段で効く</span>
+      </div>
 
       <canvas id="cv" width="680" height="320"></canvas>
 
@@ -106,13 +110,13 @@ import Footer from '../components/Footer.astro';
 (function(){
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
   var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0';
-  var mode='on', sig='const', inval=0.30, win=16, acc=0, n=0, ones=0, bits=[], inHist=[], fired=false, timer=null, speed=55;
+  var mode='on', sig='const', inval=0.30, win=16, os=1, acc=0, n=0, ones=0, bits=[], inHist=[], fired=false, timer=null, speed=55;
   var K=80; // 表示するサンプル数
 
   function inputAt(i){
     if(sig==='const') return inval;
-    if(sig==='sine') return 0.5+0.42*Math.sin(i*0.055);
-    return ((i%140)/140); // ramp 0→1
+    if(sig==='sine') return 0.5+0.42*Math.sin(i*0.055/os);
+    return ((i%(140*os))/(140*os)); // ramp 0→1
   }
 
   // ---- canvas geometry ----
@@ -183,11 +187,13 @@ import Footer from '../components/Footer.astro';
     else if(mode==='on'){
       var pre=acc+ (b? 1:0); // 水位（吐く前）＝ 前の残り ＋ 入力
       var R=pre-x;           // 前のステップから持ち越した残り
+      var len=bits.length, lo=Math.max(0,len-win), k=0; for(var t=lo;t<len;t++) k+=bits[t]; var Nw=len-lo, av=Nw?k/Nw:0; // 橙＝直近winの移動平均
       calc='<div class="calc">'+
         '① 前の残り <b>'+R.toFixed(2)+'</b> ＋ 入力 <span class="on1">'+x.toFixed(2)+'</span> ＝ 水位 <b>'+pre.toFixed(2)+'</b>　<span style="color:#3c7876">（左の図：青がここまで上がる）</span><br>'+
         '② 水位 '+pre.toFixed(2)+' は縁(1)を'+
         (b? '<b>超えた</b> → <span class="on1">1 を出力 ▲</span>、1 こぼして 残り <b>'+acc.toFixed(2)+'</b>'
            : '超えてない → <b>0</b> を出力、残り <b>'+acc.toFixed(2)+'</b> のまま溜める')+
+        '<br>③ 復元（<span style="color:#c9761f">橙</span>）＝ 直近 '+Nw+' 個の出力のうち 1 が <b>'+k+'</b> 個 → '+k+' / '+Nw+' ＝ <b>'+av.toFixed(2)+'</b>　<span style="color:#c9761f">（図の橙の高さ）</span>'+
         '</div>';
     } else {
       calc='<div class="calc">入力 '+x.toFixed(2)+' をそのまま近いほうへ丸め → 出力 <b>'+b+'</b>　（'+x.toFixed(2)+(x>=0.5?' ≥ 0.5 なので 1':' &lt; 0.5 なので 0')+'）。<span style="color:#aaa49b">左のタンクは使わない（誤差を持ち越さない）。</span></div>';
@@ -222,6 +228,8 @@ import Footer from '../components/Footer.astro';
   iv.oninput=function(){ inval=+iv.value/100; ivv.textContent=inval.toFixed(2); reset(); };
   var wn=document.getElementById('win'), wnv=document.getElementById('winv');
   wn.oninput=function(){ win=+wn.value; wnv.textContent=win; draw(); showReadout(); };
+  var osEl=document.getElementById('os'), osv=document.getElementById('osv');
+  osEl.oninput=function(){ os=+osEl.value; osv.textContent='×'+os; reset(); };
   document.getElementById('play').onclick=function(){ if(timer)stop(); else { if(n>=400)reset(); play(); } };
   document.getElementById('step').onclick=function(){ stop(); if(n>=400)reset(); step(); };
   document.getElementById('run').onclick=runAll;
