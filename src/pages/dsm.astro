@@ -68,10 +68,13 @@ import Footer from '../components/Footer.astro';
         <li><b>くらべる</b>：その水位が <span class="w">縁（＝1、タンク上ふちの橙の破線）</span>に届いたかを見る。</li>
         <li><b>吐く</b>：届いたら出力は <b>1</b>。そして縁のぶん（ちょうど 1）だけ水を抜く（青がストンと下がって <span class="w">▲1!</span> が出る）。抜いたあとに残った水が、次へ持ち越す誤差になる。届いてなければ出力は <b>0</b>、水はそのまま溜めておく。</li>
       </ol>
-      <p>右の図はその結果：<span class="t">青の階段</span>＝出力の 0/1、灰の破線＝入力、<span class="w">橙</span>＝1ビット列を窓ぶんならした復元波。出力は 0 か 1 だけなのに、抜いた誤差を捨てず次へ回すから、平均すれば入力にそろう。下の<b>「計算」欄</b>に、いま図のどの数を足し引きしているかが 1 ステップごとに出るよ。</p>
+      <p>右の図はその結果：<span class="t">青の階段</span>＝出力の 0/1、灰の破線＝入力、<span class="w">橙</span>＝1ビット列を窓ぶんならした<b>移動平均による簡易復元</b>（低域だけ取り出す）。出力は 0 か 1 だけなのに、抜いた誤差を捨てず次へ回すから、平均すれば入力にそろう。下の<b>「計算」欄</b>に、いま図のどの数を足し引きしているかが 1 ステップごとに出るよ。</p>
       <p style="margin-top:.7rem;"><b>式にするとこの2つ</b> ──<br>
       ・<span class="t">作る側（青いタンク）</span>：<b>残り(今) ＝ 残り(前) ＋ 入力 − 出力</b>。前のステップの残りが次の水位になって、誤差が代々つながっていく。<br>
-      ・<span class="w">読む側（橙の復元）</span>：<b>復元 ＝ 直近 win 個の出力の平均</b>（移動平均＝ならし）。窓ぶん平均する都合で、約 win/2 サンプルだけ遅れる。</p>
+      ・<span class="w">読む側（橙の簡易復元）</span>：<b>簡易復元 ＝ 直近 win 個の出力の平均</b>（移動平均＝ならし）。窓ぶん平均する都合で、約 win/2 サンプルだけ遅れる。</p>
+      <p style="margin-top:.7rem;font-size:.8rem;color:var(--text-muted,#7d7568);line-height:1.7;">
+      ※ この復元は単純な移動平均ローパスで、教材用の簡易版です。実際の ΔΣ ADC/DAC では、もっと急峻なローパス／デシメーションフィルタを使います。<br>
+      ※ このデモは<b>ディザなし</b>なので、一定入力では <code>0.50 → 0101…</code>、<code>0.30 → 0010010…</code> のような<b>周期的なビット列</b>が出ます。これはバグではなく、低次・ディザなしΔΣの <b>idle tone / limit cycle</b> という性質。実機では高次化・ディザ・アナログノイズで目立ちにくくします。</p>
     </div>
 
     <div class="card">
@@ -79,13 +82,13 @@ import Footer from '../components/Footer.astro';
       <div class="row"><span class="rlab">入力</span><div class="ops" id="sigs"></div>
         <div class="ctrl-group" id="invalGroup" style="margin-left:.4rem;"><label>値</label><input type="range" id="inval" min="5" max="95" value="30"><span id="invalv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;">0.30</span></div>
       </div>
-      <div class="row"><span class="rlab">復元の窓</span>
+      <div class="row"><span class="rlab">簡易復元の窓</span>
         <div class="ctrl-group"><input type="range" id="win" min="1" max="48" value="16"><span id="winv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;min-width:2.2em;">16</span></div>
-        <span class="status" style="margin:0 0 0 .3rem;">※ 1ビット列をならして信号を取り戻す窓。広い＝滑らかだが遅延大／狭い＝遅延小だがギザつく</span>
+        <span class="status" style="margin:0 0 0 .3rem;">※ 1ビット列を移動平均でならして低域成分を取り出す窓（＝簡易復元）。広い＝滑らかだが遅延大／狭い＝遅延小だがギザつく</span>
       </div>
       <div class="row"><span class="rlab">サンプリング</span>
         <div class="ctrl-group"><input type="range" id="os" min="1" max="8" value="1"><span id="osv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;min-width:2.2em;">×1</span></div>
-        <span class="status" style="margin:0 0 0 .3rem;">※ 1周期あたりのサンプル数（オーバーサンプリング）。上げるほど1ビット列が細かくなり、復元が信号にぴったり追従する。さざ波・階段で効く</span>
+        <span class="status" style="margin:0 0 0 .3rem;">※ 1周期あたりのサンプル数（オーバーサンプリング）。上げるほど同じ波形を細かくサンプリングし、簡易復元が信号にぴったり追従する。表示サンプル数も連動して増やし、OSを上げても1周期が見えるようにしてある。さざ波・階段で効く</span>
       </div>
 
       <canvas id="cv" width="680" height="320"></canvas>
@@ -101,6 +104,11 @@ import Footer from '../components/Footer.astro';
       <div class="readout" id="readout"></div>
       <div class="status" id="status"></div>
     </div>
+
+    <div class="card">
+      <div style="font-size:.84rem;color:#33433f;margin-bottom:.7rem;line-height:1.7;">下は<b>誤差スペクトル</b>＝「出力 − 入力」のざっくり DFT（直近128サンプル）。<b style="color:#3c7876">ON</b>では誤差が<b>低域（信号の住む所）に残りにくく、高域へ押し上げ</b>られる——これが<b>ノイズシェイピング</b>の正体。<b style="color:#c2543d">OFF</b>（素の丸め）に切り替えると、低域にも誤差が残るのが見える。一定入力では、idle tone に対応するとがった線も出るよ。<br><span style="font-size:.78rem;color:#7d7568;">※ ざっくり DFT（窓かけ・自動スケール）の模式表示で、絶対的な雑音電力を測るものではありません。</span></div>
+      <canvas id="cvspec" width="680" height="150"></canvas>
+    </div>
   </main>
   <Footer />
 </body>
@@ -109,9 +117,10 @@ import Footer from '../components/Footer.astro';
 <script is:inline>
 (function(){
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var cvs=document.getElementById('cvspec'), sctx=cvs?cvs.getContext('2d'):null;
   var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0';
   var mode='on', sig='const', inval=0.30, win=16, os=1, acc=0, n=0, ones=0, bits=[], inHist=[], fired=false, timer=null, speed=55;
-  var K=80; // 表示するサンプル数
+  var K=120, MAXN=400; // 表示サンプル数 / 総サンプル数（OSに連動して増やす）
 
   function inputAt(i){
     if(sig==='const') return inval;
@@ -155,7 +164,7 @@ import Footer from '../components/Footer.astro';
     // ベースライン
     ctx.strokeStyle='#eee7db'; ctx.beginPath(); ctx.moveTo(GX,y0); ctx.lineTo(GX+GW,y0); ctx.moveTo(GX,y1); ctx.lineTo(GX+GW,y1); ctx.stroke();
     ctx.fillStyle=GRAY; ctx.font='11px "JetBrains Mono",monospace'; ctx.textAlign='left';
-    ctx.fillText('出力 1bit ／ 復元（橙＝窓'+win+'の移動平均）と 入力（破線）', GX, GY-12);
+    ctx.fillText('出力 1bit ／ 簡易復元（橙＝窓'+win+'の移動平均）と 入力（破線）', GX, GY-12);
     ctx.textAlign='left'; ctx.fillText('1', GX+4, y1+12); ctx.fillText('0', GX+4, y0-4);
     var st=Math.max(0,bits.length-K), m=bits.length-st, bw=GW/K;
     // 入力の線（破線）
@@ -177,7 +186,37 @@ import Footer from '../components/Footer.astro';
     ctx.stroke();
   }
 
-  function draw(){ ctx.clearRect(0,0,cv.width,cv.height); drawTank(); drawGraph(); }
+  // 誤差スペクトル：e[n] = 出力 − 入力 の簡易DFT。ON＝低域に残らず高域へ／OFF＝低域に残る
+  function drawSpec(){
+    if(!sctx) return;
+    var W=cvs.width, H=cvs.height; sctx.clearRect(0,0,W,H);
+    var x0=14, x1=W-12, y0=22, y1=H-22;
+    sctx.fillStyle='#fff'; sctx.fillRect(x0,y0,x1-x0,y1-y0); sctx.strokeStyle=LINE; sctx.lineWidth=1; sctx.strokeRect(x0+.5,y0+.5,x1-x0,y1-y0);
+    sctx.fillStyle=GRAY; sctx.font='10px "JetBrains Mono",monospace'; sctx.textAlign='left';
+    sctx.fillText('誤差スペクトル |E(f)| = DFT( 出力 − 入力 )', x0+2, y0-7);
+    var N=Math.min(128, bits.length);
+    if(N<16){ sctx.fillStyle=GRAY; sctx.textAlign='center'; sctx.fillText('サンプルを進めると、ここに誤差のスペクトルが出るよ', (x0+x1)/2, (y0+y1)/2); sctx.textAlign='left'; return; }
+    var base=bits.length-N, e=[];
+    for(var i=0;i<N;i++){ var wd=0.5-0.5*Math.cos(2*Math.PI*i/(N-1)); e.push((bits[base+i]-inHist[base+i])*wd); }
+    var half=N>>1, mag=[], mx=1e-9;
+    for(var k=0;k<=half;k++){ var re=0,im=0; for(var t=0;t<N;t++){ var a=-2*Math.PI*k*t/N; re+=e[t]*Math.cos(a); im+=e[t]*Math.sin(a); } var m=Math.sqrt(re*re+im*im); mag.push(m); if(m>mx)mx=m; }
+    // 低域（信号帯）を薄く塗る
+    var lowFrac=0.18;
+    sctx.fillStyle='rgba(60,120,118,.09)'; sctx.fillRect(x0, y0, (x1-x0)*lowFrac, y1-y0);
+    sctx.fillStyle='rgba(47,110,106,.7)'; sctx.font='9px "JetBrains Mono",monospace'; sctx.textAlign='left'; sctx.fillText('信号が住む低域', x0+4, y1-5);
+    sctx.fillStyle=GRAY; sctx.textAlign='right'; sctx.fillText('高域 → （ナイキスト）', x1-4, y1-5);
+    var col=(mode==='on')?TEAL:'#c2543d';
+    sctx.beginPath(); sctx.moveTo(x0, y1);
+    for(var k2=0;k2<=half;k2++){ var gx=x0+(k2/half)*(x1-x0), gy=y1-(mag[k2]/mx)*(y1-y0-6); sctx.lineTo(gx,gy); }
+    sctx.lineTo(x1,y1); sctx.closePath(); sctx.fillStyle=(mode==='on')?'rgba(60,120,118,.45)':'rgba(194,84,61,.4)'; sctx.fill();
+    sctx.strokeStyle=col; sctx.lineWidth=2; sctx.beginPath();
+    for(var k3=0;k3<=half;k3++){ var gx2=x0+(k3/half)*(x1-x0), gy2=y1-(mag[k3]/mx)*(y1-y0-6); if(k3===0)sctx.moveTo(gx2,gy2); else sctx.lineTo(gx2,gy2); }
+    sctx.stroke();
+    sctx.fillStyle=col; sctx.font='600 10px "JetBrains Mono",monospace'; sctx.textAlign='center';
+    sctx.fillText(mode==='on'?'ON：低域がへこみ、高域へ（ノイズシェイピング）':'OFF：低域にも誤差が残る', (x0+x1)/2, y0+12);
+  }
+
+  function draw(){ ctx.clearRect(0,0,cv.width,cv.height); drawTank(); drawGraph(); drawSpec(); }
 
   function showReadout(){
     var x=(n>0)?inHist[n-1]:inputAt(0), b=(bits.length>0)?bits[bits.length-1]:0, avg=(n>0)?ones/n:0;
@@ -199,23 +238,25 @@ import Footer from '../components/Footer.astro';
       calc='<div class="calc">入力 '+x.toFixed(2)+' をそのまま近いほうへ丸め → 出力 <b>'+b+'</b>　（'+x.toFixed(2)+(x>=0.5?' ≥ 0.5 なので 1':' &lt; 0.5 なので 0')+'）。<span style="color:#aaa49b">左のタンクは使わない（誤差を持ち越さない）。</span></div>';
     }
     var note;
-    if(mode==='on') note='<div class="note2">橙＝1ビット列を<b>窓 '+win+' サンプル</b>でならした<b>復元波</b>。1ビットなのに、ならせば信号が戻る。ただし「ならす」ぶん、復元は入力より<b>約 '+Math.round(win/2)+' サンプル遅れる</b>（群遅延）。窓を<b>広げる</b>と滑らかだが遅延が増え、<b>狭める</b>と遅延は消えるがギザつく——避けられないトレードオフだ。「さざ波」にすると遅れがはっきり見える。</div>';
+    if(mode==='on'){ note='<div class="note2">橙＝1ビット列を<b>窓 '+win+' サンプル</b>でならした<b>簡易復元（移動平均ローパス）</b>。1ビットなのに、ならせば信号が戻る。ただし「ならす」ぶん、復元は入力より<b>約 '+Math.round(win/2)+' サンプル遅れる</b>（群遅延）。窓を<b>広げる</b>と滑らかだが遅延が増え、<b>狭める</b>と遅延は消えるがギザつく——避けられないトレードオフだ。「さざ波」にすると遅れがはっきり見える。';
+      if(sig==='const') note+='<br><b style="color:#c9761f">ディザなしなので、一定入力では周期的なビット列（idle tone / limit cycle）が出ている</b>。下の誤差スペクトルにも、その周期に対応するとがった成分が見えるよ。';
+      note+='</div>'; }
     else note='<div class="note2">素の丸めだと、一定入力（0.3 など）は毎回 0 に丸まって平ら＝0と1の間を表せない。だから橙の復元線も入力に届かず、ここでは 0 のまま。OFFはパタパタしないし、いくらならしても信号は戻らない。</div>';
     document.getElementById('readout').innerHTML=head+calc+note;
   }
   function setStatus(){ document.getElementById('status').textContent=(mode==='on'?'ΔΣ 1次（誤差フィードバック）':'素の1bit量子化')+'　— '+n+' サンプル　復元の窓 '+win+'（遅延 ≈ '+Math.round(win/2)+' サンプル）'; }
 
-  function step(){
+  function stepCore(){
     var x=inputAt(n); fired=false;
     var out;
     if(mode==='on'){ acc+=x; if(acc>=1-1e-9){ out=1; acc-=1; if(acc<0)acc=0; fired=true; } else out=0; }
     else { out=(x>=0.5)?1:0; acc=0; }
     bits.push(out); inHist.push(x); ones+=out; n++;
-    draw(); showReadout(); setStatus();
   }
-  function runAll(){ stop(); for(var k=0;k<240 && n<400;k++) step(); }
+  function step(){ stepCore(); draw(); showReadout(); setStatus(); }
+  function runAll(){ stop(); var g=0; while(n<MAXN && g<20000){ stepCore(); g++; } draw(); showReadout(); setStatus(); }
   function delay(){ return Math.round(260-speed*2.2); }
-  function play(){ if(timer)return; var b=document.getElementById('play'); b.textContent='⏸ 停止'; timer=setInterval(function(){ if(n>=400){stop();return;} step(); }, delay()); }
+  function play(){ if(timer)return; var b=document.getElementById('play'); b.textContent='⏸ 停止'; timer=setInterval(function(){ if(n>=MAXN){stop();return;} step(); }, delay()); }
   function stop(){ if(timer){clearInterval(timer);timer=null;} document.getElementById('play').textContent='▶ 再生'; }
   function reset(){ stop(); acc=0; n=0; ones=0; bits=[]; inHist=[]; fired=false; draw(); showReadout(); setStatus(); }
 
@@ -229,13 +270,21 @@ import Footer from '../components/Footer.astro';
   var wn=document.getElementById('win'), wnv=document.getElementById('winv');
   wn.oninput=function(){ win=+wn.value; wnv.textContent=win; draw(); showReadout(); };
   var osEl=document.getElementById('os'), osv=document.getElementById('osv');
-  osEl.oninput=function(){ os=+osEl.value; osv.textContent='×'+os; reset(); };
-  document.getElementById('play').onclick=function(){ if(timer)stop(); else { if(n>=400)reset(); play(); } };
-  document.getElementById('step').onclick=function(){ stop(); if(n>=400)reset(); step(); };
+  osEl.oninput=function(){ os=+osEl.value; osv.textContent='×'+os; K=120*os; MAXN=400*os; reset(); };
+  document.getElementById('play').onclick=function(){ if(timer)stop(); else { if(n>=MAXN)reset(); play(); } };
+  document.getElementById('step').onclick=function(){ stop(); if(n>=MAXN)reset(); step(); };
   document.getElementById('run').onclick=runAll;
   document.getElementById('reset').onclick=reset;
-  var sp=document.getElementById('speed'); sp.oninput=function(){ speed=+sp.value; if(timer){ clearInterval(timer); timer=setInterval(function(){ if(n>=400){stop();return;} step(); }, delay()); } };
+  var sp=document.getElementById('speed'); sp.oninput=function(){ speed=+sp.value; if(timer){ clearInterval(timer); timer=setInterval(function(){ if(n>=MAXN){stop();return;} step(); }, delay()); } };
 
   reset();
+
+  // QA: ?mode=off ?sig=sine|ramp ?os=N ?run=N で初期状態を作る（スクショ用）
+  var qmode=location.search.match(/mode=(on|off)/); if(qmode){ mode=qmode[1]; sel('#modes',mode); }
+  var qsig=location.search.match(/sig=(const|sine|ramp)/); if(qsig){ sig=qsig[1]; sel('#sigs',sig); document.getElementById('invalGroup').style.display=(sig==='const')?'flex':'none'; }
+  var qos=location.search.match(/os=(\d+)/); if(qos){ os=Math.max(1,Math.min(8,+qos[1])); osv.textContent='×'+os; osEl.value=os; K=120*os; MAXN=400*os; }
+  var qrun=location.search.match(/run=(\d+)/);
+  if(qmode||qsig||qos||qrun){ acc=0;n=0;ones=0;bits=[];inHist=[];fired=false;
+    var rn=qrun?Math.min(+qrun[1],MAXN):0; for(var qi=0;qi<rn;qi++) stepCore(); draw(); showReadout(); setStatus(); }
 })();
 </script>

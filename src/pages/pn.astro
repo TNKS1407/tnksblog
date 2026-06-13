@@ -125,12 +125,13 @@ const theory = String.raw`
         <button class="btn" id="trr" type="button" style="border-color:#c2543d;color:#c2543d;">⚡ 逆回復を見る</button>
         <button class="btn" id="trrstep" type="button">▶| コマ送り</button>
         <div class="ctrl-group"><label>速さ</label><input type="range" id="trrspd" min="0" max="100" value="60"><span class="vv" id="trrspdv">ゆっくり</span></div>
-        <div class="ctrl-group"><label>τ寿命</label><input type="range" id="ttau" min="4" max="30" value="12"><span class="vv" id="ttauv">0.12</span></div>
-        <div class="ctrl-group"><label>di/dt</label><input type="range" id="tdidt" min="3" max="20" value="8"><span class="vv" id="tdidtv">8</span></div>
+        <div class="ctrl-group"><label>τ寿命[a.u.]</label><input type="range" id="ttau" min="4" max="30" value="12"><span class="vv" id="ttauv">0.12</span></div>
+        <div class="ctrl-group"><label>di/dt[a.u.]</label><input type="range" id="tdidt" min="3" max="20" value="8"><span class="vv" id="tdidtv">8</span></div>
         <div class="ctrl-group"><label>温度 T</label><input type="range" id="temp" min="250" max="400" value="300"><span class="vv" id="tempv">300 K</span></div>
       </div>
       <div class="readout" id="readout"></div>
       <div class="status" id="status"></div>
+      <p class="eqcap" style="margin-top:.7rem;">※ この上の図はインタラクティブな<b>模式表示</b>です（下の「理論」の式は標準的なもの）。空乏層内のキャリア曲線（破線・淡色）は見やすさのための<b>視覚補間</b>で、空乏近似では可動キャリアはほぼ 0 として扱います。降伏電圧、逆回復の τ／di/dt は<b>画面内で見せるための模式量</b>で、実部品の値ではありません。電流は理想ショックレー式なので、高順方向・高温では直列抵抗・高注入・自己発熱を無視した<b>外挿値</b>になります。</p>
     </div>
 
     <div class="card">
@@ -148,8 +149,10 @@ const theory = String.raw`
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
   var cv2=document.getElementById('cv2'), ctx2=cv2?cv2.getContext('2d'):null;
   var Vbi=0.80, Egap=1.10, kT=0.026, Is=1e-12, Is300=1e-12;
-  var T=300, Vbr=-0.85;       // 温度[K], 降伏電圧(模式的なアバランシェ)
-  function setTemp(t){ T=t; kT=8.617e-5*T; Is=1e-12*Math.exp(Egap/0.025851 - Egap/kT); }
+  var T=300, Vbr=-0.85, Vbi300=0.80;   // 温度[K], 降伏電圧(模式的なアバランシェ), 300Kでの内蔵電位
+  function setTemp(t){ T=t; kT=8.617e-5*T; Is=1e-12*Math.exp(Egap/0.025851 - Egap/kT);
+    // 教材用の簡易近似：温度が上がると内蔵電位は下がる（空乏層幅・バンドの曲がりも連動）
+    Vbi=Math.max(0.45, Math.min(0.95, Vbi300 - 0.0017*(T-300))); }
   var V=0;
   var injF=1, trrOn=false, trrProg=0, trrRaf=null, trrT0=0, TRRDUR=2600; // reverse-recovery transient
   var PX0=44, PX1=636, xJ=(PX0+PX1)/2;
@@ -224,9 +227,14 @@ const theory = String.raw`
     ctx.fillStyle='#bbb3a6'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='right';
     for(var d=4; d<=16; d+=4){ var y=yC(d); ctx.strokeStyle='#f0ebe2'; ctx.beginPath(); ctx.moveTo(PX0,y); ctx.lineTo(PX1,y); ctx.stroke(); ctx.fillStyle='#bbb3a6'; ctx.fillText('1e'+d, PX0-2, y+3); }
     ctx.fillStyle='#7d7568'; ctx.font='600 10px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('キャリア濃度（対数）  cm⁻³', PX0+4, CY0+12);
-    function curve(fn,col){ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
-      for(var x=PX0;x<=PX1;x+=2){ var c=Math.log10(Math.max(1,fn(x))); var y=yC(Math.max(LMIN,Math.min(LMAX,c)));
-        if(x===PX0)ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
+    // 空乏層の外は実線、空乏層の中は破線＋薄く（＝可動キャリアはほぼ0、曲線は見やすさのための視覚補間）
+    var dl=L(), dr=R();
+    function curveSeg(fn,col,xa,xb,dash,alpha){ ctx.save(); ctx.globalAlpha=alpha; ctx.strokeStyle=col; ctx.lineWidth=2; if(dash)ctx.setLineDash([4,3]);
+      ctx.beginPath(); var first=true;
+      for(var x=xa;x<=xb;x+=2){ var c=Math.log10(Math.max(1,fn(x))); var y=yC(Math.max(LMIN,Math.min(LMAX,c)));
+        if(first){ctx.moveTo(x,y);first=false;} else ctx.lineTo(x,y); }
+      ctx.stroke(); ctx.restore(); }
+    function curve(fn,col){ curveSeg(fn,col,PX0,dl,false,1); curveSeg(fn,col,dl,dr,true,0.4); curveSeg(fn,col,dr,PX1,false,1); }
     // shade the EXCESS minority carriers above equilibrium = the stored charge Q
     var base=yC(Math.log10(m0));
     function fillExcess(fn,xa,xb){ ctx.beginPath(); ctx.moveTo(xa,base);
@@ -286,7 +294,7 @@ const theory = String.raw`
     // breakdown marker line
     if(Vbr>-1.0){ var bx=ivx(Vbr); ctx.strokeStyle='rgba(194,84,61,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(bx,iy0+2); ctx.lineTo(bx,iy1-2); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle='#c2543d'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('降伏', bx, iy1-4); }
+      ctx.fillStyle='#c2543d'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText('降伏(模式)', bx, iy1-4); }
     // curve: teal normally, red in the breakdown branch
     ctx.lineWidth=2; var prev=null;
     for(var v=-1.0; v<=0.721; v+=0.01){ var X=ivx(v), Y=ivy(diodeAt(v));
@@ -340,17 +348,19 @@ const theory = String.raw`
       document.getElementById('readout').innerHTML='<b style="color:#c2543d">逆回復(trr)：dQ/dt = i − Q/τ を1ステップずつ積分</b>　— '+ph+'<br>'+
         'τ='+trrTau.toFixed(2)+', di/dt='+trrDidt+'　いま Q=<b>'+(Math.max(0,trrQ)).toFixed(3)+'</b>, i=<b>'+trrI_.toFixed(2)+'</b>'+
         (trrPhase!=='store'?'　／　蓄積時間 ts='+trrTs.toFixed(3)+', 逆電流ピーク I_RM='+(-trrIRM).toFixed(2):'');
-      document.getElementById('status').textContent='τ（少数キャリア寿命）を短く／di/dt を緩くするほど、逆回復は速く浅くなる。速いダイオードは τ が小さい。';
+      document.getElementById('status').textContent='τ（少数キャリア寿命）を短く／di/dt を緩くするほど、逆回復は速く浅くなる。速いダイオードは τ が小さい。なお τ・di/dt・時間軸は見やすさのための単位なし模式量で、実部品の trr を直接予測するものではないよ。';
       return; }
     var I=diodeI(), de=dE();
-    var mode = V<Vbr?'<b style="color:#c2543d">逆方向・降伏（なだれ）</b>':(V>0.02?'<b style="color:#2f9e6e">順方向</b>':(V<-0.02?'<b style="color:#c2543d">逆方向</b>':'平衡（バイアス無し）'));
+    var mode = V<Vbr?'<b style="color:#c2543d">逆方向・模式的な降伏</b>':(V>0.02?'<b style="color:#2f9e6e">順方向</b>':(V<-0.02?'<b style="color:#c2543d">逆方向</b>':'平衡（バイアス無し）'));
     var Itxt = Math.abs(I)<1e-9 ? (I*1e12).toFixed(2)+' pA' : (Math.abs(I)<1e-3 ? (I*1e6).toFixed(2)+' µA' : (I*1e3).toFixed(2)+' mA');
-    document.getElementById('readout').innerHTML =
+    var warn = (Math.abs(I)>0.1 || V>0.68 || (T>360 && V>0.55));
+    var warnHtml = warn ? '<div style="color:#c2543d;font-weight:700;margin-bottom:.35rem;line-height:1.5;">⚠ 理想ショックレー式の外挿領域です。実際のダイオードでは直列抵抗・高注入・自己発熱・外部回路により、ここまでの電流にはなりません。</div>' : '';
+    document.getElementById('readout').innerHTML = warnHtml +
       mode+'　印加電圧 V = <b>'+V.toFixed(2)+' V</b>　／　内蔵電位 Vbi = '+Vbi.toFixed(2)+' V　／　温度 T = <b>'+Math.round(T)+' K</b><br>'+
       '障壁 q(Vbi−V) = <b>'+de.toFixed(2)+' eV</b>　／　空乏層幅 ∝ √(Vbi−V) = <b>'+(Math.sqrt(Math.max(0.02,de)/Vbi)).toFixed(2)+'</b>（平衡=1.00）<br>'+
       '少数キャリアは接合端で約 <b>e^(V/kT)='+(ex()>1e3?ex().toExponential(1):ex().toFixed(2))+'</b> 倍　／　電流 I ≈ <b>'+Itxt+'</b>';
     document.getElementById('status').textContent =
-      'kT/q='+kT.toFixed(4)+'V。順方向は V が kT/q ごとに約 e 倍。温度を上げると Is∝ni²∝e^(−Eg/kT) が急増し、同じ電流に要る順方向電圧が下がる（I–Vが左へ）。'+(V<Vbr?'　いまは降伏領域：逆電流が急増。':'');
+      'kT/q='+kT.toFixed(4)+'V。順方向は V が kT/q ごとに約 e 倍。温度を上げると Is∝ni²∝e^(−Eg/kT) が急増し、同じ電流に要る順方向電圧が下がる（I–Vが左へ）。温度で内蔵電位 Vbi も少し下げている。'+(V<Vbr?'　いまは模式的な降伏領域：逆電流が急増（この降伏電圧は表示用の模式値で、実際は構造・ドープ濃度で決まる）。':'');
   }
   function render(){ if(!trrOn) injF=ex(); draw(); setReadout(); }
 

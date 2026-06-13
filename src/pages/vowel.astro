@@ -110,13 +110,18 @@ const theory = String.raw`
       <div class="status" id="status"></div>
     </div>
 
-    <div class="bridge">では、その F1・F2 は声道の<b>どこから</b>来るのか？ 昔ここに置いていた「管の絵」は、じつは F1・F2 から逆算したマンガで、形と音はゆるくしか結びついていなかった。↓ の<b>声道ラボ</b>では逆に、<b>管の形から共鳴を数値で解く</b>ので、絵と音が必ず一致する。形をいじって、上の地図の母音に着けてみよう。</div>
+    <div class="bridge">では、その F1・F2 は声道の<b>どこから</b>来るのか？ 昔ここに置いていた「管の絵」は、じつは F1・F2 から逆算したマンガで、形と音はゆるくしか結びついていなかった。↓ の<b>声道ラボ</b>では逆に、<b>管の形から共鳴を計算する</b>。<b>同じモデルから図も音も作っている</b>ので、少なくともモデルの中では形・共鳴・音が一貫している。形をいじって、上の地図の母音に近づけてみよう。</div>
 
     <h2 class="part-h" id="lab">② 声道ラボ — その共鳴を、管の形から“解く”</h2>
 
+    <p class="note" style="background:#f6f1e8;border:1px dashed #d8cbb6;border-radius:12px;padding:.9rem 1.1rem;">
+      ※ このラボは、声道を<b>1次元の損失なし管</b>として近似したモデルです。唇の放射端補正、声道壁の損失、鼻腔結合、3次元形状、声門インピーダンスは省略しています。だから実測のフォルマントを厳密に再現するものではなく、<b>形と共鳴の関係</b>を見るための教材だよ。<br>
+      もうひとつコツ：管を<b>一様に</b>太く／細くするだけでは、主に音響インピーダンスが変わるだけで共鳴周波数はあまり動かない。フォルマントを動かすのは断面積の<b>絶対値</b>より、<b>どこが狭くどこが広いか（分布）</b>のほうだよ。
+    </p>
+
     <div class="card">
       <h2>管の形をさわる（上の輪郭を上下にドラッグ）</h2>
-      <p class="note">声帯（左・閉じた端）から唇（右・開いた端）までの声道。輪郭のまる印を上下にドラッグすると、その場所の<b class="w">断面積</b>が変わる。重なって見える曲線は<b class="r">F1 の定在波</b>と<b class="b">F2 の定在波</b>——どちらも今の形の<strong>本物の共鳴</strong>を数値で解いて描いている。</p>
+      <p class="note">声帯（左・閉じた端）から唇（右・開いた端）までの声道。輪郭のまる印を上下にドラッグすると、その場所の<b class="w">断面積</b>が変わる。重なって見える曲線は<b class="r">F1 の圧力振幅分布</b>と<b class="b">F2 の圧力振幅分布</b>——どちらも今の形について、<strong>この1次元管モデルでの共鳴</strong>を数値で解いて描いたもの（各点で圧力がどれだけ振れるかの絶対値）だよ。</p>
       <canvas id="vttube" width="680" height="300"></canvas>
       <div class="controls">
         <button class="btn primary" id="vtplay" type="button">▶ 鳴らす</button>
@@ -141,7 +146,7 @@ const theory = String.raw`
 
     <div class="card">
       <h2>母音の地図に重ねる（①と同じ地図に、解いた点を置く）</h2>
-      <p class="note">横が <b>F2</b>、縦が <b>F1</b>。あ・い・う・え・お の代表位置を置いてある。②の管を解いて出た F1・F2 が <b class="w">オレンジの点</b>。母音ボタンを押すと、その母音“らしい”管の形に変えて、解き直した点がどこに着くかが見える。ぴったりでなくていい——<strong>形から正直に出た値</strong>を見るのがこのラボの趣旨だよ。</p>
+      <p class="note">横が <b>F2</b>、縦が <b>F1</b>。あ・い・う・え・お の代表位置を置いてある。②の管を解いて出た F1・F2 が <b class="w">オレンジの点</b>。母音ボタンを押すと、その母音“らしい”管の形に変えて、解き直した点がどこに着くかが見える。ぴったり一致しなくていい——<strong>このモデルで形から計算した値</strong>が、代表値とどれくらい近いかを見るのがこのラボの趣旨だよ（差は下のリードアウトに出るよ）。</p>
       <canvas id="vtmap" width="680" height="360"></canvas>
     </div>
 
@@ -298,8 +303,9 @@ const theory = String.raw`
     'い':[3.2,6.0,7.6,7.2,4.2,1.5,0.5,0.5,1.3,2.4],
     'う':[2.6,3.6,3.0,1.1,2.4,3.2,2.0,0.85,0.65,1.0],
     'え':[3.0,3.6,4.0,3.6,2.8,2.0,1.7,2.0,2.8,3.4],
-    'お':[1.4,1.0,1.1,1.7,2.8,4.2,4.5,3.4,1.5,0.95]
+    'お':[3.2,3.6,3.2,2.0,0.9,1.3,3.2,3.6,1.8,0.7]
   };
+  var lastPreset=null;  // 直近に押した母音プリセット（差分表示用）
   var VOW=[['あ',800,1300],['い',300,2300],['う',350,1250],['え',500,1900],['お',500,900]];
 
   function areaAt(i){
@@ -399,8 +405,8 @@ const theory = String.raw`
     tctx.fillText('声帯（閉）', GL, H-8); tctx.fillText('唇（開）', GR, H-8);
     tctx.fillStyle=WARM; tctx.fillText('← 声道長 '+LEN.toFixed(1)+' cm →', (GL+GR)/2, H-8);
     tctx.fillStyle=RED; tctx.textAlign='left'; tctx.font='10px "JetBrains Mono",monospace';
-    tctx.fillText('赤 F1 の定在波（数値解）', GL+4, 16);
-    tctx.fillStyle=BLUE; tctx.textAlign='right'; tctx.fillText('青 F2 の定在波（数値解）', GR, 16);
+    tctx.fillText('赤 F1 の圧力振幅分布', GL+4, 16);
+    tctx.fillStyle=BLUE; tctx.textAlign='right'; tctx.fillText('青 F2 の圧力振幅分布', GR, 16);
   }
 
   function drawTF(){
@@ -456,10 +462,23 @@ const theory = String.raw`
   function nearestVowel(){ var best=null,bd=1e9; for(var i=0;i<VOW.length;i++){ var dx=(F2-VOW[i][2])/1000, dy=(F1-VOW[i][1])/1000, d=dx*dx+dy*dy; if(d<bd){bd=d;best=VOW[i];} } return {v:best,d:Math.sqrt(bd)}; }
   function setReadout(){
     var n=nearestVowel(); var name=n.d<0.30?('「'+n.v[0]+'」に近い'):'（あ〜お の間）';
-    document.getElementById('vtreadout').innerHTML='<span class="big">解いた共鳴：'+name+'</span>'+
-      '<div class="nums">F1 = '+Math.round(F1)+' Hz ／ F2 = '+Math.round(F2)+' Hz ／ F3 = '+Math.round(F3)+' Hz　— この値は今の管の形から計算したもの</div>';
+    if(lastPreset) name='「'+lastPreset+'」を狙った形の解';
+    var html='<span class="big">解いた共鳴：'+name+'</span>'+
+      '<div class="nums">F1 = '+Math.round(F1)+' Hz ／ F2 = '+Math.round(F2)+' Hz ／ F3 = '+Math.round(F3)+' Hz　— この1次元管モデルで形から計算した値</div>';
+    if(lastPreset){
+      var rep=null; for(var i=0;i<VOW.length;i++) if(VOW[i][0]===lastPreset) rep=VOW[i];
+      if(rep){
+        var dF1=Math.round(F1-rep[1]), dF2=Math.round(F2-rep[2]);
+        var sgn=function(d){ return (d>=0?'+':'')+d; };
+        html+='<div class="nums" style="margin-top:.4rem;color:#7d7568;">代表的な「'+rep[0]+'」：F1 ≈ '+rep[1]+' Hz ／ F2 ≈ '+rep[2]+' Hz'+
+          '<br>差：F1 '+sgn(dF1)+' Hz ／ F2 '+sgn(dF2)+' Hz';
+        if(Math.abs(dF2)>180) html+='　— このモデルでは代表値より F2 が'+(dF2>0?'高め':'低め')+'に出ています。唇側の狭め・前腔長の影響（円唇・放射）を単純化しているためで、唇側をもっと狭めると近づきます。';
+        html+='</div>';
+      }
+    }
+    document.getElementById('vtreadout').innerHTML=html;
   }
-  function setStatus(){ document.getElementById('vtstatus').textContent=(playing?'♪ 鳴らしてる':'停止中')+'　— 上の輪郭のまる印を上下にドラッグして声道の形を変える。共鳴・定在波・音すべてが解き直される。'; }
+  function setStatus(){ document.getElementById('vtstatus').textContent=(playing?'♪ 鳴らしてる':'停止中')+'　— 上の輪郭のまる印を上下にドラッグして声道の形を変える。共鳴・圧力振幅分布・音すべてが解き直される（1次元損失なし管モデル）。'; }
 
   function recompute(){ S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; pushAudio(); render(); }
   function setLenHint(){ var lh=document.getElementById('vtlenhint'); if(!lh)return;
@@ -475,7 +494,7 @@ const theory = String.raw`
   }
   function applyDrag(cx,cy){
     var h=knotFromXY(cx,cy); var half=Math.abs(CY-h.sy); var a=(half/RSC)*(half/RSC);
-    knot[h.i]=clamp(a,AMIN,AMAX); recompute();
+    knot[h.i]=clamp(a,AMIN,AMAX); lastPreset=null; recompute();
   }
   tube.addEventListener('pointerdown',function(e){ var h=knotFromXY(e.clientX,e.clientY); drag=h.i; tube.setPointerCapture(e.pointerId); applyDrag(e.clientX,e.clientY); });
   tube.addEventListener('pointermove',function(e){ if(drag>=0) applyDrag(e.clientX,e.clientY); });
@@ -492,8 +511,8 @@ const theory = String.raw`
 
   var vw=document.getElementById('vtvows');
   ['あ','い','う','え','お'].forEach(function(name){ var b=document.createElement('button'); b.className='vbtn'; b.textContent=name;
-    b.onclick=function(){ start(); setKnots(PRE[name].slice(), true); }; vw.appendChild(b); });
-  document.getElementById('vtreset').onclick=function(){ setKnots([3,3,3,3,3,3,3,3,3,3], true); };
+    b.onclick=function(){ start(); lastPreset=name; setKnots(PRE[name].slice(), true); }; vw.appendChild(b); });
+  document.getElementById('vtreset').onclick=function(){ lastPreset=null; setKnots([3,3,3,3,3,3,3,3,3,3], true); };
   document.getElementById('vtplay').onclick=function(){ start(); };
   document.getElementById('vtstop').onclick=function(){ stop(); };
   var pt=document.getElementById('vtpitch'), ptv=document.getElementById('vtpitchv');
@@ -503,7 +522,7 @@ const theory = String.raw`
 
   var qpre={a:'あ',i:'い',u:'う',e:'え',o:'お'};
   var qm=window.location.search.match(/pre=([aiueo])/);
-  if(qm && PRE[qpre[qm[1]]]){ for(var qi=0;qi<K;qi++)knot[qi]=PRE[qpre[qm[1]]][qi]; }
+  if(qm && PRE[qpre[qm[1]]]){ for(var qi=0;qi<K;qi++)knot[qi]=PRE[qpre[qm[1]]][qi]; lastPreset=qpre[qm[1]]; }
   var qln=window.location.search.match(/len=([\d.]+)/);
   if(qln){ LEN=Math.max(13,Math.min(21,parseFloat(qln[1]))); var le=document.getElementById('vtlen'),lev=document.getElementById('vtlenv'); if(le)le.value=LEN; if(lev)lev.textContent=LEN.toFixed(1)+'cm'; }
   if(qm||qln){ S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; }
