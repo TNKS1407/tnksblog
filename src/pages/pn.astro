@@ -31,6 +31,12 @@ import Footer from '../components/Footer.astro';
       border-radius:10px;padding:.85rem 1.1rem;font-size:.85rem;color:#33433f;line-height:1.75;}
     .readout b{color:#c9761f;}
     .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.7rem;}
+    .eqcard h2{font-size:.98rem;margin:0 0 .9rem;color:#33433f;}
+    .eqrow{padding:.6rem 0;border-bottom:1px dashed #ece5d9;}
+    .eqrow:last-child{border-bottom:none;}
+    .eqname{display:inline-block;font-size:.78rem;font-weight:700;color:#c9761f;font-family:'Zen Kaku Gothic New',sans-serif;margin-right:.7rem;}
+    .eqf{font-family:'JetBrains Mono',monospace;font-size:.88rem;color:#1d6f4a;font-weight:600;}
+    .eqcap{font-size:.78rem;color:#7d7568;line-height:1.65;margin-top:.3rem;}
   </style>
 </head>
 <body>
@@ -57,6 +63,30 @@ import Footer from '../components/Footer.astro';
       </div>
       <div class="readout" id="readout"></div>
       <div class="status" id="status"></div>
+    </div>
+
+    <div class="card eqcard">
+      <h2>理論式（ダイオードの中身を式で）</h2>
+      <div class="eqrow">
+        <span class="eqname">内蔵電位</span><span class="eqf">q·V_bi = kT · ln( Na·Nd / ni² )</span>
+        <div class="eqcap">P型とN型のフェルミ準位を一直線に揃えるために、バンドが曲がる量。これが接合の“壁”。ドープ（Na・Nd）が濃いほど高い。ni＝真性キャリア濃度。<b>0Vでもこの段差は残る</b>——揃うのは Ef のほうで、バンドはむしろ qV_bi ぶん階段状に下がる。</div>
+      </div>
+      <div class="eqrow">
+        <span class="eqname">空乏層幅</span><span class="eqf">W = √[ (2ε/q)·(1/Na + 1/Nd)·(V_bi − V) ]　∝ √(V_bi − V)</span>
+        <div class="eqcap">逆方向（V&lt;0）で (V_bi−V) が増えて<b>広がり</b>、順方向（V&gt;0）で<b>縮む</b>。空乏層は、動けるキャリアが抜けて固定電荷（ドナー/アクセプタ）だけ残った帯。逆電圧を強くするほど、その電界を支える固定電荷をむき出しにする必要があり、帯が広がる。</div>
+      </div>
+      <div class="eqrow">
+        <span class="eqname">ダイオード式</span><span class="eqf">I = Is·( e^(qV/kT) − 1 )</span>
+        <div class="eqcap">順方向は V が kT/q ≈ 26 mV 増えるごとに約 e 倍（指数）。逆方向は −Is に飽和してほぼ流れない。</div>
+      </div>
+      <div class="eqrow">
+        <span class="eqname">少数キャリア注入</span><span class="eqf">n_p(0) = n_p0 · e^(qV/kT)</span>
+        <div class="eqcap">接合端の少数キャリア濃度が e^(V/kT) 倍に持ち上がる。中段のキャリア分布の“山”がこれ。平衡の少数キャリアは n_p0 = ni²/Na。</div>
+      </div>
+      <div class="eqrow">
+        <span class="eqname">蓄積電荷・逆回復</span><span class="eqf">Q ≈ I_F·τ,　dQ/dt = i − Q/τ</span>
+        <div class="eqcap">順方向で接合近くに溜めた少数キャリア電荷 Q を掃き出すまで、急に逆をかけても遮断できない。Q→0 の瞬間に電流が 0 へ snap するのが逆回復。少数キャリア寿命 τ が小さいほど速い。中段の<b>紫の塗り＝その蓄積電荷</b>で、逆回復中に抜けていくのが見える。</div>
+      </div>
     </div>
   </main>
   <Footer />
@@ -138,8 +168,20 @@ import Footer from '../components/Footer.astro';
     function curve(fn,col){ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
       for(var x=PX0;x<=PX1;x+=2){ var c=Math.log10(Math.max(1,fn(x))); var y=yC(Math.max(LMIN,Math.min(LMAX,c)));
         if(x===PX0)ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
+    // shade the EXCESS minority carriers above equilibrium = the stored charge Q
+    var base=yC(Math.log10(m0));
+    function fillExcess(fn,xa,xb){ ctx.beginPath(); ctx.moveTo(xa,base);
+      for(var x=xa;x<=xb;x+=2){ var c=Math.log10(Math.max(1,fn(x))); var y=yC(Math.max(LMIN,Math.min(LMAX,c))); ctx.lineTo(x,y); }
+      ctx.lineTo(xb,base); ctx.closePath(); ctx.fill(); }
+    var showQ = (injF>1.3) || (trrOn && trrPhase==='store');
+    if(showQ){ ctx.fillStyle='rgba(122,92,174,.20)';
+      fillExcess(nAt,PX0,L());   // electrons injected into P side
+      fillExcess(pAt,R(),PX1);   // holes injected into N side
+    }
     curve(pAt,'#c2543d');   // holes
     curve(nAt,'#3a6df0');   // electrons
+    if(showQ){ ctx.fillStyle='#7a5cae'; ctx.font='700 10px "JetBrains Mono",monospace'; ctx.textAlign='center';
+      ctx.fillText(trrOn?'蓄積電荷 Q を掃き出し中 → 逆電流':'蓄積電荷 Q（順方向で溜まる少数キャリア）', xJ, CY0+24); }
     // labels: majority / minority
     ctx.font='10px "JetBrains Mono",monospace';
     ctx.fillStyle='#c2543d'; ctx.textAlign='left'; ctx.fillText('正孔 p（P:多数）', PX0+6, yC(16)-4);
@@ -247,6 +289,13 @@ import Footer from '../components/Footer.astro';
     if(trrIRM<0){ ctx.fillStyle='#c2543d'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('I_RM='+(-trrIRM).toFixed(2), tx(trrTs)+2, ty(trrIRM)+11); }
     ctx.fillStyle='#bbb3a6'; ctx.font='9px "JetBrains Mono",monospace'; ctx.textAlign='left';
     ctx.fillText('順', ix0+9, ty(1)-1); ctx.fillText('逆', ix0+9, ty(-1)+9);
+    // stored-charge reservoir: drains to empty as Q is swept out, then current can snap to 0
+    var q0=IF*trrTau, frac=q0>0?Math.max(0,Math.min(1,trrQ/q0)):0;
+    var rbx=ix0+38, rby=iy1-9, rbw=w-48, rbh=5;
+    ctx.fillStyle='#eee7db'; ctx.fillRect(rbx,rby,rbw,rbh);
+    ctx.fillStyle='#7a5cae'; ctx.fillRect(rbx,rby,rbw*frac,rbh);
+    ctx.strokeStyle='#cbb8e0'; ctx.lineWidth=1; ctx.strokeRect(rbx+.5,rby+.5,rbw,rbh);
+    ctx.fillStyle='#7a5cae'; ctx.font='8px "JetBrains Mono",monospace'; ctx.textAlign='left'; ctx.fillText('蓄積Q', ix0+4, rby+5);
   }
   function stopTRR(){ if(trrRaf){ cancelAnimationFrame(trrRaf); trrRaf=null; } trrOn=false; var b=document.getElementById('bias'); if(b)b.disabled=false; }
   function startTRR(){ stopTRR(); trrOn=true; trrInit(); document.getElementById('bias').disabled=true; trrLoop(); }
@@ -276,6 +325,12 @@ import Footer from '../components/Footer.astro';
   document.getElementById('tdidt').oninput=function(){ document.getElementById('tdidtv').textContent=this.value; if(trrOn&&trrPhase==='done') startTRR(); };
   document.getElementById('trrstep').onclick=function(){ stepTRR(); };
   document.getElementById('trrspd').oninput=function(){ var v=+this.value; trrFrames=Math.round(150+v*9); document.getElementById('trrspdv').textContent=v<30?'はやい':(v<55?'ふつう':'ゆっくり'); };
+
+  // QA: ?v=0.6 sets bias; ?trr=N starts reverse recovery and steps N times (for screenshots)
+  var qv=location.search.match(/[?&]v=(-?[\d.]+)/);
+  if(qv){ V=Math.max(-1,Math.min(0.72,parseFloat(qv[1]))); eb.value=Math.round(V*100); ebv.textContent=V.toFixed(2)+' V'; }
+  var qt=location.search.match(/[?&]trr=(\d+)/);
+  if(qt){ trrOn=true; trrInit(); var qn=parseInt(qt[1],10),qdt=0.0016; for(var qs=0;qs<qn && trrPhase!=='done';qs++) trrStep(qdt); }
 
   render();
 })();
