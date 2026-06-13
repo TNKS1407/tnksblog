@@ -1,0 +1,347 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="声道ラボ — 管の形から共鳴を解く" description="声道を細かい輪切り（断面積管）に分け、伝達行列で共鳴周波数を数値的に解く。管の形をドラッグすると F1・F2・F3 が本当に動き、その共鳴から音を合成する——絵と音が必ず一致するフォルマントの実験室。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style is:global>
+    .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .intro h1{font-size:1.25rem;margin:0 0 .5rem;}
+    .intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin:0 0 .4rem;}
+    .intro a{color:#3c7876;}
+    .card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
+      padding:1.5rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .card h2{font-size:.96rem;margin:0 0 .8rem;color:#33433f;}
+    canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;background:#faf8f4;
+      width:100%;height:auto;touch-action:none;}
+    #tube{cursor:ns-resize;}
+    .controls{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-top:1rem;}
+    .ctrl-group{display:flex;align-items:center;gap:.5rem;}
+    .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);white-space:nowrap;}
+    .ctrl-group input[type=range]{width:120px;accent-color:#3c7876;}
+    .btn{padding:.38rem .9rem;border:1px solid var(--border,#e3dbd0);border-radius:8px;background:none;
+      font-family:inherit;font-size:.82rem;color:var(--text-muted,#7d7568);cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:#3c7876;color:#3c7876;}
+    .btn.primary{background:#3c7876;color:#fff;border-color:#3c7876;}
+    .vows{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .vbtn{min-width:2.4rem;height:2.4rem;padding:0 .5rem;border:1px solid var(--border,#e3dbd0);border-radius:10px;background:var(--surface,#faf8f4);
+      font-size:1.05rem;font-weight:700;color:#33433f;cursor:pointer;transition:all .12s;font-family:'Zen Kaku Gothic New',sans-serif;}
+    .vbtn:hover{border-color:#3c7876;color:#3c7876;transform:translateY(-1px);}
+    .readout{margin-top:1rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);
+      border-radius:10px;padding:.85rem 1.1rem;}
+    .readout .big{font-family:'Zen Kaku Gothic New',sans-serif;font-size:1.5rem;font-weight:700;color:#3c7876;}
+    .readout .nums{font-family:'JetBrains Mono',monospace;font-size:.86rem;color:#2a4d49;margin-top:.25rem;}
+    .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.7rem;}
+    .note{font-size:.82rem;color:#7d7568;line-height:1.7;margin:0 0 .7rem;}
+    .note b.r{color:#c2543d;} .note b.b{color:#3a6df0;} .note b.w{color:#c9761f;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main class="wrap">
+    <div class="intro">
+      <h1>声道ラボ — 管の形から共鳴を“解く”</h1>
+      <p>姉妹ページの<a href="/vowel">「声の地図」</a>では、母音の F1・F2 を地図に置いて音を鳴らした。あそこの管の絵は、正直に言うと <em>F1・F2 から逆算して描いたマンガ</em>で、形と音はゆるくしか結びついていなかった。</p>
+      <p>ここでは逆をやる。声道を細かい<strong>輪切り（断面積の違う短い管の列）</strong>に分け、その形から<strong>共鳴周波数を数値で解く</strong>。境界ごとの反射を<strong>伝達行列</strong>で掛け合わせ、声帯側を閉じ・唇側を開いた管の共鳴（＝フォルマント）を求める。だから——<strong>管をドラッグして形を変えると、F1・F2・F3 が本当に動く。</strong>定在波の絵も鳴る音も、その解から作るので、絵と音は必ず一致する。<a href="/play">← /play に戻る</a></p>
+    </div>
+
+    <div class="card">
+      <h2>① 管の形をさわる（上の輪郭を上下にドラッグ）</h2>
+      <p class="note">声帯（左・閉じた端）から唇（右・開いた端）までの声道。輪郭のまる印を上下にドラッグすると、その場所の<b class="w">断面積</b>が変わる。重なって見える曲線は<b class="r">F1 の定在波</b>と<b class="b">F2 の定在波</b>——どちらも今の形の<strong>本物の共鳴</strong>を数値で解いて描いている（昔のような決め打ちの正弦波じゃないよ）。</p>
+      <canvas id="tube" width="680" height="300"></canvas>
+      <div class="controls">
+        <button class="btn primary" id="play" type="button">▶ 鳴らす</button>
+        <button class="btn" id="stop" type="button">■ 止める</button>
+        <div class="vows" id="vows" style="margin-left:.3rem;"></div>
+        <button class="btn" id="reset" type="button" style="margin-left:.3rem;">中性管</button>
+        <div class="ctrl-group" style="margin-left:auto;"><label>声の高さ</label><input type="range" id="pitch" min="80" max="200" value="120"><span id="pitchv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;">120Hz</span></div>
+      </div>
+      <div class="readout" id="readout"></div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>② 解いた共鳴（伝達関数）</h2>
+      <p class="note">いまの管を声帯側から見たときの伝わりやすさ <b>|H(f)| = 1/|D(f)|</b> を周波数ごとに計算したもの。<b class="w">山が立つところ＝共鳴＝フォルマント</b>。低いほうから F1・F2・F3。①で形を変えると、この山が左右に動く。これが「F1・F2 が出てくる理由」そのものだよ。</p>
+      <canvas id="tf" width="680" height="220"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>③ 母音の地図に重ねる</h2>
+      <p class="note">横が <b>F2</b>（舌の前後）、縦が <b>F1</b>（口の開き）。あ・い・う・え・お の代表位置を置いてある。①の管を解いて出た F1・F2 が <b class="w">オレンジの点</b>。母音ボタンを押すと、その母音“らしい”管の形に変えて、解き直した点がどこに着くかが見える。ぴったりでなくていい——<strong>形から正直に出た値</strong>を見るのがこのラボの趣旨だよ。</p>
+      <canvas id="map" width="680" height="360"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>仕組み（一段だけ深く）</h2>
+      <p class="note">各輪切りを長さ <b>ℓ</b>・断面積 <b>A</b> の一様管とみなすと、入口の (圧力 P, 体積速度 U) と出口の (P, U) は次の行列で結ばれる：<br>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#2a4d49;">[Pin; Uin] = [[cos kℓ, jZ·sin kℓ],[ j·sin kℓ /Z, cos kℓ]] · [Pout; Uout]</span>　（k=2πf/c、Z=ρc/A）。</p>
+      <p class="note">輪切りを声帯側から唇側へ順に掛けると、声道全体の行列 <b>[[A,B],[C,D]]</b> が出る。唇を開いた端（P=0）とすると、声帯から唇への速度の伝わりは <b>1/D(f)</b>。この <b>|D(f)| が小さくなる周波数＝共鳴</b>を掃引で拾えば、それが F1・F2・F3。面積の<em>比</em>と管の<em>長さ</em>だけで決まるので、絶対値の単位は要らない。声道長は約 17.5cm、音速 c≈350 m/s としている。</p>
+    </div>
+  </main>
+  <Footer />
+
+<script is:inline>
+(function(){
+  var tube=document.getElementById('tube'); if(!tube) return;
+  var tctx=tube.getContext('2d');
+  var tf=document.getElementById('tf'), fctx=tf.getContext('2d');
+  var map=document.getElementById('map'), mctx=map.getContext('2d');
+  var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0', MUT='#7d7568', RED='#c2543d', BLUE='#3a6df0';
+  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+
+  // ---- acoustic model ----
+  var C_SOUND=35000;   // cm/s
+  var LEN=17.5;        // cm
+  var NSEG=44;         // solver sections
+  var K=10;            // draggable knots
+  // area at each knot (cm^2); ratios are what matter
+  var knot=[3,3,3,3,3,3,3,3,3,3];
+  var AMIN=0.12, AMAX=13;
+
+  // vowel-ish area presets (10 knots, glottis -> lips)
+  var PRE={
+    'あ':[1.3,0.9,0.9,1.4,2.6,4.6,6.6,8.2,8.2,6.0],
+    'い':[3.2,6.0,7.6,7.2,4.2,1.5,0.5,0.5,1.3,2.4],
+    'う':[2.6,3.6,3.0,1.1,2.4,3.2,2.0,0.85,0.65,1.0],
+    'え':[3.0,3.6,4.0,3.6,2.8,2.0,1.7,2.0,2.8,3.4],
+    'お':[1.4,1.0,1.1,1.7,2.8,4.2,4.5,3.4,1.5,0.95]
+  };
+  var VOW=[['あ',800,1300],['い',300,2300],['う',350,1250],['え',500,1900],['お',500,900]];
+
+  function areaAt(i){ // interp knot[] to NSEG sections, return area of section i (0..NSEG-1)
+    var t=(i+0.5)/NSEG*(K-1); var k0=Math.floor(t); if(k0>=K-1)k0=K-2; var f=t-k0;
+    return clamp(knot[k0]*(1-f)+knot[k0+1]*f, AMIN, AMAX);
+  }
+  function areaArray(){ var a=[]; for(var i=0;i<NSEG;i++)a.push(areaAt(i)); return a; }
+
+  // total D(f) of the ABCD matrix (glottis->lips). |D| minima = formants.
+  function calcD(freq, area){
+    var dL=LEN/area.length, w=2*Math.PI*freq;
+    var Are=1,Aim=0,Bre=0,Bim=0,Cre=0,Cim=0,Dre=1,Dim=0;
+    for(var i=0;i<area.length;i++){
+      var Zc=1/area[i], kL=w*dL/C_SOUND, cs=Math.cos(kL), sn=Math.sin(kL);
+      var sb=Zc*sn, sc=sn/Zc; // Sb=j*sb, Sc=j*sc, Sa=Sd=cs
+      var nAre=Are*cs - Bim*sc, nAim=Aim*cs + Bre*sc;
+      var nBre=-Aim*sb + Bre*cs, nBim=Are*sb + Bim*cs;
+      var nCre=Cre*cs - Dim*sc, nCim=Cim*cs + Dre*sc;
+      var nDre=-Cim*sb + Dre*cs, nDim=Cre*sb + Dim*cs;
+      Are=nAre;Aim=nAim;Bre=nBre;Bim=nBim;Cre=nCre;Cim=nCim;Dre=nDre;Dim=nDim;
+    }
+    return Dre*Dre+Dim*Dim; // |D|^2
+  }
+  // sweep -> transfer magnitude (dB-ish) and formant frequencies
+  var SWEEP_LO=120, SWEEP_HI=4200, SWEEP_STEP=4;
+  function solve(){
+    var area=areaArray();
+    var fs=[], mag=[];
+    for(var f=SWEEP_LO; f<=SWEEP_HI; f+=SWEEP_STEP){ fs.push(f); mag.push(calcD(f,area)); }
+    // local minima of |D|^2
+    var mins=[];
+    for(var i=1;i<mag.length-1;i++){
+      if(mag[i]<mag[i-1] && mag[i]<=mag[i+1]){
+        // parabolic refine on log
+        var y0=Math.log(mag[i-1]+1e-12), y1=Math.log(mag[i]+1e-12), y2=Math.log(mag[i+1]+1e-12);
+        var den=(y0-2*y1+y2); var off= den!==0 ? 0.5*(y0-y2)/den : 0;
+        mins.push(fs[i]+off*SWEEP_STEP);
+      }
+    }
+    mins.sort(function(a,b){return a-b;});
+    var F1=mins[0]||500, F2=mins[1]||1500, F3=mins[2]||2500;
+    return {area:area, fs:fs, mag:mag, F:[F1,F2,F3]};
+  }
+  // pressure standing wave |P(x)| at frequency f, propagated from lips (P=0,U=1)
+  function modeShape(freq, area){
+    var dL=LEN/area.length, w=2*Math.PI*freq;
+    var Pre=0,Pim=0,Ure=1,Uim=0; // at lips
+    var out=[Math.hypot(Pre,Pim)];
+    for(var i=area.length-1;i>=0;i--){
+      var Zc=1/area[i], kL=w*dL/C_SOUND, cs=Math.cos(kL), sn=Math.sin(kL);
+      var sb=Zc*sn, sc=sn/Zc;
+      // [P';U'] = [[cs, j sb],[ j sc, cs]] [P;U]
+      var nPre=Pre*cs - Uim*sb, nPim=Pim*cs + Ure*sb;
+      var nUre=-Pim*sc + Ure*cs, nUim=Pre*sc + Uim*cs;
+      Pre=nPre;Pim=nPim;Ure=nUre;Uim=nUim;
+      out.push(Math.hypot(Pre,Pim));
+    }
+    out.reverse(); // glottis -> lips
+    var mx=0; for(var j=0;j<out.length;j++) if(out[j]>mx)mx=out[j];
+    if(mx>0) for(var j2=0;j2<out.length;j2++) out[j2]/=mx;
+    return out;
+  }
+
+  var S=solve();
+  var F1=S.F[0], F2=S.F[1], F3=S.F[2], pitch=120;
+
+  // ---- audio (formant synth from solved F1/F2/F3) ----
+  var actx=null, osc=null, bands=[], master=null, playing=false;
+  function ensureAudio(){
+    if(actx) return; var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    actx=new AC(); osc=actx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=pitch;
+    master=actx.createGain(); master.gain.value=0; master.connect(actx.destination);
+    var Q=[9,11,13], G=[1.0,0.62,0.26];
+    for(var i=0;i<3;i++){ var b=actx.createBiquadFilter(); b.type='bandpass'; b.Q.value=Q[i];
+      var g=actx.createGain(); g.gain.value=G[i]; osc.connect(b); b.connect(g); g.connect(master); bands.push(b); }
+    osc.start(); pushAudio();
+  }
+  function pushAudio(){ if(!actx)return; bands[0].frequency.value=clamp(F1,80,4000); bands[1].frequency.value=clamp(F2,80,4000); bands[2].frequency.value=clamp(F3,80,4500); osc.frequency.value=pitch; }
+  function start(){ ensureAudio(); if(!actx)return; if(actx.state==='suspended')actx.resume(); pushAudio(); master.gain.setTargetAtTime(0.5,actx.currentTime,0.02); playing=true; setStatus(); }
+  function stop(){ if(!actx)return; master.gain.setTargetAtTime(0,actx.currentTime,0.04); playing=false; setStatus(); }
+
+  // ---- drawing: tube ----
+  var GL=70, GR=tube.width-30, CY=tube.height/2, RSC=21;
+  function rpx(a){ return RSC*Math.sqrt(a); }
+  function knotX(i){ return GL+(GR-GL)*i/(K-1); }
+  function drawTube(){
+    var W=tube.width,H=tube.height; tctx.clearRect(0,0,W,H);
+    var area=S.area;
+    // filled tube
+    tctx.fillStyle='rgba(201,160,122,.13)'; tctx.strokeStyle='#c9a07a'; tctx.lineWidth=2;
+    tctx.beginPath();
+    var i,x,r;
+    for(i=0;i<NSEG;i++){ x=GL+(GR-GL)*(i+0.5)/NSEG; r=rpx(area[i]); if(i===0)tctx.moveTo(x,CY-r); else tctx.lineTo(x,CY-r); }
+    for(i=NSEG-1;i>=0;i--){ x=GL+(GR-GL)*(i+0.5)/NSEG; r=rpx(area[i]); tctx.lineTo(x,CY+r); }
+    tctx.closePath(); tctx.fill(); tctx.stroke();
+    // closed glottis bar
+    tctx.strokeStyle='#8a6a4a'; tctx.lineWidth=3; tctx.beginPath(); tctx.moveTo(GL,CY-rpx(area[0])-5); tctx.lineTo(GL,CY+rpx(area[0])+5); tctx.stroke();
+    // standing waves (real modes) overlay
+    var m1=modeShape(F1,area), m2=modeShape(F2,area);
+    function drawMode(m,col,sign){ tctx.strokeStyle=col; tctx.lineWidth=2; tctx.beginPath();
+      for(var j=0;j<m.length;j++){ var t=j/(m.length-1); var xx=lerp(GL,GR,t); var yy=CY - sign*m[j]*(CY-58);
+        if(j===0)tctx.moveTo(xx,yy); else tctx.lineTo(xx,yy); } tctx.stroke(); }
+    drawMode(m1,RED,1); drawMode(m2,BLUE,1);
+    // knot handles
+    for(i=0;i<K;i++){ var kx=knotX(i), kr=rpx(knot[i]);
+      tctx.fillStyle='#fff'; tctx.strokeStyle=WARM; tctx.lineWidth=2;
+      tctx.beginPath(); tctx.arc(kx,CY-kr,5,0,7); tctx.fill(); tctx.stroke(); }
+    // labels
+    tctx.fillStyle=MUT; tctx.font='11px "JetBrains Mono",monospace'; tctx.textAlign='center';
+    tctx.fillText('声帯（閉）', GL, H-8); tctx.fillText('唇（開）', GR, H-8);
+    tctx.fillStyle=RED; tctx.textAlign='left'; tctx.font='10px "JetBrains Mono",monospace';
+    tctx.fillText('赤 F1 の定在波（数値解）', GL+4, 16);
+    tctx.fillStyle=BLUE; tctx.textAlign='right'; tctx.fillText('青 F2 の定在波（数値解）', GR, 16);
+  }
+
+  // ---- transfer function ----
+  function drawTF(){
+    var W=tf.width,H=tf.height; fctx.clearRect(0,0,W,H);
+    var x0=46,x1=W-16,y0=18,y1=H-26;
+    fctx.fillStyle='#fff'; fctx.fillRect(x0,y0,x1-x0,y1-y0);
+    fctx.strokeStyle=LINE; fctx.strokeRect(x0+.5,y0+.5,x1-x0,y1-y0);
+    var FMAX=4200;
+    function fx(f){ return x0+f/FMAX*(x1-x0); }
+    fctx.strokeStyle='#f0ebe2'; fctx.fillStyle=GRAY; fctx.font='10px "JetBrains Mono",monospace'; fctx.textAlign='center';
+    for(var f=1000;f<=4000;f+=1000){ var x=fx(f); fctx.beginPath(); fctx.moveTo(x,y0); fctx.lineTo(x,y1); fctx.stroke(); fctx.fillText(f, x, y1+14); }
+    // curve: 1/|D| in dB, from S.mag (|D|^2)
+    var H_=[], mn=1e30, mx=-1e30;
+    for(var i=0;i<S.mag.length;i++){ var v=-10*Math.log10(S.mag[i]+1e-12); H_.push(v); if(v<mn)mn=v; if(v>mx)mx=v; }
+    fctx.strokeStyle=TEAL; fctx.lineWidth=2; fctx.beginPath();
+    for(var i2=0;i2<S.fs.length;i2++){ var x=fx(S.fs[i2]); var yy=y1-2-(H_[i2]-mn)/(mx-mn+1e-9)*(y1-y0-4);
+      if(i2===0)fctx.moveTo(x,yy); else fctx.lineTo(x,yy); }
+    fctx.stroke();
+    // formant markers
+    var labs=['F1','F2','F3'];
+    for(var k=0;k<3;k++){ var fxk=fx(clamp(S.F[k],0,FMAX));
+      fctx.strokeStyle='rgba(201,118,31,.6)'; fctx.setLineDash([3,3]); fctx.lineWidth=1.2;
+      fctx.beginPath(); fctx.moveTo(fxk,y0+2); fctx.lineTo(fxk,y1-2); fctx.stroke(); fctx.setLineDash([]);
+      fctx.fillStyle=WARM; fctx.font='600 11px "JetBrains Mono",monospace'; fctx.textAlign='center';
+      fctx.fillText(labs[k]+' '+Math.round(S.F[k]), fxk, y0+13); }
+    fctx.fillStyle=MUT; fctx.font='10px "JetBrains Mono",monospace'; fctx.textAlign='left'; fctx.fillText('|H(f)| = 1/|D(f)|  (dB)', x0+4, y1-6);
+    fctx.textAlign='right'; fctx.fillText('周波数 (Hz)', x1-4, y1+14);
+  }
+
+  // ---- F1-F2 map ----
+  var MX0=58,MX1=map.width-30,MY0=30,MY1=map.height-40;
+  var F2L=2600,F2R=600,F1T=200,F1B=950;
+  function mf2x(f){ return MX0+(F2L-clamp(f,F2R,F2L))/(F2L-F2R)*(MX1-MX0); }
+  function mf1y(f){ return MY0+(clamp(f,F1T,F1B)-F1T)/(F1B-F1T)*(MY1-MY0); }
+  function drawMap(){
+    var W=map.width,H=map.height; mctx.clearRect(0,0,W,H);
+    mctx.fillStyle='#fff'; mctx.fillRect(MX0,MY0,MX1-MX0,MY1-MY0);
+    mctx.strokeStyle=LINE; mctx.strokeRect(MX0+.5,MY0+.5,MX1-MX0,MY1-MY0);
+    mctx.strokeStyle='#f0ebe2'; mctx.fillStyle=GRAY; mctx.font='10px "JetBrains Mono",monospace';
+    for(var f2=600;f2<=2600;f2+=400){ var x=mf2x(f2); mctx.beginPath(); mctx.moveTo(x,MY0); mctx.lineTo(x,MY1); mctx.stroke(); mctx.textAlign='center'; mctx.fillText(f2,x,MY0-5); }
+    for(var f1=200;f1<=950;f1+=150){ var y=mf1y(f1); mctx.beginPath(); mctx.moveTo(MX0,y); mctx.lineTo(MX1,y); mctx.stroke(); mctx.textAlign='right'; mctx.fillText(f1,MX0-5,y+3); }
+    mctx.fillStyle=MUT; mctx.font='600 11px "JetBrains Mono",monospace'; mctx.textAlign='center';
+    mctx.fillText('← F2 (Hz)  舌:前 / 後 →',(MX0+MX1)/2,MY1+20);
+    mctx.save(); mctx.translate(MX0-36,(MY0+MY1)/2); mctx.rotate(-Math.PI/2); mctx.fillText('← F1 (Hz)  口:閉じ / 開き →',0,0); mctx.restore();
+    for(var i=0;i<VOW.length;i++){ var vx=mf2x(VOW[i][2]), vy=mf1y(VOW[i][1]);
+      mctx.fillStyle='rgba(60,120,118,.10)'; mctx.beginPath(); mctx.arc(vx,vy,20,0,7); mctx.fill();
+      mctx.fillStyle=TEAL; mctx.font='700 19px "Zen Kaku Gothic New",sans-serif'; mctx.textAlign='center'; mctx.textBaseline='middle';
+      mctx.fillText(VOW[i][0],vx,vy); }
+    mctx.textBaseline='alphabetic';
+    var px=mf2x(F2), py=mf1y(F1);
+    mctx.strokeStyle=WARM; mctx.lineWidth=2; mctx.beginPath(); mctx.arc(px,py,11,0,7); mctx.stroke();
+    mctx.fillStyle='rgba(201,118,31,.22)'; mctx.beginPath(); mctx.arc(px,py,11,0,7); mctx.fill();
+    mctx.fillStyle=WARM; mctx.beginPath(); mctx.arc(px,py,3.5,0,7); mctx.fill();
+  }
+
+  function nearestVowel(){ var best=null,bd=1e9; for(var i=0;i<VOW.length;i++){ var dx=(F2-VOW[i][2])/1000, dy=(F1-VOW[i][1])/1000, d=dx*dx+dy*dy; if(d<bd){bd=d;best=VOW[i];} } return {v:best,d:Math.sqrt(bd)}; }
+  function setReadout(){
+    var n=nearestVowel(); var name=n.d<0.30?('「'+n.v[0]+'」に近い'):'（あ〜お の間）';
+    document.getElementById('readout').innerHTML='<span class="big">解いた共鳴：'+name+'</span>'+
+      '<div class="nums">F1 = '+Math.round(F1)+' Hz ／ F2 = '+Math.round(F2)+' Hz ／ F3 = '+Math.round(F3)+' Hz　— この値は今の管の形から計算したもの</div>';
+  }
+  function setStatus(){ document.getElementById('status').textContent=(playing?'♪ 鳴らしてる':'停止中')+'　— 上の輪郭のまる印を上下にドラッグして声道の形を変える。共鳴・定在波・音すべてが解き直される。'; }
+
+  function recompute(){ S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; pushAudio(); render(); }
+  function render(){ drawTube(); drawTF(); drawMap(); setReadout(); }
+
+  // ---- interaction ----
+  var drag=-1;
+  function knotFromXY(cx,cy){
+    var r=tube.getBoundingClientRect(); var sx=(cx-r.left)*(tube.width/r.width), sy=(cy-r.top)*(tube.height/r.height);
+    // nearest knot by x
+    var best=0,bd=1e9; for(var i=0;i<K;i++){ var d=Math.abs(sx-knotX(i)); if(d<bd){bd=d;best=i;} }
+    return {i:best, sy:sy};
+  }
+  function applyDrag(cx,cy){
+    var h=knotFromXY(cx,cy); var half=Math.abs(CY-h.sy); var a=(half/RSC)*(half/RSC);
+    knot[h.i]=clamp(a,AMIN,AMAX); recompute();
+  }
+  tube.addEventListener('pointerdown',function(e){ var h=knotFromXY(e.clientX,e.clientY); drag=h.i; tube.setPointerCapture(e.pointerId); applyDrag(e.clientX,e.clientY); });
+  tube.addEventListener('pointermove',function(e){ if(drag>=0) applyDrag(e.clientX,e.clientY); });
+  tube.addEventListener('pointerup',function(){ drag=-1; });
+  tube.addEventListener('pointercancel',function(){ drag=-1; });
+
+  function setKnots(arr,animate){
+    if(animate){ var s0=knot.slice(), t0=performance.now();
+      (function step(t){ var k=Math.min(1,(t-t0)/300), e=k*k*(3-2*k);
+        for(var i=0;i<K;i++) knot[i]=s0[i]+(arr[i]-s0[i])*e; recompute();
+        if(k<1)requestAnimationFrame(step); })(t0);
+    } else { for(var i=0;i<K;i++)knot[i]=arr[i]; recompute(); }
+  }
+
+  var vw=document.getElementById('vows');
+  ['あ','い','う','え','お'].forEach(function(name){ var b=document.createElement('button'); b.className='vbtn'; b.textContent=name;
+    b.onclick=function(){ start(); setKnots(PRE[name].slice(), true); }; vw.appendChild(b); });
+  document.getElementById('reset').onclick=function(){ setKnots([3,3,3,3,3,3,3,3,3,3], true); };
+  document.getElementById('play').onclick=function(){ start(); };
+  document.getElementById('stop').onclick=function(){ stop(); };
+  var pt=document.getElementById('pitch'), ptv=document.getElementById('pitchv');
+  pt.oninput=function(){ pitch=+pt.value; ptv.textContent=pitch+'Hz'; pushAudio(); setStatus(); };
+
+  // debug: dump preset formants (visible only in console)
+  if(window.location.search.indexOf('debug')>=0){
+    var rep=['neutral '+JSON.stringify(solve().F.map(Math.round))];
+    for(var nm in PRE){ var bak=knot.slice(); knot=PRE[nm].slice(); rep.push(nm+' '+JSON.stringify(solve().F.map(Math.round))); knot=bak; }
+    console.log('FORMANTS '+rep.join(' | '));
+  }
+
+  // QA: ?pre=a|i|u|e|o sets an initial vowel shape (for screenshots)
+  var qpre={a:'あ',i:'い',u:'う',e:'え',o:'お'};
+  var qm=window.location.search.match(/pre=([aiueo])/);
+  if(qm && PRE[qpre[qm[1]]]){ for(var qi=0;qi<K;qi++)knot[qi]=PRE[qpre[qm[1]]][qi]; S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; }
+
+  render(); setStatus();
+})();
+</script>
+</body>
+</html>
