@@ -2,6 +2,65 @@
 import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+
+// 理論セクションは KaTeX で組版。Astro が {} を式と誤読しないよう String.raw 文字列にして set:html で出力する。
+const theory = String.raw`
+<div class="card eqcard">
+  <h2>理論：式で見るPN接合</h2>
+  <div class="eqrow"><span class="eqname">内蔵電位（ビルトイン）</span>
+    <div class="eqd">$$qV_{bi}=kT\,\ln\!\frac{N_a N_d}{n_i^{2}}$$</div>
+    <div class="eqcap">P型とN型のフェルミ準位を一直線に揃えるために、バンドが曲がる量。これが接合の“壁”。ドープ（$N_a,N_d$）が濃いほど高い。$n_i$＝真性キャリア濃度。<b>0Vでもこの段差は残る</b>——揃うのは $E_f$ のほうで、バンドはむしろ $qV_{bi}$ ぶん階段状に下がる。</div>
+  </div>
+  <div class="eqrow"><span class="eqname">空乏層幅</span>
+    <div class="eqd">$$W=\sqrt{\frac{2\varepsilon}{q}\!\left(\frac{1}{N_a}+\frac{1}{N_d}\right)\!(V_{bi}-V)}\;\propto\;\sqrt{V_{bi}-V}$$</div>
+    <div class="eqcap">逆方向（$V<0$）で $(V_{bi}-V)$ が増えて<b>広がり</b>、順方向（$V>0$）で<b>縮む</b>。動けるキャリアが抜け、固定電荷だけ残った帯。次の囲みで「なぜ平方根か」を解く。</div>
+  </div>
+  <div class="eqrow"><span class="eqname">ダイオード式（ショックレー）</span>
+    <div class="eqd">$$I=I_s\!\left(e^{qV/kT}-1\right)$$</div>
+    <div class="eqcap">順方向は $V$ が $kT/q\approx 26\,\mathrm{mV}$ 増えるごとに約 $e$ 倍（指数）。逆方向は $-I_s$ に飽和してほぼ流れない。</div>
+  </div>
+  <div class="eqrow"><span class="eqname">少数キャリア注入</span>
+    <div class="eqd">$$n_p(0)=n_{p0}\,e^{qV/kT},\qquad n_{p0}=\frac{n_i^{2}}{N_a}$$</div>
+    <div class="eqcap">接合端の少数キャリア濃度が $e^{qV/kT}$ 倍に持ち上がる。中段のキャリア分布の“山”がこれ。</div>
+  </div>
+  <div class="eqrow"><span class="eqname">蓄積電荷・逆回復</span>
+    <div class="eqd">$$Q\approx I_F\,\tau,\qquad \frac{dQ}{dt}=i-\frac{Q}{\tau}$$</div>
+    <div class="eqcap">順方向で溜めた少数キャリア電荷 $Q$ を掃き出すまで遮断できない。$Q\to0$ の瞬間に電流が $0$ へ snap するのが逆回復。寿命 $\tau$ が小さいほど速い。中段の<b>紫の塗り＝この $Q$</b>。</div>
+  </div>
+</div>
+
+<div class="card eqcard">
+  <h2>なぜ √ になるのか — 空乏近似とポアソン方程式</h2>
+  <p class="thp">空乏層の中は動けるキャリアが居ないので、電荷は<b>ドーパントの固定電荷だけ</b>。n側は $+qN_d$、p側は $-qN_a$ が、むき出しで並ぶ。</p>
+  <div class="eqd">$$\frac{dE}{dx}=\frac{\rho}{\varepsilon}\quad\Rightarrow\quad E(x)\ \text{は三角形（接合でピーク }E_0\text{）}$$</div>
+  <p class="thp">電界はポアソン（ガウスの法則の1次元版）で、固定電荷を積分した<b>三角形</b>になる。むき出しの正電荷と負電荷は釣り合うので</p>
+  <div class="eqd">$$N_a\,x_p=N_d\,x_n\qquad(\,x_p,x_n=\text{p側・n側の空乏幅}\,)$$</div>
+  <p class="thp">電位差は電界を積分した値＝三角形の面積：</p>
+  <div class="eqd">$$V_{bi}-V=\tfrac12\,E_0\,W$$</div>
+  <p class="thp">この3本を解くと $W\propto\sqrt{V_{bi}-V}$ が出る。直感：電圧を増やすと三角形を<b>高く</b>しなければならず、そのために<b>底（幅 $W$）も広げる</b>必要がある。高さと幅が一緒に伸びるので、電圧（＝面積）に対して幅は平方根で効く、というわけ。</p>
+</div>
+
+<div class="card eqcard">
+  <h2>接合容量（バラクタ）— 電圧で変わるコンデンサ</h2>
+  <p class="thp">逆バイアスの空乏層は、電荷の溜まらない隙間をはさんだ<b>平行平板コンデンサ</b>そのもの。幅 $W$ が電圧で変わるので、容量も電圧で変わる：</p>
+  <div class="eqd">$$C_j=\frac{\varepsilon A}{W}\;\propto\;(V_{bi}-V)^{-1/2}$$</div>
+  <p class="thp">＝<b>電圧制御コンデンサ（バラクタ）</b>。逆電圧を深くするほど容量が減る。VCO や受信機のチューニング、PLL の微調整に使われる。さっきの $W\propto\sqrt{V_{bi}-V}$ がそのまま効いている。</p>
+</div>
+
+<div class="card eqcard">
+  <h2>$I_s$ はどこから来る？ — 少数キャリアの拡散</h2>
+  <p class="thp">ショックレー式の $I_s$ の中身は、接合端に注入された少数キャリアが、中性領域を<b>拡散しながら再結合していく</b>流れ：</p>
+  <div class="eqd">$$I=qA\!\left(\frac{D_p\,p_{n0}}{L_p}+\frac{D_n\,n_{p0}}{L_n}\right)\!\left(e^{qV/kT}-1\right)\equiv I_s\!\left(e^{qV/kT}-1\right)$$</div>
+  <p class="thp">$D$＝拡散係数、$L=\sqrt{D\tau}$＝拡散長、$p_{n0},n_{p0}$＝平衡少数キャリア。$I_s\propto n_i^{2}$ なので、温度に強く依存する（次）。</p>
+</div>
+
+<div class="card eqcard">
+  <h2>もう一歩：降伏と温度</h2>
+  <p class="thp"><b>降伏（ブレークダウン）</b>：逆方向を強くかけると、ある電圧で電流が急に立ち上がる。電界で加速した電子が次々イオン化する<b>なだれ降伏</b>と、薄い接合でバンド間トンネルが起きる<b>ツェナー降伏</b>。このトイの I–V には描いていないが、現実の逆方向の“上限”。</p>
+  <div class="eqd">$$I_s\propto n_i^{2}\propto e^{-E_g/kT}$$</div>
+  <p class="thp"><b>温度</b>：$I_s$ は温度で急増する（$n_i^2$ が指数で効く）。その結果、同じ順方向電流を流すのに必要な電圧は温度が上がるほど下がり、おおむね $-2\,\mathrm{mV/K}$。ダイオードが温度センサーに使えるのはこのため。</p>
+</div>
+`;
 ---
 
 <!doctype html>
@@ -9,6 +68,9 @@ import Footer from '../components/Footer.astro';
 <head>
   <BaseHead title="PN接合のバンド図 — ダイオードの中身" description="ダイオードはなぜ一方向にしか流れないのか。バイアス電圧で、バンドの曲がり(内蔵障壁)・空乏層・キャリア分布(多数/少数)・電流が連動して変わる。順方向で壁が下がり少数キャリアが注入されて指数で流れ出す、を見る。" />
   <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});"></script>
   <style is:global>
     .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
       padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
@@ -37,6 +99,11 @@ import Footer from '../components/Footer.astro';
     .eqname{display:inline-block;font-size:.78rem;font-weight:700;color:#c9761f;font-family:'Zen Kaku Gothic New',sans-serif;margin-right:.7rem;}
     .eqf{font-family:'JetBrains Mono',monospace;font-size:.88rem;color:#1d6f4a;font-weight:600;}
     .eqcap{font-size:.78rem;color:#7d7568;line-height:1.65;margin-top:.3rem;}
+    .eqd{margin:.35rem 0 .1rem;overflow-x:auto;overflow-y:hidden;}
+    .eqd .katex{font-size:1.05em;color:#1d6f4a;}
+    .thp{font-size:.84rem;color:#5c554b;line-height:1.8;margin:.3rem 0 .6rem;}
+    .thp b{color:#c9761f;}
+    .eqcard .katex{color:#1d6f4a;}
   </style>
 </head>
 <body>
@@ -65,29 +132,7 @@ import Footer from '../components/Footer.astro';
       <div class="status" id="status"></div>
     </div>
 
-    <div class="card eqcard">
-      <h2>理論式（ダイオードの中身を式で）</h2>
-      <div class="eqrow">
-        <span class="eqname">内蔵電位</span><span class="eqf">q·V_bi = kT · ln( Na·Nd / ni² )</span>
-        <div class="eqcap">P型とN型のフェルミ準位を一直線に揃えるために、バンドが曲がる量。これが接合の“壁”。ドープ（Na・Nd）が濃いほど高い。ni＝真性キャリア濃度。<b>0Vでもこの段差は残る</b>——揃うのは Ef のほうで、バンドはむしろ qV_bi ぶん階段状に下がる。</div>
-      </div>
-      <div class="eqrow">
-        <span class="eqname">空乏層幅</span><span class="eqf">W = √[ (2ε/q)·(1/Na + 1/Nd)·(V_bi − V) ]　∝ √(V_bi − V)</span>
-        <div class="eqcap">逆方向（V&lt;0）で (V_bi−V) が増えて<b>広がり</b>、順方向（V&gt;0）で<b>縮む</b>。空乏層は、動けるキャリアが抜けて固定電荷（ドナー/アクセプタ）だけ残った帯。逆電圧を強くするほど、その電界を支える固定電荷をむき出しにする必要があり、帯が広がる。</div>
-      </div>
-      <div class="eqrow">
-        <span class="eqname">ダイオード式</span><span class="eqf">I = Is·( e^(qV/kT) − 1 )</span>
-        <div class="eqcap">順方向は V が kT/q ≈ 26 mV 増えるごとに約 e 倍（指数）。逆方向は −Is に飽和してほぼ流れない。</div>
-      </div>
-      <div class="eqrow">
-        <span class="eqname">少数キャリア注入</span><span class="eqf">n_p(0) = n_p0 · e^(qV/kT)</span>
-        <div class="eqcap">接合端の少数キャリア濃度が e^(V/kT) 倍に持ち上がる。中段のキャリア分布の“山”がこれ。平衡の少数キャリアは n_p0 = ni²/Na。</div>
-      </div>
-      <div class="eqrow">
-        <span class="eqname">蓄積電荷・逆回復</span><span class="eqf">Q ≈ I_F·τ,　dQ/dt = i − Q/τ</span>
-        <div class="eqcap">順方向で接合近くに溜めた少数キャリア電荷 Q を掃き出すまで、急に逆をかけても遮断できない。Q→0 の瞬間に電流が 0 へ snap するのが逆回復。少数キャリア寿命 τ が小さいほど速い。中段の<b>紫の塗り＝その蓄積電荷</b>で、逆回復中に抜けていくのが見える。</div>
-      </div>
-    </div>
+    <Fragment set:html={theory} />
   </main>
   <Footer />
 
