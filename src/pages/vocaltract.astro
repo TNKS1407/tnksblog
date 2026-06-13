@@ -62,6 +62,10 @@ import Footer from '../components/Footer.astro';
         <button class="btn" id="reset" type="button" style="margin-left:.3rem;">中性管</button>
         <div class="ctrl-group" style="margin-left:auto;"><label>声の高さ</label><input type="range" id="pitch" min="80" max="200" value="120"><span id="pitchv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;">120Hz</span></div>
       </div>
+      <div class="controls" style="margin-top:.45rem;">
+        <div class="ctrl-group"><label>声道の長さ L</label><input type="range" id="len" min="13" max="21" value="17.5" step="0.1" style="width:160px;"><span id="lenv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#c9761f;font-weight:700;">17.5cm</span></div>
+        <span id="lenhint" style="font-size:.72rem;color:#7d7568;font-family:'JetBrains Mono',monospace;"></span>
+      </div>
       <div class="readout" id="readout"></div>
       <div class="status" id="status"></div>
     </div>
@@ -82,7 +86,8 @@ import Footer from '../components/Footer.astro';
       <h2>仕組み（一段だけ深く）</h2>
       <p class="note">各輪切りを長さ <b>ℓ</b>・断面積 <b>A</b> の一様管とみなすと、入口の (圧力 P, 体積速度 U) と出口の (P, U) は次の行列で結ばれる：<br>
       <span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#2a4d49;">[Pin; Uin] = [[cos kℓ, jZ·sin kℓ],[ j·sin kℓ /Z, cos kℓ]] · [Pout; Uout]</span>　（k=2πf/c、Z=ρc/A）。</p>
-      <p class="note">輪切りを声帯側から唇側へ順に掛けると、声道全体の行列 <b>[[A,B],[C,D]]</b> が出る。唇を開いた端（P=0）とすると、声帯から唇への速度の伝わりは <b>1/D(f)</b>。この <b>|D(f)| が小さくなる周波数＝共鳴</b>を掃引で拾えば、それが F1・F2・F3。面積の<em>比</em>と管の<em>長さ</em>だけで決まるので、絶対値の単位は要らない。声道長は約 17.5cm、音速 c≈350 m/s としている。</p>
+      <p class="note">輪切りを声帯側から唇側へ順に掛けると、声道全体の行列 <b>[[A,B],[C,D]]</b> が出る。唇を開いた端（P=0）とすると、声帯から唇への速度の伝わりは <b>1/D(f)</b>。この <b>|D(f)| が小さくなる周波数＝共鳴</b>を掃引で拾えば、それが F1・F2・F3。面積の<em>比</em>と管の<em>長さ</em>だけで決まるので、絶対値の単位は要らない。音速 c≈350 m/s としている。</p>
+      <p class="note"><b>声道の長さ L</b> はスライダで変えられる（絵の大きさは同じまま、長さの“目盛り”だけが変わる）。形＝断面積の比をそのままに L だけ動かすと、共鳴の式から<b>全フォルマントが 1/L で一斉にスケール</b>する。子供は声道が短いからフォルマントが高い、大人の男性は長いから低い——同じ母音でも声が太く／細く聞こえるのは、この L の違いだよ（声の<em>高さ</em>＝F0 とはまた別の話。F0 は声帯の振動そのもの）。</p>
     </div>
   </main>
   <Footer />
@@ -224,6 +229,7 @@ import Footer from '../components/Footer.astro';
     // labels
     tctx.fillStyle=MUT; tctx.font='11px "JetBrains Mono",monospace'; tctx.textAlign='center';
     tctx.fillText('声帯（閉）', GL, H-8); tctx.fillText('唇（開）', GR, H-8);
+    tctx.fillStyle=WARM; tctx.fillText('← 声道長 '+LEN.toFixed(1)+' cm →', (GL+GR)/2, H-8);
     tctx.fillStyle=RED; tctx.textAlign='left'; tctx.font='10px "JetBrains Mono",monospace';
     tctx.fillText('赤 F1 の定在波（数値解）', GL+4, 16);
     tctx.fillStyle=BLUE; tctx.textAlign='right'; tctx.fillText('青 F2 の定在波（数値解）', GR, 16);
@@ -292,7 +298,10 @@ import Footer from '../components/Footer.astro';
   function setStatus(){ document.getElementById('status').textContent=(playing?'♪ 鳴らしてる':'停止中')+'　— 上の輪郭のまる印を上下にドラッグして声道の形を変える。共鳴・定在波・音すべてが解き直される。'; }
 
   function recompute(){ S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; pushAudio(); render(); }
-  function render(){ drawTube(); drawTF(); drawMap(); setReadout(); }
+  function setLenHint(){ var lh=document.getElementById('lenhint'); if(!lh)return;
+    var cat = LEN<15.0?'短い（子供っぽい・高め）':LEN>19.0?'長い（太い声・低め）':'標準あたり';
+    lh.textContent='形は同じでも 全フォルマント ∝ 1/L … '+cat; }
+  function render(){ drawTube(); drawTF(); drawMap(); setReadout(); setLenHint(); }
 
   // ---- interaction ----
   var drag=-1;
@@ -327,6 +336,8 @@ import Footer from '../components/Footer.astro';
   document.getElementById('stop').onclick=function(){ stop(); };
   var pt=document.getElementById('pitch'), ptv=document.getElementById('pitchv');
   pt.oninput=function(){ pitch=+pt.value; ptv.textContent=pitch+'Hz'; pushAudio(); setStatus(); };
+  var ln=document.getElementById('len'), lnv=document.getElementById('lenv');
+  ln.oninput=function(){ LEN=+ln.value; lnv.textContent=LEN.toFixed(1)+'cm'; recompute(); };
 
   // debug: dump preset formants (visible only in console)
   if(window.location.search.indexOf('debug')>=0){
@@ -338,7 +349,10 @@ import Footer from '../components/Footer.astro';
   // QA: ?pre=a|i|u|e|o sets an initial vowel shape (for screenshots)
   var qpre={a:'あ',i:'い',u:'う',e:'え',o:'お'};
   var qm=window.location.search.match(/pre=([aiueo])/);
-  if(qm && PRE[qpre[qm[1]]]){ for(var qi=0;qi<K;qi++)knot[qi]=PRE[qpre[qm[1]]][qi]; S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; }
+  if(qm && PRE[qpre[qm[1]]]){ for(var qi=0;qi<K;qi++)knot[qi]=PRE[qpre[qm[1]]][qi]; }
+  var ql=window.location.search.match(/len=([\d.]+)/);
+  if(ql){ LEN=Math.max(13,Math.min(21,parseFloat(ql[1]))); var le=document.getElementById('len'),lev=document.getElementById('lenv'); if(le)le.value=LEN; if(lev)lev.textContent=LEN.toFixed(1)+'cm'; }
+  if(qm||ql){ S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; }
 
   render(); setStatus();
 })();
