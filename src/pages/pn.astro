@@ -361,7 +361,7 @@ const theory = String.raw`
 
   var eb=document.getElementById('bias'), ebv=document.getElementById('biasv');
   function setV(v){ stopTRR(); V=v; eb.value=Math.round(v*100); ebv.textContent=v.toFixed(2)+' V'; render(); }
-  eb.oninput=function(){ V=(+eb.value)/100; ebv.textContent=V.toFixed(2)+' V'; render(); };
+  eb.oninput=function(){ stopTRR(); V=(+eb.value)/100; ebv.textContent=V.toFixed(2)+' V'; render(); };
   document.getElementById('fwd').onclick=function(){ setV(0.6); };
   document.getElementById('zero').onclick=function(){ setV(0); };
   document.getElementById('rev').onclick=function(){ setV(-0.8); };

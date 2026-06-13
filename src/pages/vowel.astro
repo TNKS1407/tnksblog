@@ -7,7 +7,7 @@ import Footer from '../components/Footer.astro';
 <!doctype html>
 <html lang="ja">
 <head>
-  <BaseHead title="声の地図 — 母音とフォルマント" description="「あいうえお」は声道の共鳴(フォルマント F1・F2)の置き場所で決まる。F1–F2平面の点をドラッグすると母音が変わって音も鳴る。声帯のブザーをF1/F2/F3のバンドパスに通すフォルマント合成。" />
+  <BaseHead title="声のページ — 母音とフォルマント、声道の共鳴を解く" description="「あいうえお」は声道の共鳴(フォルマント F1・F2)で決まる。①声の地図でF1–F2をドラッグして母音を鳴らし、②声道ラボで声道を輪切りにして伝達行列で共鳴を数値で解く。地図で触る→形から解く、の二部構成。" />
   <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style is:global>
     .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
@@ -15,10 +15,14 @@ import Footer from '../components/Footer.astro';
     .intro h1{font-size:1.25rem;margin:0 0 .5rem;}
     .intro p{font-size:.9rem;color:var(--text-muted,#7d7568);line-height:1.75;margin:0 0 .4rem;}
     .intro a{color:#3c7876;}
+    .part-h{font-size:1.15rem;font-weight:700;color:#2a4d49;margin:2.6rem 0 1rem;padding-bottom:.4rem;border-bottom:2px solid #e3dbd0;}
     .card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
       padding:1.5rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .card h2{font-size:.96rem;margin:0 0 .8rem;color:#33433f;}
     canvas{border:1px solid var(--border,#e3dbd0);border-radius:10px;display:block;background:#faf8f4;
-      width:100%;height:auto;touch-action:none;cursor:crosshair;}
+      width:100%;height:auto;touch-action:none;}
+    #cv{cursor:crosshair;}
+    #vttube{cursor:ns-resize;}
     .controls{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-top:1rem;}
     .ctrl-group{display:flex;align-items:center;gap:.5rem;}
     .ctrl-group label{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted,#7d7568);white-space:nowrap;}
@@ -28,26 +32,31 @@ import Footer from '../components/Footer.astro';
     .btn:hover{border-color:#3c7876;color:#3c7876;}
     .btn.primary{background:#3c7876;color:#fff;border-color:#3c7876;}
     .vows{display:flex;gap:.5rem;flex-wrap:wrap;}
-    .vbtn{width:2.4rem;height:2.4rem;border:1px solid var(--border,#e3dbd0);border-radius:10px;background:var(--surface,#faf8f4);
-      font-size:1.15rem;font-weight:700;color:#33433f;cursor:pointer;transition:all .12s;font-family:'Zen Kaku Gothic New',sans-serif;}
+    .vbtn{min-width:2.4rem;height:2.4rem;padding:0 .5rem;border:1px solid var(--border,#e3dbd0);border-radius:10px;background:var(--surface,#faf8f4);
+      font-size:1.05rem;font-weight:700;color:#33433f;cursor:pointer;transition:all .12s;font-family:'Zen Kaku Gothic New',sans-serif;}
     .vbtn:hover{border-color:#3c7876;color:#3c7876;transform:translateY(-1px);}
     .readout{margin-top:1rem;background:var(--surface,#faf8f4);border:1px solid var(--border,#e3dbd0);
       border-radius:10px;padding:.85rem 1.1rem;}
-    .readout .big{font-family:'Zen Kaku Gothic New',sans-serif;font-size:1.7rem;font-weight:700;color:#3c7876;}
-    .readout .nums{font-family:'JetBrains Mono',monospace;font-size:.86rem;color:#2a4d49;margin-top:.2rem;}
+    .readout .big{font-family:'Zen Kaku Gothic New',sans-serif;font-size:1.5rem;font-weight:700;color:#3c7876;}
+    .readout .nums{font-family:'JetBrains Mono',monospace;font-size:.86rem;color:#2a4d49;margin-top:.25rem;}
     .status{font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-faint,#aaa49b);margin-top:.7rem;}
+    .note{font-size:.82rem;color:#7d7568;line-height:1.7;margin:0 0 .7rem;}
+    .note b.r{color:#c2543d;} .note b.b{color:#3a6df0;} .note b.w{color:#c9761f;}
+    .bridge{background:#f6f1e8;border:1px dashed #d8cbb6;border-radius:12px;padding:1rem 1.25rem;margin:0 0 1.5rem;font-size:.86rem;color:#6b5f4d;line-height:1.7;}
   </style>
 </head>
 <body>
   <Header />
   <main class="wrap">
     <div class="intro">
-      <h1>声の地図 — 母音とフォルマント</h1>
-      <p>「あいうえお」の違いは、のどの高さでも舌の形そのものでもなく、<strong>声道の共鳴のピークがどこに立つか</strong>で決まる。低いほうから F1・F2 と呼ぶ2つの山の置き場所、ほぼこれだけで母音が決まってしまう。</p>
-      <p>下の地図は横が <strong>F2</strong>（舌の前後）、縦が <strong>F1</strong>（口の開き）。点をドラッグすると、声帯のブザー（のこぎり波）を F1・F2・F3 のバンドパスに通した音が鳴る——これが<strong>フォルマント合成</strong>。「い」のあたりに動かすと「いー」に聞こえる。あ・い・う・え・お の位置も置いてあるよ。<a href="/play">← /play に戻る</a></p>
+      <h1>声のページ — 母音とフォルマント、そして声道の共鳴</h1>
+      <p>「あいうえお」の違いは、声の高さでも舌の形そのものでもなく、<strong>声道の共鳴のピークがどこに立つか</strong>で決まる。低いほうから F1・F2 と呼ぶ2つの山、ほぼこれだけで母音が決まってしまう。</p>
+      <p>このページは二部構成。<strong>① 声の地図</strong>では F1・F2 の地図を直接ドラッグして母音を作り、音を鳴らす（フォルマント合成）。<strong>② 声道ラボ</strong>では逆に、声道を輪切りにして<strong>その共鳴を管の形から数値で解く</strong>——F1・F2 が「どこから来るのか」を、形をいじりながら確かめる。<a href="/play">← /play に戻る</a></p>
     </div>
 
+    <h2 class="part-h">① 声の地図 — 母音はフォルマント2つで決まる</h2>
     <div class="card">
+      <div class="note">横が <b>F2</b>（舌の前後）、縦が <b>F1</b>（口の開き）。点をドラッグすると、声帯のブザー（のこぎり波）を F1・F2・F3 のバンドパスに通した音が鳴る——これが<strong>フォルマント合成</strong>。「い」のあたりに動かすと「いー」に聞こえる。あ・い・う・え・お の位置も置いてあるよ。</div>
       <canvas id="cv" width="680" height="430"></canvas>
       <div class="controls">
         <button class="btn primary" id="play" type="button">▶ 鳴らす</button>
@@ -56,23 +65,60 @@ import Footer from '../components/Footer.astro';
         <div class="ctrl-group" style="margin-left:auto;"><label>声の高さ</label><input type="range" id="pitch" min="80" max="200" value="120"><span id="pitchv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;">120Hz</span></div>
       </div>
       <div class="readout" id="readout"></div>
-      <div class="status" id="status">地図をドラッグ（スマホはタップして動かす）すると音が出る。あ・い・う・え・お のボタンでその母音へ。</div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="bridge">では、その F1・F2 は声道の<b>どこから</b>来るのか？ 昔ここに置いていた「管の絵」は、じつは F1・F2 から逆算したマンガで、形と音はゆるくしか結びついていなかった。↓ の<b>声道ラボ</b>では逆に、<b>管の形から共鳴を数値で解く</b>ので、絵と音が必ず一致する。形をいじって、上の地図の母音に着けてみよう。</div>
+
+    <h2 class="part-h" id="lab">② 声道ラボ — その共鳴を、管の形から“解く”</h2>
+
+    <div class="card">
+      <h2>管の形をさわる（上の輪郭を上下にドラッグ）</h2>
+      <p class="note">声帯（左・閉じた端）から唇（右・開いた端）までの声道。輪郭のまる印を上下にドラッグすると、その場所の<b class="w">断面積</b>が変わる。重なって見える曲線は<b class="r">F1 の定在波</b>と<b class="b">F2 の定在波</b>——どちらも今の形の<strong>本物の共鳴</strong>を数値で解いて描いている。</p>
+      <canvas id="vttube" width="680" height="300"></canvas>
+      <div class="controls">
+        <button class="btn primary" id="vtplay" type="button">▶ 鳴らす</button>
+        <button class="btn" id="vtstop" type="button">■ 止める</button>
+        <div class="vows" id="vtvows" style="margin-left:.3rem;"></div>
+        <button class="btn" id="vtreset" type="button" style="margin-left:.3rem;">中性管</button>
+        <div class="ctrl-group" style="margin-left:auto;"><label>声の高さ</label><input type="range" id="vtpitch" min="80" max="200" value="120"><span id="vtpitchv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#3c7876;font-weight:700;">120Hz</span></div>
+      </div>
+      <div class="controls" style="margin-top:.45rem;">
+        <div class="ctrl-group"><label>声道の長さ L</label><input type="range" id="vtlen" min="13" max="21" value="17.5" step="0.1" style="width:160px;"><span id="vtlenv" style="font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#c9761f;font-weight:700;">17.5cm</span></div>
+        <span id="vtlenhint" style="font-size:.72rem;color:#7d7568;font-family:'JetBrains Mono',monospace;"></span>
+      </div>
+      <div class="readout" id="vtreadout"></div>
+      <div class="status" id="vtstatus"></div>
     </div>
 
     <div class="card">
-      <div style="font-size:.84rem;color:#7d7568;margin-bottom:.7rem;line-height:1.7;">なぜ F1・F2 なのか——声道は <b>声帯側が閉じた1本の管</b>で、その共鳴のいちばん低い2つが F1・F2 だ。下の管はいまの母音の形。舌や唇でできる <b style="color:#c9761f">くびれ</b> の場所・深さが変わると、共鳴（＝F1・F2）がずれて別の母音になる。<span style="color:#c2543d">赤</span>＝F1の定在波（1/4波長）、<span style="color:#3a6df0">青</span>＝F2（3/4波長）。地図を動かすと管も連動するよ。<br><span style="font-size:.78rem;color:#aaa49b;">※ この管の絵は F1・F2 から逆算した模式図で、形と音はゆるくしか結びついていない。<a href="/vocaltract" style="color:#3c7876;">声道ラボ</a>では逆に、管の形から共鳴を数値で解くので、形と音がぴったり一致するよ。</span></div>
-      <canvas id="tube" width="680" height="180"></canvas>
+      <h2>解いた共鳴（伝達関数）</h2>
+      <p class="note">いまの管を声帯側から見たときの伝わりやすさ <b>|H(f)| = 1/|D(f)|</b> を周波数ごとに計算したもの。<b class="w">山が立つところ＝共鳴＝フォルマント</b>。低いほうから F1・F2・F3。形を変えると、この山が左右に動く。これが「F1・F2 が出てくる理由」そのものだよ。</p>
+      <canvas id="vttf" width="680" height="220"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>母音の地図に重ねる（①と同じ地図に、解いた点を置く）</h2>
+      <p class="note">横が <b>F2</b>、縦が <b>F1</b>。あ・い・う・え・お の代表位置を置いてある。②の管を解いて出た F1・F2 が <b class="w">オレンジの点</b>。母音ボタンを押すと、その母音“らしい”管の形に変えて、解き直した点がどこに着くかが見える。ぴったりでなくていい——<strong>形から正直に出た値</strong>を見るのがこのラボの趣旨だよ。</p>
+      <canvas id="vtmap" width="680" height="360"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>仕組み（一段だけ深く）</h2>
+      <p class="note">各輪切りを長さ <b>ℓ</b>・断面積 <b>A</b> の一様管とみなすと、入口の (圧力 P, 体積速度 U) と出口の (P, U) は次の行列で結ばれる：<br>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#2a4d49;">[Pin; Uin] = [[cos kℓ, jZ·sin kℓ],[ j·sin kℓ /Z, cos kℓ]] · [Pout; Uout]</span>　（k=2πf/c、Z=ρc/A）。</p>
+      <p class="note">輪切りを声帯側から唇側へ順に掛けると、声道全体の行列 <b>[[A,B],[C,D]]</b> が出る。唇を開いた端（P=0）とすると、声帯から唇への速度の伝わりは <b>1/D(f)</b>。この <b>|D(f)| が小さくなる周波数＝共鳴</b>を掃引で拾えば、それが F1・F2・F3。面積の<em>比</em>と管の<em>長さ</em>だけで決まる。音速 c≈350 m/s としている。</p>
+      <p class="note"><b>声道の長さ L</b> はスライダで変えられる（絵の大きさは同じまま、長さの“目盛り”だけが変わる）。形＝断面積の比をそのままに L だけ動かすと、共鳴の式から<b>全フォルマントが 1/L で一斉にスケール</b>する。子供は声道が短いからフォルマントが高い、大人の男性は長いから低い——同じ母音でも声が太く／細く聞こえるのは、この L の違いだよ（声の<em>高さ</em>＝F0 とはまた別の話。F0 は声帯の振動そのもの）。</p>
     </div>
   </main>
   <Footer />
 
 <script is:inline>
 (function(){
-  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
-  var tcv=document.getElementById('tube'), tctx=tcv.getContext('2d');
-  function lerp(a,b,t){ return a+(b-a)*t; }
-  function mapc(v,a,b,c,d){ var t=(v-a)/(b-a); t=t<0?0:t>1?1:t; return c+(d-c)*t; }
-  var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0', INK='#1d1b17', MUT='#7d7568';
+  var cv=document.getElementById('cv'); if(!cv) return;
+  var ctx=cv.getContext('2d');
+  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+  var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0', MUT='#7d7568';
 
   var MX0=58, MX1=622, MY0=40, MY1=312;
   var F2L=2600, F2R=600, F1T=200, F1B=950;
@@ -81,7 +127,6 @@ import Footer from '../components/Footer.astro';
   function f1y(f){ return MY0 + (f-F1T)/(F1B-F1T)*(MY1-MY0); }
   function x2f2(x){ return F2L - (x-MX0)/(MX1-MX0)*(F2L-F2R); }
   function y2f1(y){ return F1T + (y-MY0)/(MY1-MY0)*(F1B-F1T); }
-  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
 
   var VOW=[['あ',800,1300],['い',300,2300],['う',350,1250],['え',500,1900],['お',500,900]];
   var F3=2900;
@@ -147,9 +192,9 @@ import Footer from '../components/Footer.astro';
     }
     ctx.stroke();
     var labs=['F1','F2','F3'];
-    for(var k=0;k<3;k++){ var fx=ex(fs[k]); ctx.strokeStyle='rgba(201,118,31,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth=1;
+    for(var k2=0;k2<3;k2++){ var fx=ex(fs[k2]); ctx.strokeStyle='rgba(201,118,31,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(fx,EY0+2); ctx.lineTo(fx,EY1-2); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle=WARM; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText(labs[k], fx, EY0+12); }
+      ctx.fillStyle=WARM; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='center'; ctx.fillText(labs[k2], fx, EY0+12); }
   }
 
   function setReadout(){
@@ -163,32 +208,7 @@ import Footer from '../components/Footer.astro';
   function setStatus(){ document.getElementById('status').textContent =
     (playing?'♪ 鳴らしてる':'停止中')+'　— のこぎり波 '+pitch+'Hz を F1/F2/F3 のバンドパスに通したフォルマント合成。地図をドラッグで母音が変わる。'; }
 
-  function drawTube(){
-    var W=tcv.width, H=tcv.height; tctx.clearRect(0,0,W,H);
-    var GL=78, GR=W-26, cy=H/2-4, R0=46;
-    var cpos=mapc(F2, 900, 2300, 0.22, 0.84);
-    var deg=mapc(F1, 300, 820, 0.72, 0.06);
-    function rad(t){ return R0*(1 - deg*Math.exp(-Math.pow((t-cpos)/0.15,2))); }
-    var N=120, i, t, x;
-    tctx.fillStyle='rgba(201,160,122,.12)'; tctx.strokeStyle='#c9a07a'; tctx.lineWidth=2;
-    tctx.beginPath(); tctx.moveTo(GL, cy-rad(0));
-    for(i=0;i<=N;i++){ t=i/N; x=lerp(GL,GR,t); tctx.lineTo(x, cy-rad(t)); }
-    for(i=N;i>=0;i--){ t=i/N; x=lerp(GL,GR,t); tctx.lineTo(x, cy+rad(t)); }
-    tctx.closePath(); tctx.fill(); tctx.stroke();
-    tctx.strokeStyle='#8a6a4a'; tctx.lineWidth=3; tctx.beginPath(); tctx.moveTo(GL, cy-rad(0)-4); tctx.lineTo(GL, cy+rad(0)+4); tctx.stroke();
-    tctx.fillStyle='#7d7568'; tctx.font='11px "JetBrains Mono",monospace'; tctx.textAlign='center';
-    tctx.fillText('声帯（閉）', GL, cy+R0+26); tctx.fillText('唇（開）', GR-6, cy+R0+26);
-    function waveDraw(mult,col){ tctx.strokeStyle=col; tctx.lineWidth=2; tctx.beginPath();
-      for(i=0;i<=N;i++){ t=i/N; x=lerp(GL,GR,t); var amp=Math.cos(mult*Math.PI*t)*(R0-10);
-        if(i===0)tctx.moveTo(x,cy-amp); else tctx.lineTo(x,cy-amp); }
-      tctx.stroke(); }
-    waveDraw(0.5,'#c2543d'); waveDraw(1.5,'#3a6df0');
-    tctx.font='10px "JetBrains Mono",monospace';
-    tctx.fillStyle='#c2543d'; tctx.textAlign='left'; tctx.fillText('赤 F1 (1/4波長)', GL+4, cy-R0-4);
-    tctx.fillStyle='#3a6df0'; tctx.textAlign='right'; tctx.fillText('青 F2 (3/4波長)', GR-2, cy-R0-4);
-    if(deg>0.14){ var cx=lerp(GL,GR,cpos); tctx.fillStyle='#c9761f'; tctx.textAlign='center'; tctx.fillText('くびれ', cx, cy-rad(cpos)-6); }
-  }
-  function render(){ draw(); drawTube(); setReadout(); }
+  function render(){ draw(); setReadout(); }
 
   function setFromXY(cx,cy){
     var r=cv.getBoundingClientRect(); var sx=(cx-r.left)*(cv.width/r.width), sy=(cy-r.top)*(cv.height/r.height);
@@ -219,6 +239,238 @@ import Footer from '../components/Footer.astro';
   document.getElementById('stop').onclick=function(){ stop(); };
   var pt=document.getElementById('pitch'), ptv=document.getElementById('pitchv');
   pt.oninput=function(){ pitch=+pt.value; ptv.textContent=pitch+'Hz'; pushAudio(); setStatus(); };
+
+  render(); setStatus();
+})();
+</script>
+
+<script is:inline>
+(function(){
+  var tube=document.getElementById('vttube'); if(!tube) return;
+  var tctx=tube.getContext('2d');
+  var tf=document.getElementById('vttf'), fctx=tf.getContext('2d');
+  var map=document.getElementById('vtmap'), mctx=map.getContext('2d');
+  var TEAL='#3c7876', WARM='#c9761f', GRAY='#aaa49b', LINE='#e3dbd0', MUT='#7d7568', RED='#c2543d', BLUE='#3a6df0';
+  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+
+  var C_SOUND=35000, LEN=17.5, NSEG=44, K=10;
+  var knot=[3,3,3,3,3,3,3,3,3,3];
+  var AMIN=0.12, AMAX=13;
+  var PRE={
+    'あ':[1.3,0.9,0.9,1.4,2.6,4.6,6.6,8.2,8.2,6.0],
+    'い':[3.2,6.0,7.6,7.2,4.2,1.5,0.5,0.5,1.3,2.4],
+    'う':[2.6,3.6,3.0,1.1,2.4,3.2,2.0,0.85,0.65,1.0],
+    'え':[3.0,3.6,4.0,3.6,2.8,2.0,1.7,2.0,2.8,3.4],
+    'お':[1.4,1.0,1.1,1.7,2.8,4.2,4.5,3.4,1.5,0.95]
+  };
+  var VOW=[['あ',800,1300],['い',300,2300],['う',350,1250],['え',500,1900],['お',500,900]];
+
+  function areaAt(i){
+    var t=(i+0.5)/NSEG*(K-1); var k0=Math.floor(t); if(k0>=K-1)k0=K-2; var f=t-k0;
+    return clamp(knot[k0]*(1-f)+knot[k0+1]*f, AMIN, AMAX);
+  }
+  function areaArray(){ var a=[]; for(var i=0;i<NSEG;i++)a.push(areaAt(i)); return a; }
+
+  function calcD(freq, area){
+    var dL=LEN/area.length, w=2*Math.PI*freq;
+    var Are=1,Aim=0,Bre=0,Bim=0,Cre=0,Cim=0,Dre=1,Dim=0;
+    for(var i=0;i<area.length;i++){
+      var Zc=1/area[i], kL=w*dL/C_SOUND, cs=Math.cos(kL), sn=Math.sin(kL);
+      var sb=Zc*sn, sc=sn/Zc;
+      var nAre=Are*cs - Bim*sc, nAim=Aim*cs + Bre*sc;
+      var nBre=-Aim*sb + Bre*cs, nBim=Are*sb + Bim*cs;
+      var nCre=Cre*cs - Dim*sc, nCim=Cim*cs + Dre*sc;
+      var nDre=-Cim*sb + Dre*cs, nDim=Cre*sb + Dim*cs;
+      Are=nAre;Aim=nAim;Bre=nBre;Bim=nBim;Cre=nCre;Cim=nCim;Dre=nDre;Dim=nDim;
+    }
+    return Dre*Dre+Dim*Dim;
+  }
+  var SWEEP_LO=120, SWEEP_HI=4200, SWEEP_STEP=4;
+  function solve(){
+    var area=areaArray();
+    var fs=[], mag=[];
+    for(var f=SWEEP_LO; f<=SWEEP_HI; f+=SWEEP_STEP){ fs.push(f); mag.push(calcD(f,area)); }
+    var mins=[];
+    for(var i=1;i<mag.length-1;i++){
+      if(mag[i]<mag[i-1] && mag[i]<=mag[i+1]){
+        var y0=Math.log(mag[i-1]+1e-12), y1=Math.log(mag[i]+1e-12), y2=Math.log(mag[i+1]+1e-12);
+        var den=(y0-2*y1+y2); var off= den!==0 ? 0.5*(y0-y2)/den : 0;
+        mins.push(fs[i]+off*SWEEP_STEP);
+      }
+    }
+    mins.sort(function(a,b){return a-b;});
+    var F1=mins[0]||500, F2=mins[1]||1500, F3=mins[2]||2500;
+    return {area:area, fs:fs, mag:mag, F:[F1,F2,F3]};
+  }
+  function modeShape(freq, area){
+    var dL=LEN/area.length, w=2*Math.PI*freq;
+    var Pre=0,Pim=0,Ure=1,Uim=0;
+    var out=[Math.hypot(Pre,Pim)];
+    for(var i=area.length-1;i>=0;i--){
+      var Zc=1/area[i], kL=w*dL/C_SOUND, cs=Math.cos(kL), sn=Math.sin(kL);
+      var sb=Zc*sn, sc=sn/Zc;
+      var nPre=Pre*cs - Uim*sb, nPim=Pim*cs + Ure*sb;
+      var nUre=-Pim*sc + Ure*cs, nUim=Pre*sc + Uim*cs;
+      Pre=nPre;Pim=nPim;Ure=nUre;Uim=nUim;
+      out.push(Math.hypot(Pre,Pim));
+    }
+    out.reverse();
+    var mx=0; for(var j=0;j<out.length;j++) if(out[j]>mx)mx=out[j];
+    if(mx>0) for(var j2=0;j2<out.length;j2++) out[j2]/=mx;
+    return out;
+  }
+
+  var S=solve();
+  var F1=S.F[0], F2=S.F[1], F3=S.F[2], pitch=120;
+
+  var actx=null, osc=null, bands=[], master=null, playing=false;
+  function ensureAudio(){
+    if(actx) return; var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    actx=new AC(); osc=actx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=pitch;
+    master=actx.createGain(); master.gain.value=0; master.connect(actx.destination);
+    var Q=[9,11,13], G=[1.0,0.62,0.26];
+    for(var i=0;i<3;i++){ var b=actx.createBiquadFilter(); b.type='bandpass'; b.Q.value=Q[i];
+      var g=actx.createGain(); g.gain.value=G[i]; osc.connect(b); b.connect(g); g.connect(master); bands.push(b); }
+    osc.start(); pushAudio();
+  }
+  function pushAudio(){ if(!actx)return; bands[0].frequency.value=clamp(F1,80,4000); bands[1].frequency.value=clamp(F2,80,4000); bands[2].frequency.value=clamp(F3,80,4500); osc.frequency.value=pitch; }
+  function start(){ ensureAudio(); if(!actx)return; if(actx.state==='suspended')actx.resume(); pushAudio(); master.gain.setTargetAtTime(0.5,actx.currentTime,0.02); playing=true; setStatus(); }
+  function stop(){ if(!actx)return; master.gain.setTargetAtTime(0,actx.currentTime,0.04); playing=false; setStatus(); }
+
+  var GL=70, GR=tube.width-30, CY=tube.height/2, RSC=22;
+  function rpx(a){ return RSC*Math.sqrt(a); }
+  function knotX(i){ return GL+(GR-GL)*i/(K-1); }
+  function drawTube(){
+    var W=tube.width,H=tube.height; tctx.clearRect(0,0,W,H);
+    var area=S.area;
+    tctx.fillStyle='rgba(201,160,122,.13)'; tctx.strokeStyle='#c9a07a'; tctx.lineWidth=2;
+    tctx.beginPath();
+    var i,x,r;
+    for(i=0;i<NSEG;i++){ x=GL+(GR-GL)*(i+0.5)/NSEG; r=rpx(area[i]); if(i===0)tctx.moveTo(x,CY-r); else tctx.lineTo(x,CY-r); }
+    for(i=NSEG-1;i>=0;i--){ x=GL+(GR-GL)*(i+0.5)/NSEG; r=rpx(area[i]); tctx.lineTo(x,CY+r); }
+    tctx.closePath(); tctx.fill(); tctx.stroke();
+    tctx.strokeStyle='#8a6a4a'; tctx.lineWidth=3; tctx.beginPath(); tctx.moveTo(GL,CY-rpx(area[0])-5); tctx.lineTo(GL,CY+rpx(area[0])+5); tctx.stroke();
+    var m1=modeShape(F1,area), m2=modeShape(F2,area);
+    function drawMode(m,col,sign){ tctx.strokeStyle=col; tctx.lineWidth=2; tctx.beginPath();
+      for(var j=0;j<m.length;j++){ var t=j/(m.length-1); var xx=lerp(GL,GR,t); var yy=CY - sign*m[j]*(CY-58);
+        if(j===0)tctx.moveTo(xx,yy); else tctx.lineTo(xx,yy); } tctx.stroke(); }
+    drawMode(m1,RED,1); drawMode(m2,BLUE,1);
+    for(i=0;i<K;i++){ var kx=knotX(i), kr=rpx(knot[i]);
+      tctx.fillStyle='#fff'; tctx.strokeStyle=WARM; tctx.lineWidth=2;
+      tctx.beginPath(); tctx.arc(kx,CY-kr,5,0,7); tctx.fill(); tctx.stroke(); }
+    tctx.fillStyle=MUT; tctx.font='11px "JetBrains Mono",monospace'; tctx.textAlign='center';
+    tctx.fillText('声帯（閉）', GL, H-8); tctx.fillText('唇（開）', GR, H-8);
+    tctx.fillStyle=WARM; tctx.fillText('← 声道長 '+LEN.toFixed(1)+' cm →', (GL+GR)/2, H-8);
+    tctx.fillStyle=RED; tctx.textAlign='left'; tctx.font='10px "JetBrains Mono",monospace';
+    tctx.fillText('赤 F1 の定在波（数値解）', GL+4, 16);
+    tctx.fillStyle=BLUE; tctx.textAlign='right'; tctx.fillText('青 F2 の定在波（数値解）', GR, 16);
+  }
+
+  function drawTF(){
+    var W=tf.width,H=tf.height; fctx.clearRect(0,0,W,H);
+    var x0=46,x1=W-16,y0=18,y1=H-26;
+    fctx.fillStyle='#fff'; fctx.fillRect(x0,y0,x1-x0,y1-y0);
+    fctx.strokeStyle=LINE; fctx.strokeRect(x0+.5,y0+.5,x1-x0,y1-y0);
+    var FMAX=4200;
+    function fx(f){ return x0+f/FMAX*(x1-x0); }
+    fctx.strokeStyle='#f0ebe2'; fctx.fillStyle=GRAY; fctx.font='10px "JetBrains Mono",monospace'; fctx.textAlign='center';
+    for(var f=1000;f<=4000;f+=1000){ var x=fx(f); fctx.beginPath(); fctx.moveTo(x,y0); fctx.lineTo(x,y1); fctx.stroke(); fctx.fillText(f, x, y1+14); }
+    var H_=[], mn=1e30, mx=-1e30;
+    for(var i=0;i<S.mag.length;i++){ var v=-10*Math.log10(S.mag[i]+1e-12); H_.push(v); if(v<mn)mn=v; if(v>mx)mx=v; }
+    fctx.strokeStyle=TEAL; fctx.lineWidth=2; fctx.beginPath();
+    for(var i2=0;i2<S.fs.length;i2++){ var x=fx(S.fs[i2]); var yy=y1-2-(H_[i2]-mn)/(mx-mn+1e-9)*(y1-y0-4);
+      if(i2===0)fctx.moveTo(x,yy); else fctx.lineTo(x,yy); }
+    fctx.stroke();
+    var labs=['F1','F2','F3'];
+    for(var k=0;k<3;k++){ var fxk=fx(clamp(S.F[k],0,FMAX));
+      fctx.strokeStyle='rgba(201,118,31,.6)'; fctx.setLineDash([3,3]); fctx.lineWidth=1.2;
+      fctx.beginPath(); fctx.moveTo(fxk,y0+2); fctx.lineTo(fxk,y1-2); fctx.stroke(); fctx.setLineDash([]);
+      fctx.fillStyle=WARM; fctx.font='600 11px "JetBrains Mono",monospace'; fctx.textAlign='center';
+      fctx.fillText(labs[k]+' '+Math.round(S.F[k]), fxk, y0+13); }
+    fctx.fillStyle=MUT; fctx.font='10px "JetBrains Mono",monospace'; fctx.textAlign='left'; fctx.fillText('|H(f)| = 1/|D(f)|  (dB)', x0+4, y1-6);
+    fctx.textAlign='right'; fctx.fillText('周波数 (Hz)', x1-4, y1+14);
+  }
+
+  var MX0=58,MX1=map.width-30,MY0=30,MY1=map.height-40;
+  var F2L=2600,F2R=600,F1T=200,F1B=950;
+  function mf2x(f){ return MX0+(F2L-clamp(f,F2R,F2L))/(F2L-F2R)*(MX1-MX0); }
+  function mf1y(f){ return MY0+(clamp(f,F1T,F1B)-F1T)/(F1B-F1T)*(MY1-MY0); }
+  function drawMap(){
+    var W=map.width,H=map.height; mctx.clearRect(0,0,W,H);
+    mctx.fillStyle='#fff'; mctx.fillRect(MX0,MY0,MX1-MX0,MY1-MY0);
+    mctx.strokeStyle=LINE; mctx.strokeRect(MX0+.5,MY0+.5,MX1-MX0,MY1-MY0);
+    mctx.strokeStyle='#f0ebe2'; mctx.fillStyle=GRAY; mctx.font='10px "JetBrains Mono",monospace';
+    for(var f2=600;f2<=2600;f2+=400){ var x=mf2x(f2); mctx.beginPath(); mctx.moveTo(x,MY0); mctx.lineTo(x,MY1); mctx.stroke(); mctx.textAlign='center'; mctx.fillText(f2,x,MY0-5); }
+    for(var f1=200;f1<=950;f1+=150){ var y=mf1y(f1); mctx.beginPath(); mctx.moveTo(MX0,y); mctx.lineTo(MX1,y); mctx.stroke(); mctx.textAlign='right'; mctx.fillText(f1,MX0-5,y+3); }
+    mctx.fillStyle=MUT; mctx.font='600 11px "JetBrains Mono",monospace'; mctx.textAlign='center';
+    mctx.fillText('← F2 (Hz)  舌:前 / 後 →',(MX0+MX1)/2,MY1+20);
+    mctx.save(); mctx.translate(MX0-36,(MY0+MY1)/2); mctx.rotate(-Math.PI/2); mctx.fillText('← F1 (Hz)  口:閉じ / 開き →',0,0); mctx.restore();
+    for(var i=0;i<VOW.length;i++){ var vx=mf2x(VOW[i][2]), vy=mf1y(VOW[i][1]);
+      mctx.fillStyle='rgba(60,120,118,.10)'; mctx.beginPath(); mctx.arc(vx,vy,20,0,7); mctx.fill();
+      mctx.fillStyle=TEAL; mctx.font='700 19px "Zen Kaku Gothic New",sans-serif'; mctx.textAlign='center'; mctx.textBaseline='middle';
+      mctx.fillText(VOW[i][0],vx,vy); }
+    mctx.textBaseline='alphabetic';
+    var px=mf2x(F2), py=mf1y(F1);
+    mctx.strokeStyle=WARM; mctx.lineWidth=2; mctx.beginPath(); mctx.arc(px,py,11,0,7); mctx.stroke();
+    mctx.fillStyle='rgba(201,118,31,.22)'; mctx.beginPath(); mctx.arc(px,py,11,0,7); mctx.fill();
+    mctx.fillStyle=WARM; mctx.beginPath(); mctx.arc(px,py,3.5,0,7); mctx.fill();
+  }
+
+  function nearestVowel(){ var best=null,bd=1e9; for(var i=0;i<VOW.length;i++){ var dx=(F2-VOW[i][2])/1000, dy=(F1-VOW[i][1])/1000, d=dx*dx+dy*dy; if(d<bd){bd=d;best=VOW[i];} } return {v:best,d:Math.sqrt(bd)}; }
+  function setReadout(){
+    var n=nearestVowel(); var name=n.d<0.30?('「'+n.v[0]+'」に近い'):'（あ〜お の間）';
+    document.getElementById('vtreadout').innerHTML='<span class="big">解いた共鳴：'+name+'</span>'+
+      '<div class="nums">F1 = '+Math.round(F1)+' Hz ／ F2 = '+Math.round(F2)+' Hz ／ F3 = '+Math.round(F3)+' Hz　— この値は今の管の形から計算したもの</div>';
+  }
+  function setStatus(){ document.getElementById('vtstatus').textContent=(playing?'♪ 鳴らしてる':'停止中')+'　— 上の輪郭のまる印を上下にドラッグして声道の形を変える。共鳴・定在波・音すべてが解き直される。'; }
+
+  function recompute(){ S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; pushAudio(); render(); }
+  function setLenHint(){ var lh=document.getElementById('vtlenhint'); if(!lh)return;
+    var cat = LEN<15.0?'短い（子供っぽい・高め）':LEN>19.0?'長い（太い声・低め）':'標準あたり';
+    lh.textContent='形は同じでも 全フォルマント ∝ 1/L … '+cat; }
+  function render(){ drawTube(); drawTF(); drawMap(); setReadout(); setLenHint(); }
+
+  var drag=-1;
+  function knotFromXY(cx,cy){
+    var r=tube.getBoundingClientRect(); var sx=(cx-r.left)*(tube.width/r.width), sy=(cy-r.top)*(tube.height/r.height);
+    var best=0,bd=1e9; for(var i=0;i<K;i++){ var d=Math.abs(sx-knotX(i)); if(d<bd){bd=d;best=i;} }
+    return {i:best, sy:sy};
+  }
+  function applyDrag(cx,cy){
+    var h=knotFromXY(cx,cy); var half=Math.abs(CY-h.sy); var a=(half/RSC)*(half/RSC);
+    knot[h.i]=clamp(a,AMIN,AMAX); recompute();
+  }
+  tube.addEventListener('pointerdown',function(e){ var h=knotFromXY(e.clientX,e.clientY); drag=h.i; tube.setPointerCapture(e.pointerId); applyDrag(e.clientX,e.clientY); });
+  tube.addEventListener('pointermove',function(e){ if(drag>=0) applyDrag(e.clientX,e.clientY); });
+  tube.addEventListener('pointerup',function(){ drag=-1; });
+  tube.addEventListener('pointercancel',function(){ drag=-1; });
+
+  function setKnots(arr,animate){
+    if(animate){ var s0=knot.slice(), t0=performance.now();
+      (function step(t){ var k=Math.min(1,(t-t0)/300), e=k*k*(3-2*k);
+        for(var i=0;i<K;i++) knot[i]=s0[i]+(arr[i]-s0[i])*e; recompute();
+        if(k<1)requestAnimationFrame(step); })(t0);
+    } else { for(var i=0;i<K;i++)knot[i]=arr[i]; recompute(); }
+  }
+
+  var vw=document.getElementById('vtvows');
+  ['あ','い','う','え','お'].forEach(function(name){ var b=document.createElement('button'); b.className='vbtn'; b.textContent=name;
+    b.onclick=function(){ start(); setKnots(PRE[name].slice(), true); }; vw.appendChild(b); });
+  document.getElementById('vtreset').onclick=function(){ setKnots([3,3,3,3,3,3,3,3,3,3], true); };
+  document.getElementById('vtplay').onclick=function(){ start(); };
+  document.getElementById('vtstop').onclick=function(){ stop(); };
+  var pt=document.getElementById('vtpitch'), ptv=document.getElementById('vtpitchv');
+  pt.oninput=function(){ pitch=+pt.value; ptv.textContent=pitch+'Hz'; pushAudio(); setStatus(); };
+  var ln=document.getElementById('vtlen'), lnv=document.getElementById('vtlenv');
+  ln.oninput=function(){ LEN=+ln.value; lnv.textContent=LEN.toFixed(1)+'cm'; recompute(); };
+
+  var qpre={a:'あ',i:'い',u:'う',e:'え',o:'お'};
+  var qm=window.location.search.match(/pre=([aiueo])/);
+  if(qm && PRE[qpre[qm[1]]]){ for(var qi=0;qi<K;qi++)knot[qi]=PRE[qpre[qm[1]]][qi]; }
+  var qln=window.location.search.match(/len=([\d.]+)/);
+  if(qln){ LEN=Math.max(13,Math.min(21,parseFloat(qln[1]))); var le=document.getElementById('vtlen'),lev=document.getElementById('vtlenv'); if(le)le.value=LEN; if(lev)lev.textContent=LEN.toFixed(1)+'cm'; }
+  if(qm||qln){ S=solve(); F1=S.F[0];F2=S.F[1];F3=S.F[2]; }
 
   render(); setStatus();
 })();
