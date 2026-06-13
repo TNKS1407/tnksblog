@@ -2,6 +2,39 @@
 import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+
+// 理論セクションは KaTeX で組版。Astro が {} を式と誤読しないよう String.raw + set:html。
+const theory = String.raw`
+<div class="card eqcard">
+  <h2>声道ラボは何を計算しているのか</h2>
+  <p class="thp">声道を $N$ 個の<b>輪切り</b>に切る。1個は長さ $\ell$・断面積 $A_i$ の一様な管とみなす。その中を進む音波は、入口と出口の（圧力 $P$, 体積速度 $U$）が次の <b>伝達行列（ABCD行列）</b> で結ばれる：</p>
+  <div class="eqd">$$\begin{bmatrix}P_{in}\\ U_{in}\end{bmatrix}=\begin{bmatrix}\cos k\ell & jZ\sin k\ell\\[2pt] \dfrac{j}{Z}\sin k\ell & \cos k\ell\end{bmatrix}\begin{bmatrix}P_{out}\\ U_{out}\end{bmatrix},\qquad k=\frac{2\pi f}{c},\quad Z=\frac{\rho c}{A}$$</div>
+  <p class="thp">$Z$ は管の<b>特性インピーダンス</b>で、細い管ほど大きい（だから断面積の<em>比</em>だけが効く）。輪切りを声帯側から唇側へ順に掛け算すると、声道全体の行列が出る：</p>
+  <div class="eqd">$$M=\prod_{i} M_i=\begin{bmatrix}A & B\\ C & D\end{bmatrix}$$</div>
+  <p class="thp">境界条件は、<b>声帯側＝閉じた端</b>（体積速度を送り込む源）、<b>唇側＝開いた端</b> $P_{out}=0$。すると声帯から唇への体積速度の伝わりは $U_{lips}/U_{glottis}=1/D(f)$ になる。だから——</p>
+  <div class="eqd">$$\text{共鳴（フォルマント）}\;=\;|D(f)|\ \text{が極小になる}\ f$$</div>
+  <p class="thp">周波数 $f$ を端から端まで掃いて、$|D(f)|$ の谷を拾えば、それが F1・F2・F3。管が<b>一様（中性管）</b>なら $D=\cos kL$ なので、$\cos kL=0$ すなわち $kL=\tfrac{\pi}{2},\tfrac{3\pi}{2},\tfrac{5\pi}{2}$、つまり</p>
+  <div class="eqd">$$f=\frac{c}{4L},\ \frac{3c}{4L},\ \frac{5c}{4L}\ \approx\ 500,\ 1500,\ 2500\ \text{Hz}\quad(L\approx17.5\,\text{cm})$$</div>
+  <p class="thp">が F1・F2・F3。これが「声帯側が閉じた管は奇数倍の1/4波長で鳴る」の中身だよ。ラボはこの計算を、君が動かした形に対して毎フレームやり直している。</p>
+</div>
+
+<div class="card eqcard">
+  <h2>F3 ってなに？</h2>
+  <p class="thp">F1・F2 が母音を決める主役（だから①の地図は2軸で足りる）。<b>F3 以上</b>は、声の<b>個人っぽさ</b>や細かい音色を担う、3番目の共鳴。一様管なら $F3=\dfrac{5c}{4L}\approx2500$ Hz——5番目の1/4波長だね。</p>
+  <p class="thp">母音による F3 の動きは F1・F2 より小さく、比較的おとなしい。でも次のときに大きく動く：</p>
+  <p class="thp">・<b>唇のすぼめ（円唇）</b>：出口が狭くなって、全体、特に F2・F3 が下がる。<br>・<b>そり舌</b>：英語の /r/ では F3 が<b>がくっと下がる</b>（F3 が低いのが /r/ らしさの正体）。<br>・<b>前空洞の長さ</b>：舌のくびれより前の空洞が長いほど、その共鳴（しばしば F3）が下がる。</p>
+  <p class="thp">だから日本語の母音は F1–F2 の地図でだいたい足りるけれど、子音・英語の r・話者の聞き分けには F3 が効く。②のラボは F3 も同じ伝達行列から一緒に解いているから、形を変えると F3 の山も動くよ（②の伝達関数グラフで確認できる）。</p>
+</div>
+
+<div class="card eqcard">
+  <h2>①の「舌の開き」と ②の「声道の形」は、同じことの二つの見方</h2>
+  <p class="thp">①では「F1＝口の開き、F2＝舌の前後」と<b>調音（ちょうおん）</b>で説明した。②では舌が出てこず、<b>管の断面積の形</b>だけで共鳴を解いた。矛盾しているわけじゃなくて——<b>舌・あご・唇は、フォルマントを直接動かしているのではなく、声道の断面積 $A(x)$ を変えることで動かしている</b>。その $A(x)$ が共鳴を決める。だから両者は同じ現象の別の層なんだ。</p>
+  <p class="thp">対応はこう：</p>
+  <p class="thp">・<b>舌を前に出す</b> → 前の方が狭い管 → F2 が上がる（①の「舌:前」＝②の「くびれが前」）<br>・<b>あごを開く／舌を下げる</b> → 口側が広い管 → F1 が上がる（①の「口:開き」＝②の「奥が狭く前が広い」）<br>・<b>唇をすぼめる</b> → 出口が狭い → F2・F3 が下がる</p>
+  <p class="thp">つまり ① は「<b>筋肉が何をするか</b>（調音）」、② は「<b>その結果できた管が音響としてどう鳴るか</b>」。② が ① の“なぜ”になっている。どこを狭めると各フォルマントがどっちへ動くか、を一般化したのが<b>摂動理論</b>で、それがちょうど①と②の橋渡しだよ。</p>
+  <p class="thp eqcap">補足：声の<em>高さ</em>（ピッチ＝F0）は声帯の振動そのもので、ここまでの共鳴（声道の形）とは別系統。同じ「あ」を高くも低くも言えるのはそのため。声道の<b>長さ L</b> を変えると全フォルマントが $\propto 1/L$ で動く（子供は短いから高い）——これも形＝音響の話で、F0 とは独立だよ。</p>
+</div>
+`;
 ---
 
 <!doctype html>
@@ -9,6 +42,9 @@ import Footer from '../components/Footer.astro';
 <head>
   <BaseHead title="声のページ — 母音とフォルマント、声道の共鳴を解く" description="「あいうえお」は声道の共鳴(フォルマント F1・F2)で決まる。①声の地図でF1–F2をドラッグして母音を鳴らし、②声道ラボで声道を輪切りにして伝達行列で共鳴を数値で解く。地図で触る→形から解く、の二部構成。" />
   <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});"></script>
   <style is:global>
     .intro{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;
       padding:1.5rem 1.75rem;margin-bottom:2rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
@@ -43,6 +79,12 @@ import Footer from '../components/Footer.astro';
     .note{font-size:.82rem;color:#7d7568;line-height:1.7;margin:0 0 .7rem;}
     .note b.r{color:#c2543d;} .note b.b{color:#3a6df0;} .note b.w{color:#c9761f;}
     .bridge{background:#f6f1e8;border:1px dashed #d8cbb6;border-radius:12px;padding:1rem 1.25rem;margin:0 0 1.5rem;font-size:.86rem;color:#6b5f4d;line-height:1.7;}
+    .thp{font-size:.85rem;color:#5c554b;line-height:1.85;margin:.3rem 0 .7rem;}
+    .thp b{color:#c9761f;}
+    .eqd{margin:.5rem 0;overflow-x:auto;overflow-y:hidden;}
+    .eqd .katex{font-size:1.04em;color:#2a4d49;}
+    .eqcard h2{font-size:.96rem;margin:0 0 .7rem;color:#33433f;}
+    .eqcap{font-size:.78rem;color:#7d7568;line-height:1.65;}
   </style>
 </head>
 <body>
@@ -103,13 +145,7 @@ import Footer from '../components/Footer.astro';
       <canvas id="vtmap" width="680" height="360"></canvas>
     </div>
 
-    <div class="card">
-      <h2>仕組み（一段だけ深く）</h2>
-      <p class="note">各輪切りを長さ <b>ℓ</b>・断面積 <b>A</b> の一様管とみなすと、入口の (圧力 P, 体積速度 U) と出口の (P, U) は次の行列で結ばれる：<br>
-      <span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#2a4d49;">[Pin; Uin] = [[cos kℓ, jZ·sin kℓ],[ j·sin kℓ /Z, cos kℓ]] · [Pout; Uout]</span>　（k=2πf/c、Z=ρc/A）。</p>
-      <p class="note">輪切りを声帯側から唇側へ順に掛けると、声道全体の行列 <b>[[A,B],[C,D]]</b> が出る。唇を開いた端（P=0）とすると、声帯から唇への速度の伝わりは <b>1/D(f)</b>。この <b>|D(f)| が小さくなる周波数＝共鳴</b>を掃引で拾えば、それが F1・F2・F3。面積の<em>比</em>と管の<em>長さ</em>だけで決まる。音速 c≈350 m/s としている。</p>
-      <p class="note"><b>声道の長さ L</b> はスライダで変えられる（絵の大きさは同じまま、長さの“目盛り”だけが変わる）。形＝断面積の比をそのままに L だけ動かすと、共鳴の式から<b>全フォルマントが 1/L で一斉にスケール</b>する。子供は声道が短いからフォルマントが高い、大人の男性は長いから低い——同じ母音でも声が太く／細く聞こえるのは、この L の違いだよ（声の<em>高さ</em>＝F0 とはまた別の話。F0 は声帯の振動そのもの）。</p>
-    </div>
+    <Fragment set:html={theory} />
   </main>
   <Footer />
 
