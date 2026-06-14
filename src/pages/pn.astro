@@ -211,11 +211,16 @@ const theory = String.raw`
     band(0); band(-Egap);
     ctx.fillStyle='#1d6f4a'; ctx.font='10px "JetBrains Mono",monospace'; ctx.textAlign='left';
     ctx.fillText('Ec', PX1-150, yE(0)-5); ctx.fillText('Ev', PX1-150, yE(-Egap)-5);
-    var Efp=dE()-0.95, Efn=-0.15;
+    // フェルミ準位 Ef：バルクで平ら、空乏層を横切る所で qV ぶん遷移する“一本の線”として描く。
+    // 平衡(V=0)では Efp=Efn なので全幅が一直線になり、「P型とN型でフェルミ準位が揃う」のが一目で分かる。
+    var Efp=dE()-0.95, Efn=-0.15, lE=L(), rE=R();
     ctx.strokeStyle='#c9761f'; ctx.setLineDash([6,4]); ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(PX0,yE(Efp)); ctx.lineTo(L(),yE(Efp)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(R(),yE(Efn)); ctx.lineTo(PX1,yE(Efn)); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='#c9761f'; ctx.fillText('Ef', PX0+4, yE(Efp)-4);
+    ctx.beginPath();
+    ctx.moveTo(PX0,yE(Efp)); ctx.lineTo(lE,yE(Efp));   // P側バルク：平ら
+    ctx.lineTo(rE,yE(Efn));                             // 空乏層を横切って遷移（平衡では段差0＝平ら）
+    ctx.lineTo(PX1,yE(Efn));                            // N側バルク：平ら
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#c9761f'; ctx.textAlign='left'; ctx.fillText('Ef', PX0+4, yE(Efp)-4);
     if(Math.abs(V)>0.02){ var mx=R()+6; ctx.strokeStyle='#c9761f'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(mx,yE(Efp)); ctx.lineTo(mx,yE(Efn)); ctx.stroke(); ctx.fillText('qV', mx+3,(yE(Efp)+yE(Efn))/2+3); }
   }
 
