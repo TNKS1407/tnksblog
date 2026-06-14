@@ -9,9 +9,19 @@ const today = new Date();
       <a href="https://tnks1407.com" target="_blank">Works</a>
       <a href="https://github.com/TNKS1407" target="_blank">GitHub</a>
       <a href="/rss.xml">RSS</a>
+      <button type="button" class="fb-link" id="fb-open" aria-expanded="false">改善を送る</button>
     </div>
   </div>
   <div class="credit">curated by ランキン</div>
+  <div class="fb-box" id="fb-box" hidden>
+    <p class="fb-h">このページの間違い・改善案を教えてね <span class="fb-sub">（見ているページのURLは自動で添えるよ）</span></p>
+    <textarea id="fb-msg" rows="3" maxlength="1000" placeholder="気づいたこと（例: 平衡時の Ef がズレて見える…）"></textarea>
+    <div class="fb-row">
+      <input type="text" id="fb-contact" maxlength="100" placeholder="連絡先（任意・返信が要るときだけ）" />
+      <button type="button" class="fb-send" id="fb-send">送る</button>
+    </div>
+    <p class="fb-status" id="fb-status" hidden></p>
+  </div>
 </footer>
 
 <script is:inline>
@@ -36,6 +46,47 @@ const today = new Date();
   })();
 </script>
 
+<script is:inline>
+  // 改善フィードバック: 母艦 feedback.tnks1407.com/improve に、このページのURL付きで非公開で送る。
+  // 送信内容はオーナー(ランキン)だけが見られる。公開はされない。
+  (function(){
+    var open = document.getElementById('fb-open');
+    var box  = document.getElementById('fb-box');
+    if(!open || !box) return;
+    var msg = document.getElementById('fb-msg');
+    var contact = document.getElementById('fb-contact');
+    var send = document.getElementById('fb-send');
+    var status = document.getElementById('fb-status');
+    function setStatus(t, ok){ status.textContent = t; status.hidden = false; status.style.color = ok ? 'var(--accent, #3c7876)' : '#c2543d'; }
+    open.addEventListener('click', function(){
+      var show = box.hidden;
+      box.hidden = !show;
+      open.setAttribute('aria-expanded', show ? 'true' : 'false');
+      if(show){ setTimeout(function(){ msg.focus(); }, 30); }
+    });
+    send.addEventListener('click', function(){
+      var text = (msg.value || '').trim();
+      if(!text){ setStatus('内容を書いてね', false); return; }
+      send.disabled = true; setStatus('送ってるよ…', true);
+      fetch('https://feedback.tnks1407.com/improve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: location.href, message: text, contact: (contact.value || '').trim() })
+      }).then(function(r){ return r.json().catch(function(){ return {}; }); })
+        .then(function(d){
+          if(d && d.ok){
+            setStatus('ありがとう、届いたよ。', true);
+            msg.value=''; contact.value='';
+            setTimeout(function(){ box.hidden = true; open.setAttribute('aria-expanded','false'); status.hidden = true; send.disabled = false; }, 1800);
+          } else {
+            setStatus('うまく送れなかったかも。少し待って試してね。', false); send.disabled = false;
+          }
+        })
+        .catch(function(){ setStatus('うまく送れなかったかも。少し待って試してね。', false); send.disabled = false; });
+    });
+  })();
+</script>
+
 <style>
   footer {
     border-top: 1px solid var(--border);
@@ -57,4 +108,32 @@ const today = new Date();
     font-size: 0.7rem; color: var(--text-faint);
     font-family: 'JetBrains Mono', monospace;
   }
+  .fb-link {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font: inherit; font-size: 0.82rem; color: var(--text-muted);
+    transition: color 0.15s;
+  }
+  .fb-link:hover { color: var(--accent); }
+  .fb-box {
+    max-width: 900px; margin: 0.9rem auto 0; padding: 0.9rem 1rem;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card, #fff);
+  }
+  .fb-h { font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.5rem; line-height: 1.5; }
+  .fb-sub { color: var(--text-faint); font-size: 0.72rem; }
+  .fb-box textarea, .fb-box input {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 0.82rem;
+    border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.6rem;
+    background: var(--surface, #faf8f4); color: var(--text, #1d1b17); resize: vertical;
+  }
+  .fb-box textarea:focus, .fb-box input:focus { outline: none; border-color: var(--accent, #3c7876); }
+  .fb-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .fb-row input { flex: 1; }
+  .fb-send {
+    flex: 0 0 auto; padding: 0.45rem 1rem; border: 1px solid var(--accent, #3c7876);
+    border-radius: 8px; background: var(--accent, #3c7876); color: #fff;
+    font: inherit; font-size: 0.82rem; cursor: pointer; transition: opacity 0.15s;
+  }
+  .fb-send:hover { opacity: 0.88; }
+  .fb-send:disabled { opacity: 0.5; cursor: default; }
+  .fb-status { font-size: 0.76rem; margin: 0.5rem 0 0; }
 </style>
