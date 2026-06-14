@@ -1,0 +1,97 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+// みんなのコメント（公開）。母艦 feedback.tnks1407.com の /list を表示し /submit で投稿する。
+// ※ ページ個別の「間違いの指摘」はフッターの「💡 改善を送る」（非公開 /improve）で別系統。
+---
+<!doctype html>
+<html lang="ja">
+<head>
+  <BaseHead title="みんなのコメント — tnkblog" description="サイトへの感想・要望・バグ報告。みんなのコメント。" />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style is:global>
+    .cpage-h1{font-size:clamp(1.4rem,4vw,1.8rem);margin:0 0 .4rem;}
+    .cpage-intro{color:var(--text-muted,#7d7568);font-size:.85rem;line-height:1.75;margin:0 0 1.6rem;}
+    .cpage-intro strong{color:var(--accent,#3c7876);}
+    .cmt-form{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:14px;padding:1.1rem 1.2rem;margin-bottom:1.8rem;box-shadow:0 1px 6px rgba(29,27,23,.05);}
+    .cmt-types{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.7rem;}
+    .cmt-type{padding:.3rem .8rem;border-radius:999px;border:1.5px solid var(--border,#e3dbd0);background:var(--surface,#faf8f4);color:var(--text-muted,#7d7568);font-size:.77rem;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;}
+    .cmt-type.sel{background:var(--accent,#3c7876);color:#fff;border-color:var(--accent,#3c7876);}
+    .cmt-form textarea,.cmt-form input{width:100%;box-sizing:border-box;border:1px solid var(--border,#e3dbd0);border-radius:10px;padding:.6rem .8rem;font-family:inherit;font-size:.85rem;color:var(--text,#1d1b17);background:var(--surface,#faf8f4);outline:none;transition:border-color .15s;}
+    .cmt-form textarea{min-height:84px;resize:vertical;margin-bottom:.5rem;}
+    .cmt-form input{margin-bottom:.6rem;}
+    .cmt-form textarea:focus,.cmt-form input:focus{border-color:var(--accent,#3c7876);}
+    .cmt-send{background:var(--accent,#3c7876);color:#fff;border:none;border-radius:10px;padding:.55rem 1.2rem;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s;}
+    .cmt-send:hover{opacity:.88;} .cmt-send:disabled{opacity:.5;cursor:default;}
+    .cmt-status{font-size:.78rem;margin:.6rem 0 0;}
+    .cmt-list{display:flex;flex-direction:column;gap:.7rem;}
+    .cmt-empty{color:var(--text-faint,#aaa49b);font-size:.85rem;}
+    .cmt-card{background:var(--card,#fff);border:1px solid var(--border,#e3dbd0);border-radius:12px;padding:.7rem .9rem;box-shadow:0 1px 4px rgba(29,27,23,.05);}
+    .cmt-top{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;}
+    .cmt-badge{font-size:.64rem;font-weight:700;padding:.1rem .45rem;border-radius:4px;}
+    .cmt-badge.bug{background:#fce8ee;color:#c23a5e;} .cmt-badge.feat{background:#e6f7f4;color:#0d7f6e;} .cmt-badge.other{background:#eef2fb;color:#3a5a9e;}
+    .cmt-ts{font-size:.66rem;color:var(--text-faint,#aaa49b);margin-left:auto;font-family:'JetBrains Mono',monospace;}
+    .cmt-msg{font-size:.88rem;color:var(--text,#1d1b17);line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+    .cmt-reply{margin-top:.5rem;padding:.5rem .7rem;background:var(--accent-dim,rgba(60,120,118,.09));border-radius:8px;font-size:.82rem;color:var(--text-muted,#7d7568);line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+    .cmt-reply-by{display:inline-block;font-weight:700;color:var(--accent,#3c7876);font-size:.72rem;margin-right:.4rem;font-family:'JetBrains Mono',monospace;}
+  </style>
+</head>
+<body>
+  <Header />
+  <main>
+    <h1 class="cpage-h1">みんなのコメント</h1>
+    <p class="cpage-intro">サイトへの感想・要望・バグ報告など、気軽にどうぞ。送ったものはこのページに公開されるよ。<br />※ ページの具体的な間違いの指摘は、各ページ下の「💡 改善を送る」から<strong>非公開</strong>で送れます。</p>
+
+    <div class="cmt-form">
+      <div class="cmt-types">
+        <button class="cmt-type sel" data-type="その他">💬 ひとこと</button>
+        <button class="cmt-type" data-type="機能の要望">✨ 要望</button>
+        <button class="cmt-type" data-type="バグ報告">🐛 バグ</button>
+      </div>
+      <textarea id="cmt-msg" maxlength="800" placeholder="感想・要望・バグなど（公開されます）"></textarea>
+      <input id="cmt-contact" type="text" maxlength="100" placeholder="連絡先（任意）" />
+      <button id="cmt-send" class="cmt-send">送信 →</button>
+      <p id="cmt-status" class="cmt-status" hidden></p>
+    </div>
+
+    <div class="cmt-list" id="cmt-list"><p class="cmt-empty">読み込み中…</p></div>
+  </main>
+  <Footer />
+
+  <script is:inline>
+    (function(){
+      var API='https://feedback.tnks1407.com';
+      var sel='その他';
+      function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+      function rel(iso){ var d=(Date.now()-new Date(iso))/1000; if(d<60)return'たった今'; if(d<3600)return Math.floor(d/60)+'分前'; if(d<86400)return Math.floor(d/3600)+'時間前'; return Math.floor(d/86400)+'日前'; }
+      function badge(t){ return t==='バグ報告'?'bug':(t==='機能の要望'?'feat':'other'); }
+      function load(){
+        fetch(API+'/list').then(function(r){return r.json();}).then(function(list){
+          var el=document.getElementById('cmt-list');
+          if(!list||!list.length){ el.innerHTML='<p class="cmt-empty">まだコメントはないよ。最初のひとことをどうぞ。</p>'; return; }
+          el.innerHTML=list.map(function(c){
+            return '<div class="cmt-card"><div class="cmt-top"><span class="cmt-badge '+badge(c.type)+'">'+esc(c.type)+'</span><span class="cmt-ts">'+rel(c.ts)+'</span></div>'+
+              '<div class="cmt-msg">'+esc(c.message)+'</div>'+
+              (c.reply?'<div class="cmt-reply"><span class="cmt-reply-by">ランキン</span>'+esc(c.reply)+'</div>':'')+'</div>';
+          }).join('');
+        }).catch(function(){ document.getElementById('cmt-list').innerHTML='<p class="cmt-empty">読み込みに失敗したよ。少し待って試してね。</p>'; });
+      }
+      document.querySelectorAll('.cmt-type').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('.cmt-type').forEach(function(x){x.classList.remove('sel');}); b.classList.add('sel'); sel=b.dataset.type; }); });
+      var status=document.getElementById('cmt-status');
+      function setStatus(t,ok){ status.textContent=t; status.hidden=false; status.style.color=ok?'var(--accent,#3c7876)':'#c2543d'; }
+      document.getElementById('cmt-send').addEventListener('click',function(){
+        var msg=(document.getElementById('cmt-msg').value||'').trim();
+        if(!msg){ setStatus('内容を書いてね',false); return; }
+        var contact=(document.getElementById('cmt-contact').value||'').trim();
+        var btn=document.getElementById('cmt-send'); btn.disabled=true; setStatus('送ってるよ…',true);
+        fetch(API+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:sel,message:msg,contact:contact})})
+          .then(function(r){ if(r.status===429) throw new Error('rate'); if(!r.ok) throw new Error(); return r.json().catch(function(){return{};}); })
+          .then(function(){ document.getElementById('cmt-msg').value=''; document.getElementById('cmt-contact').value=''; setStatus('ありがとう、公開したよ。',true); btn.disabled=false; load(); })
+          .catch(function(e){ btn.disabled=false; setStatus(e&&e.message==='rate'?'しばらく間を置いてから送ってね（10分あたり3件まで）。':'送信に失敗したよ。もう一度試してね。',false); });
+      });
+      load();
+    })();
+  </script>
+</body>
+</html>
