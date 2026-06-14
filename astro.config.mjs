@@ -11,6 +11,10 @@ export default defineConfig({
 	site: 'https://tnkblog.net',
 	integrations: [mdx(), sitemap()],
 	markdown: {
+		// コードブロックは数式・擬似コード用途。Shiki の既定テーマ(github-dark)が
+		// 暗い背景を当て、サイトCSSが文字を暗色に強制する＝「暗背景に暗文字」で
+		// 読めなくなっていた。ハイライトを切り、サイト本来の白背景＋黒文字に任せる。
+		syntaxHighlight: false,
 		remarkPlugins: [remarkMath],
 		rehypePlugins: [rehypeKatex],
 	},
