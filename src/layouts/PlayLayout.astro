@@ -2047,6 +2047,7 @@ clearCanvas(ctxD); clearCanvas(ctxE);
     exp:   x=> (x>=0 ? Math.exp(-x) : 0),                  // 面積≈1
     gauss: x=> Math.exp(-x*x/(2*0.4*0.4))/(0.4*Math.sqrt(2*Math.PI)), // σ=0.4・面積1
     two:   x=> 0.6*(Math.exp(-((x+1)**2)/(2*0.25*0.25))+Math.exp(-((x-1)**2)/(2*0.25*0.25)))/(0.25*Math.sqrt(2*Math.PI)),
+    impulse: x=> Math.exp(-x*x/(2*0.05*0.05)),   // ほぼインパルス（一発の叩き）。f に選ぶと f*g が応答 g の形＝インパルス応答になる
   };
   let fName='rect', gName='rect';
   let fArr=[], gAtTau=[];     // gAtTau: g(τ) を τ グリッドで持つ（反転は描画時に t-τ で評価）

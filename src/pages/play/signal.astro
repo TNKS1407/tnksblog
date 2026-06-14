@@ -76,7 +76,8 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
       <div class="app-title">畳み込みスライダ</div>
       <div class="app-desc">
         畳み込み <span style="font-family:'JetBrains Mono',monospace;">(f∗g)(t)</span> は「片方を反転して滑らせ、重なった面積をなぞる」操作。<br>
-        上段で <span style="color:#3c7876;font-weight:700;">f(τ)</span> は固定、<span style="color:#c9761f;font-weight:700;">g(t−τ)</span> が反転して動く。中段はその積（＝重なり）、下段がなぞった結果。スライダ <span style="font-family:'JetBrains Mono',monospace;">t</span> を動かすと、面積がそのまま出力になっていくのが見える。
+        上段で <span style="color:#3c7876;font-weight:700;">f(τ)</span> は固定、<span style="color:#c9761f;font-weight:700;">g(t−τ)</span> が反転して動く。中段はその積（＝重なり）、下段がなぞった結果。スライダ <span style="font-family:'JetBrains Mono',monospace;">t</span> を動かすと、面積がそのまま出力になっていくのが見える。<br>
+        <b>f</b> に <b>インパルス</b>（一発の叩き）を選ぶと、下段の結果が <span style="color:#c9761f;font-weight:700;">g</span> の形そのものになる ── つまり <b>g がインパルス応答</b>だ、と目で確かめられる。
       </div>
 
       <div style="margin-top:.5rem;">
@@ -108,6 +109,7 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
         <button class="preset-btn" data-conv-f="exp">指数減衰</button>
         <button class="preset-btn" data-conv-f="gauss">ガウス</button>
         <button class="preset-btn" data-conv-f="two">二山</button>
+        <button class="preset-btn" data-conv-f="impulse">インパルス</button>
       </div>
       <div class="presets" style="margin-top:.4rem;">
         <span style="font-size:.68rem;font-family:'JetBrains Mono',monospace;color:#c9761f;margin-right:.2rem;">g(τ):</span>
