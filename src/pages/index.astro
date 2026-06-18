@@ -7,9 +7,12 @@ import DailyQuip from '../components/DailyQuip.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 import { getCollection } from 'astro:content';
 
-const posts = (await getCollection('blog')).sort(
-  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
-);
+// トップページからは「まだ導線を引かない」記事（レビュー中などで一覧には出さないもの）。
+// 公開のためにトップへ出すときは、このリストから slug を外すだけでいい。
+const HIDDEN_FROM_HOME = ['2026-06-19-even-hub-g2-spectrum-lab'];
+const posts = (await getCollection('blog'))
+  .filter((p) => !HIDDEN_FROM_HOME.includes(p.id))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
 
 <!doctype html>

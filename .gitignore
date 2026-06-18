@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # Personal diary (local only)
 diary/
+
+# Blog drafts (local only — move into src/content/blog to publish)
+drafts/
