@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 330" width="560" height="330" font-family="'Segoe UI','Hiragino Kaku Gothic ProN',system-ui,sans-serif">
+  <defs>
+    <marker id="axr" markerWidth="9" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9a9384"/></marker>
+  </defs>
+  <rect width="560" height="330" fill="#faf8f4"/>
+  <text x="22" y="30" font-size="15" fill="#2b2b29">「単位円上の極」と、それが意味する2次フィルター</text>
+
+  <!-- z-plane axes -->
+  <line x1="62" y1="170" x2="338" y2="170" stroke="#cfc7b6" stroke-width="1.4" marker-end="url(#axr)"/>
+  <line x1="200" y1="292" x2="200" y2="56" stroke="#cfc7b6" stroke-width="1.4" marker-end="url(#axr)"/>
+  <text x="330" y="188" font-size="12" fill="#9a9384">Re</text>
+  <text x="208" y="64" font-size="12" fill="#9a9384">Im</text>
+
+  <!-- unit circle -->
+  <circle cx="200" cy="170" r="108" fill="none" stroke="#3c7876" stroke-width="2"/>
+  <text x="116" y="80" font-size="11.5" fill="#5f9b98">|z| = 1</text>
+
+  <!-- dashed radii to poles -->
+  <line x1="200" y1="170" x2="261.95" y2="81.5" stroke="#d9b27a" stroke-width="1.3" stroke-dasharray="4 3"/>
+  <line x1="200" y1="170" x2="261.95" y2="258.5" stroke="#d9b27a" stroke-width="1.3" stroke-dasharray="4 3"/>
+
+  <!-- angle arc + label -->
+  <path d="M250,170 A50,50 0 0,0 228.7,129" fill="none" stroke="#c9761f" stroke-width="1.4"/>
+  <text x="236" y="150" font-size="12" fill="#c9761f">2πk/N</text>
+
+  <!-- poles -->
+  <g stroke="#e0892f" stroke-width="2.6">
+    <line x1="255.95" y1="75.5" x2="267.95" y2="87.5"/><line x1="267.95" y1="75.5" x2="255.95" y2="87.5"/>
+    <line x1="255.95" y1="252.5" x2="267.95" y2="264.5"/><line x1="267.95" y1="252.5" x2="255.95" y2="264.5"/>
+  </g>
+  <text x="272" y="76" font-size="11.5" fill="#c9761f">極</text>
+  <text x="272" y="270" font-size="11.5" fill="#c9761f">共役極</text>
+
+  <!-- right text -->
+  <text x="362" y="92" font-size="13" fill="#2b2b29">● 極が単位円の上にある</text>
+  <text x="378" y="114" font-size="12.5" fill="#6b6b66">＝ 減衰しない共振器</text>
+  <text x="378" y="134" font-size="12.5" fill="#6b6b66">（周波数 k に同調）</text>
+  <text x="362" y="174" font-size="13" fill="#2b2b29">● 1次だと係数が複素数</text>
+  <text x="362" y="202" font-size="13" fill="#2b2b29">● 共役な極とペアにすると</text>
+  <text x="378" y="224" font-size="12.5" fill="#6b6b66">実係数の2次になる</text>
+
+  <!-- recurrence -->
+  <text x="40" y="316" font-size="13.5" fill="#2f6260">s[n] = x[n] + 2cos(2πk/N)·s[n−1] − s[n−2]</text>
+</svg>
