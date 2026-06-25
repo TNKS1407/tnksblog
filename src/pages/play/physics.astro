@@ -1,7 +1,7 @@
 ---
 import PlayLayout from '../../layouts/PlayLayout.astro';
 ---
-<PlayLayout title="物理 — Play" description="力・熱・重力・波。身のまわりの物理を動かして確かめる。" heading="🪐 物理" intro="力・熱・重力・波。身のまわりの物理を動かして確かめる。">
+<PlayLayout title="物理 — Play" description="力・熱・重力・波・電磁気。身のまわりの物理を動かして確かめる。" heading="🪐 物理" intro="力・熱・重力・波・電磁気。身のまわりの物理を動かして確かめる。">
 
     <!-- Movable pulley: force / distance / work -->
     <div class="app-card">
@@ -152,6 +152,33 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
     <a href="/vowel#lab" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
       <div class="app-title">声道ラボ — 管の共鳴（定在波）を解く →</div>
       <div class="app-desc">声帯側を閉じ・唇側を開いた管の共鳴を、断面積の列から伝達行列で数値で解く。管の形をドラッグすると定在波（F1・F2 のモード）と共鳴周波数が本当に動く。波の物理が声になる現場。（「声のページ」②）</div>
+    </a>
+
+    <h2 style="font-size:1.05rem;font-weight:700;color:#2a4d49;margin:2.2rem 0 1rem;">電磁気・場（tnks1407 の「解説」と連動）</h2>
+
+    <a href="https://tnks1407.com/efield-probe/" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
+      <div class="app-title">電場プローブ — 場はそこに在る →</div>
+      <div class="app-desc">試し電荷をドラッグすると、場 E（q によらない）と、実際に働く力 F=qE（q で伸び縮みする）が別物だと体でわかる。「場はそこに在って、力はそれに電荷を掛けた結果」を触る。</div>
+    </a>
+
+    <a href="https://tnks1407.com/equipotential/" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
+      <div class="app-title">等電位の地図 — 坂を歩く →</div>
+      <div class="app-desc">源を動かすと電位の地形が変わる。等電位の帯と、それに直角な下り坂の場 E。2 点を選んで運ぶ道をぐにゃぐにゃ変えても、要る仕事（電位差）が変わらない＝保存力を、指で歩いて確かめる。</div>
+    </a>
+
+    <a href="https://tnks1407.com/gauss-symmetry/" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
+      <div class="app-title">対称性とガウス面 →</div>
+      <div class="app-desc">点・線・面の対称性を選ぶと、それに合うガウス面（球・円柱・箱）が立体で立ち上がる。「面積で割れば場が一発で出る」が起きる瞬間を、ぐるぐる回して見る。</div>
+    </a>
+
+    <a href="https://tnks1407.com/circulation/" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
+      <div class="app-title">羽根車と循環（発散と回転）→</div>
+      <div class="app-desc">流れに小さな羽根車を浮かべて、その点が湧き出しているか（発散）・回っているか（回転＝curl）を別々に捕まえる。一様流・ずり流れ・渦・湧き出しを切り替え。「まっすぐな流れでも回る」が見どころ。</div>
+    </a>
+
+    <a href="https://tnks1407.com/maxwell-idler/" class="app-card" style="display:block;text-decoration:none;color:inherit;border-color:#3c7876;">
+      <div class="app-title">マクスウェルの遊輪（rot B = J）→</div>
+      <div class="app-desc">渦（＝磁場 B）の間に挟んだ遊輪（＝電荷）。渦の回転にムラがあると遊輪が転がりだす＝電流。B が強くても一様なら流れない ── 「磁場のムラ（回転）が電流を生む」を、歯車で触れる歴史模型。</div>
     </a>
 
 </PlayLayout>
