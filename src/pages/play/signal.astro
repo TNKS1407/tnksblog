@@ -392,4 +392,22 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
       <div class="app-desc">2枚の画像をフーリエして、振幅と位相を入れ替えて再構成する。出てくる絵は「位相を残したほう」にそっくりになる ── どこに何があるかという“形”を運んでいるのは、振幅じゃなく位相のほうだ、を手で確かめる。</div>
     </a>
 
+    <!-- Aliasing / wagon-wheel effect -->
+    <div class="app-card">
+      <div class="app-title">止まって見える車輪 — サンプリングの錯覚（エイリアシング）</div>
+      <div class="app-desc">
+        車輪は一定の速さで回っているのに、カメラ（一定間隔のサンプリング）越しに見ると、止まったり逆回りに見えたりする。<br>
+        1コマの間にスポークが「半分より多く」進むと、脳は"いちばん近い一致"を選んで<b>逆回転</b>と勘違いする。これがエイリアシング ── サンプリングが速さ（周波数）に追いつかないと、本当より遅い／逆の動きに化ける。<b>ナイキスト</b>の話そのものだよ。左＝本当の回転、右＝サンプル越しに見える回転。
+      </div>
+      <div class="canvas-label">左＝実際の回転 ／ 右＝サンプル（fps）越しに見える回転</div>
+      <canvas id="al-cv" width="720" height="340" style="width:100%;height:auto;cursor:default;background:#faf8f4;"></canvas>
+      <div class="controls">
+        <button class="btn primary" id="al-go" type="button">▶ 回す</button>
+        <div class="ctrl-group"><label>回転速度</label><input type="range" id="al-rps" min="1" max="30" step="0.5" value="9"><span id="al-rps-v">9.0</span>回/秒</div>
+        <div class="ctrl-group"><label>サンプル fps</label><input type="range" id="al-fps" min="2" max="30" step="1" value="10"><span id="al-fps-v">10</span></div>
+        <div class="ctrl-group"><label>スポーク</label><input type="range" id="al-sp" min="2" max="8" step="1" value="4"><span id="al-sp-v">4</span></div>
+      </div>
+      <div class="status" id="al-status"></div>
+    </div>
+
 </PlayLayout>

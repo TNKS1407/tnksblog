@@ -3034,6 +3034,189 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   rateV.textContent=rate.value; reset();
 })();
 }catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Brachistochrone — line vs circle vs cycloid
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv=document.getElementById('br-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+  const goBtn=document.getElementById('br-go'), resetBtn=document.getElementById('br-reset');
+  const statusEl=document.getElementById('br-status');
+  const TEAL='#3c7876', RED='#c2543d', GOLD='#b08908', INK='#1d1b17', MUT='#7d7568';
+  const G=980, A=[92,72], B=[662,352];
+  let curves=[], beads=[], t=0, playing=false, rafId=null, order=[];
+  function build(pts){
+    const cum=[0];
+    for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+    return {pts, cum, len:cum[cum.length-1]};
+  }
+  function at(cu,s){
+    const pts=cu.pts, cum=cu.cum, len=cu.len;
+    if(s<=0) return pts[0]; if(s>=len) return pts[pts.length-1];
+    let lo=0,hi=cum.length-1;
+    while(lo<hi-1){ const m=(lo+hi)>>1; if(cum[m]<=s) lo=m; else hi=m; }
+    const r=(s-cum[lo])/((cum[hi]-cum[lo])||1);
+    return [pts[lo][0]+r*(pts[hi][0]-pts[lo][0]), pts[lo][1]+r*(pts[hi][1]-pts[lo][1])];
+  }
+  function lineC(){ const p=[],N=200; for(let i=0;i<=N;i++){ const r=i/N; p.push([A[0]+r*(B[0]-A[0]),A[1]+r*(B[1]-A[1])]); } return build(p); }
+  function cycloidC(){
+    const dx=B[0]-A[0], dy=B[1]-A[1], ratio=dx/dy;
+    let lo=1e-4, hi=2*Math.PI-1e-4;
+    for(let i=0;i<90;i++){ const m=(lo+hi)/2, f=(m-Math.sin(m))/(1-Math.cos(m)); if(f<ratio) lo=m; else hi=m; }
+    const th=(lo+hi)/2, R=dy/(1-Math.cos(th)), p=[], N=260;
+    for(let i=0;i<=N;i++){ const q=th*i/N; p.push([A[0]+R*(q-Math.sin(q)), A[1]+R*(1-Math.cos(q))]); }
+    return build(p);
+  }
+  function circleC(){
+    const dx=B[0]-A[0], dy=B[1]-A[1], c=Math.hypot(dx,dy);
+    let nx=-dy/c, ny=dx/c; if(ny<0){ nx=-nx; ny=-ny; }
+    const Mx=(A[0]+B[0])/2, My=(A[1]+B[1])/2, s0=70, Rc=(c*c/4+s0*s0)/(2*s0);
+    const Cx=Mx-nx*(Rc-s0), Cy=My-ny*(Rc-s0);
+    const aA=Math.atan2(A[1]-Cy,A[0]-Cx); let aB=Math.atan2(B[1]-Cy,B[0]-Cx);
+    let d=aB-aA; while(d<=-Math.PI)d+=2*Math.PI; while(d>Math.PI)d-=2*Math.PI;
+    const am=aA+d/2; if(Cy+Rc*Math.sin(am) < My) d = d>0 ? d-2*Math.PI : d+2*Math.PI;
+    const p=[], N=260;
+    for(let i=0;i<=N;i++){ const q=aA+d*i/N; p.push([Cx+Rc*Math.cos(q), Cy+Rc*Math.sin(q)]); }
+    return build(p);
+  }
+  function reset(){
+    curves=[ {cu:lineC(),color:RED,name:'直線'}, {cu:circleC(),color:GOLD,name:'円弧'}, {cu:cycloidC(),color:TEAL,name:'サイクロイド'} ];
+    beads=curves.map(()=>({s:0,done:false,tfin:0}));
+    t=0; order=[]; draw();
+    statusEl.textContent='▶ 放すと3つ同時にスタート。どれが先に着く？'; statusEl.style.color=MUT;
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let k=0;k<curves.length;k++){
+      ctx.strokeStyle=curves[k].color; ctx.globalAlpha=0.35; ctx.lineWidth=3; ctx.lineCap='round'; ctx.lineJoin='round';
+      const p=curves[k].cu.pts; ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]);
+      for(let i=1;i<p.length;i++) ctx.lineTo(p[i][0],p[i][1]); ctx.stroke(); ctx.globalAlpha=1;
+    }
+    ctx.fillStyle=INK; ctx.font='13px monospace'; ctx.textAlign='center';
+    ctx.beginPath(); ctx.arc(A[0],A[1],5,0,7); ctx.fill(); ctx.fillText('A',A[0]-14,A[1]-6);
+    ctx.beginPath(); ctx.arc(B[0],B[1],5,0,7); ctx.fill(); ctx.fillText('B',B[0]+14,B[1]+4);
+    for(let k=0;k<curves.length;k++){ const p=at(curves[k].cu,beads[k].s); ctx.fillStyle=curves[k].color; ctx.beginPath(); ctx.arc(p[0],p[1],8,0,7); ctx.fill(); }
+    ctx.textAlign='left'; ctx.font='12px monospace';
+    for(let k=0;k<curves.length;k++){ ctx.fillStyle=curves[k].color; ctx.fillText('● '+curves[k].name, 20, 24+k*18); }
+  }
+  function step(){
+    const sub=6, dt=0.006;
+    for(let it=0; it<sub; it++){
+      for(let k=0;k<curves.length;k++){
+        const b=beads[k]; if(b.done) continue;
+        const p=at(curves[k].cu,b.s), drop=Math.max(p[1]-A[1],0.5), v=Math.sqrt(2*G*drop);
+        b.s += v*dt;
+        if(b.s>=curves[k].cu.len){ b.s=curves[k].cu.len; b.done=true; b.tfin=t; order.push(k); }
+      }
+      t+=dt;
+    }
+    draw();
+    if(order.length===curves.length){
+      playing=false; goBtn.textContent='▶ 放す'; goBtn.classList.add('primary');
+      const txt=order.map((k,i)=>(i+1)+'位 '+curves[k].name+' '+beads[k].tfin.toFixed(2)+'s').join(' ／ ');
+      const won = order[0]===2 ? ' 　── サイクロイドが最速（最短の直線より速い）' : '';
+      statusEl.textContent='ゴール：'+txt+won; statusEl.style.color=TEAL;
+    } else { statusEl.textContent='t = '+t.toFixed(2)+' s ／ 落下中…'; statusEl.style.color=MUT; }
+  }
+  function loop(){ if(!playing) return; step(); if(order.length<curves.length) rafId=requestAnimationFrame(loop); }
+  goBtn.addEventListener('click',()=>{
+    if(order.length===curves.length){ reset(); }
+    playing=!playing; goBtn.textContent=playing?'⏸ 停止':'▶ 放す'; goBtn.classList.toggle('primary',!playing);
+    if(playing) loop(); else if(rafId) cancelAnimationFrame(rafId);
+  });
+  resetBtn.addEventListener('click',()=>{ playing=false; goBtn.textContent='▶ 放す'; goBtn.classList.add('primary'); if(rafId)cancelAnimationFrame(rafId); reset(); });
+  reset();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Additive vs subtractive color mixing
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv=document.getElementById('cmix-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+  const s1=document.getElementById('cmix-1'), s2=document.getElementById('cmix-2'), s3=document.getElementById('cmix-3');
+  const v1=document.getElementById('cmix-1-v'), v2=document.getElementById('cmix-2-v'), v3=document.getElementById('cmix-3-v');
+  const statusEl=document.getElementById('cmix-status');
+  const MUT='#7d7568', half=W/2, R=86;
+  const cen=[[180,118],[110,232],[250,232]];
+  function circ(cx,cy,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.fill(); }
+  function draw(){
+    const p1=+s1.value/100, p2=+s2.value/100, p3=+s3.value/100;
+    v1.textContent=s1.value; v2.textContent=s2.value; v3.textContent=s3.value;
+    ctx.clearRect(0,0,W,H);
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,half,H); ctx.clip();
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,half,H); ctx.globalCompositeOperation='lighter';
+    circ(cen[0][0],cen[0][1],'rgb('+Math.round(255*p1)+',0,0)');
+    circ(cen[1][0],cen[1][1],'rgb(0,'+Math.round(255*p2)+',0)');
+    circ(cen[2][0],cen[2][1],'rgb(0,0,'+Math.round(255*p3)+')');
+    ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(half,0,half,H); ctx.clip();
+    ctx.fillStyle='#fff'; ctx.fillRect(half,0,half,H); ctx.globalCompositeOperation='multiply';
+    circ(half+cen[0][0],cen[0][1],'rgb('+Math.round(255*(1-p1))+',255,255)');
+    circ(half+cen[1][0],cen[1][1],'rgb(255,'+Math.round(255*(1-p2))+',255)');
+    circ(half+cen[2][0],cen[2][1],'rgb(255,255,'+Math.round(255*(1-p3))+')');
+    ctx.restore(); ctx.globalCompositeOperation='source-over';
+    ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(half,0); ctx.lineTo(half,H); ctx.stroke();
+    ctx.font='12px monospace'; ctx.textAlign='center';
+    ctx.fillStyle='#faf8f4'; ctx.fillText('加法（光 RGB）', half/2, H-13);
+    ctx.fillStyle='#1d1b17'; ctx.fillText('減法（絵の具 CMY）', half+half/2, H-13);
+    statusEl.textContent='光：赤+緑+青＝白（重なるほど明るい）／ 絵の具：シアン+マゼンタ+黄＝黒（重なるほど暗い）';
+    statusEl.style.color=MUT;
+  }
+  [s1,s2,s3].forEach(s=>s.addEventListener('input',draw));
+  draw();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Aliasing — wagon-wheel effect
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv=document.getElementById('al-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+  const goBtn=document.getElementById('al-go');
+  const rps=document.getElementById('al-rps'), fps=document.getElementById('al-fps'), sp=document.getElementById('al-sp');
+  const rpsV=document.getElementById('al-rps-v'), fpsV=document.getElementById('al-fps-v'), spV=document.getElementById('al-sp-v');
+  const statusEl=document.getElementById('al-status');
+  const RED='#c2543d', INK='#1d1b17', MUT='#7d7568';
+  let simT=0, playing=false, rafId=null;
+  const cyL=H/2-6, cxL=W*0.27, cxR=W*0.73, Rw=Math.min(H/2-34,128);
+  function wheel(cx,cy,ang,N){
+    ctx.strokeStyle='#c9bfae'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy,Rw,0,7); ctx.stroke();
+    for(let i=0;i<N;i++){
+      const a=ang+i*2*Math.PI/N;
+      ctx.strokeStyle=i===0?RED:INK; ctx.lineWidth=i===0?4:2;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Rw*Math.cos(a), cy+Rw*Math.sin(a)); ctx.stroke();
+    }
+    ctx.fillStyle=INK; ctx.beginPath(); ctx.arc(cx,cy,5,0,7); ctx.fill();
+  }
+  function apparent(){
+    const N=+sp.value, per=2*Math.PI*(+rps.value)/(+fps.value), sa=2*Math.PI/N;
+    let a=per%sa; if(a>sa/2)a-=sa; if(a<-sa/2)a+=sa;
+    return a*(+fps.value)/(2*Math.PI);
+  }
+  function draw(){
+    const N=+sp.value, w=+rps.value, f=+fps.value;
+    const trueAng=2*Math.PI*w*simT, k=Math.floor(simT*f), sampAng=2*Math.PI*w*(k/f);
+    ctx.clearRect(0,0,W,H);
+    wheel(cxL,cyL,trueAng,N); wheel(cxR,cyL,sampAng,N);
+    ctx.fillStyle=MUT; ctx.font='13px monospace'; ctx.textAlign='center';
+    ctx.fillText('本当の回転', cxL, H-10);
+    ctx.fillText('サンプル越し（'+f+' fps）', cxR, H-10);
+    const app=apparent();
+    let msg='本当 '+w.toFixed(1)+' 回/秒 → 見かけ '+app.toFixed(1)+' 回/秒';
+    if(Math.abs(app)<0.12) msg+='（ほぼ静止！）'; else if(app*w<0) msg+='（逆回り！）';
+    statusEl.textContent=msg; statusEl.style.color=(app*w<0||Math.abs(app)<0.12)?RED:INK;
+  }
+  function loop(){ if(!playing) return; simT+=1/60; draw(); rafId=requestAnimationFrame(loop); }
+  function sync(){ rpsV.textContent=(+rps.value).toFixed(1); fpsV.textContent=fps.value; spV.textContent=sp.value; draw(); }
+  [rps,fps,sp].forEach(s=>s.addEventListener('input',sync));
+  goBtn.addEventListener('click',()=>{ playing=!playing; goBtn.textContent=playing?'⏸ 停止':'▶ 回す'; goBtn.classList.toggle('primary',!playing); if(playing) loop(); else if(rafId)cancelAnimationFrame(rafId); });
+  sync();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
 </script>
   </main>
   <Footer />

@@ -47,4 +47,21 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
       <div class="status" id="hue-status"></div>
     </div>
 
+    <!-- Additive vs subtractive color mixing -->
+    <div class="app-card">
+      <div class="app-title">光と絵の具は、逆に混ざる</div>
+      <div class="app-desc">
+        3つの円を重ねる。<b>光（加法）</b>は足すほど明るい ── 赤+緑+青＝白。重なりに黄・シアン・マゼンタが生まれる（画面やカメラの原理）。<br>
+        <b>絵の具（減法）</b>は逆で、塗るほど暗い ── シアン+マゼンタ+黄＝黒に近づく。白い紙から色を吸って"引いて"いくからだ。同じ「混色」なのに向きが真逆なんだよ。スライダーで各原色の強さを変えて、重なりの色がどう動くか見て。
+      </div>
+      <div class="canvas-label">左＝光の三原色 RGB（加法・黒地）／ 右＝絵の具 CMY（減法・白地）</div>
+      <canvas id="cmix-cv" width="720" height="360" style="width:100%;height:auto;cursor:default;border-radius:10px;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group"><label>原色1（赤/シアン）</label><input type="range" id="cmix-1" min="0" max="100" value="100"><span id="cmix-1-v">100</span></div>
+        <div class="ctrl-group"><label>原色2（緑/マゼンタ）</label><input type="range" id="cmix-2" min="0" max="100" value="100"><span id="cmix-2-v">100</span></div>
+        <div class="ctrl-group"><label>原色3（青/黄）</label><input type="range" id="cmix-3" min="0" max="100" value="100"><span id="cmix-3-v">100</span></div>
+      </div>
+      <div class="status" id="cmix-status"></div>
+    </div>
+
 </PlayLayout>

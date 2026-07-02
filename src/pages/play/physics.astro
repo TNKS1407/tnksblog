@@ -224,4 +224,20 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
       <div class="status" id="dp-status"></div>
     </div>
 
+    <!-- Brachistochrone (fastest descent) -->
+    <div class="app-card">
+      <div class="app-title">最速降下 — いちばん速い坂は、直線じゃない</div>
+      <div class="app-desc">
+        同じ2点 A→B を、3つの坂でつなぐ：<b>直線</b>・<b>円弧</b>・<b>サイクロイド</b>。同時に玉を放して、どれが先に着くか見て。<br>
+        直感だと最短距離の直線が速そう。でも勝つのは<b>サイクロイド</b> ── 最初に急降下して一気に速さを稼ぐから、遠回りでも先に着く。「最短の道」と「最速の道」は違う、という有名な問題（ベルヌーイ）だよ。重力だけ・摩擦なし、エネルギー保存 v=√(2g·落差) で走らせている。
+      </div>
+      <div class="canvas-label">A→B を3つの坂で ／ 玉は同時スタート・重力のみ</div>
+      <canvas id="br-cv" width="720" height="420" style="width:100%;height:auto;cursor:default;background:#faf8f4;"></canvas>
+      <div class="controls">
+        <button class="btn primary" id="br-go" type="button">▶ 放す</button>
+        <button class="btn" id="br-reset" type="button">↺ リセット</button>
+      </div>
+      <div class="status" id="br-status"></div>
+    </div>
+
 </PlayLayout>
