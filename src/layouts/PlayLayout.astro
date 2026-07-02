@@ -2857,6 +2857,183 @@ clearCanvas(ctxD); clearCanvas(ctxE);
   refresh();
 })();
 }catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Double Pendulum (chaos / sensitive dependence)
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv=document.getElementById('dp-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+  const goBtn=document.getElementById('dp-go'), resetBtn=document.getElementById('dp-reset');
+  const dS=document.getElementById('dp-d'), dV=document.getElementById('dp-d-v');
+  const statusEl=document.getElementById('dp-status');
+  const TEAL='#3c7876', RED='#c2543d', INK='#1d1b17', MUT='#7d7568';
+  const g=9.8, m1=1, m2=1, L1=1, L2=1;
+  const cx=W/2, cyt=200, SCALE=92;
+  let A, B, trailA, trailB, t, playing=false, rafId=null, diverged=0;
+  function deriv(s){
+    const th1=s[0], w1=s[1], th2=s[2], w2=s[3], d=th1-th2;
+    const den=2*m1+m2-m2*Math.cos(2*th1-2*th2);
+    const a1=(-g*(2*m1+m2)*Math.sin(th1)-m2*g*Math.sin(th1-2*th2)
+             -2*Math.sin(d)*m2*(w2*w2*L2+w1*w1*L1*Math.cos(d)))/(L1*den);
+    const a2=(2*Math.sin(d)*(w1*w1*L1*(m1+m2)+g*(m1+m2)*Math.cos(th1)
+             +w2*w2*L2*m2*Math.cos(d)))/(L2*den);
+    return [w1,a1,w2,a2];
+  }
+  function rk4(s,dt){
+    const k1=deriv(s), s2=s.map((v,i)=>v+0.5*dt*k1[i]);
+    const k2=deriv(s2), s3=s.map((v,i)=>v+0.5*dt*k2[i]);
+    const k3=deriv(s3), s4=s.map((v,i)=>v+dt*k3[i]);
+    const k4=deriv(s4);
+    return s.map((v,i)=>v+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));
+  }
+  function fmtE(x){ return '1e'+Math.round(Math.log10(x)); }
+  function bobs(s){
+    const x1=cx+SCALE*L1*Math.sin(s[0]), y1=cyt+SCALE*L1*Math.cos(s[0]);
+    const x2=x1+SCALE*L2*Math.sin(s[2]), y2=y1+SCALE*L2*Math.cos(s[2]);
+    return [x1,y1,x2,y2];
+  }
+  function reset(){
+    const dth=Math.pow(10,parseFloat(dS.value));
+    const th1=Math.PI*0.85, th2=Math.PI*0.6;
+    A=[th1,0,th2,0]; B=[th1+dth,0,th2,0];
+    trailA=[]; trailB=[]; t=0; diverged=0; draw();
+    statusEl.textContent='初期差 Δθ = '+fmtE(dth)+' rad ／ ▶ 再生で2本を放つ';
+    statusEl.style.color=MUT;
+  }
+  function drawTrail(tr,color){
+    for(let i=1;i<tr.length;i++){
+      ctx.globalAlpha=(i/tr.length)*0.5;
+      ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(tr[i-1][0],tr[i-1][1]); ctx.lineTo(tr[i][0],tr[i][1]); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+  function arm(s,color){
+    const p=bobs(s);
+    ctx.strokeStyle=color; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(cx,cyt); ctx.lineTo(p[0],p[1]); ctx.lineTo(p[2],p[3]); ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.arc(p[0],p[1],5,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(p[2],p[3],7,0,7); ctx.fill();
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    drawTrail(trailB,RED); drawTrail(trailA,TEAL);
+    ctx.globalAlpha=0.92; arm(B,RED); arm(A,TEAL); ctx.globalAlpha=1;
+    ctx.fillStyle=INK; ctx.beginPath(); ctx.arc(cx,cyt,4,0,7); ctx.fill();
+  }
+  function step(){
+    const dt=0.004, sub=5;
+    for(let k=0;k<sub;k++){ A=rk4(A,dt); B=rk4(B,dt); t+=dt; }
+    const bA=bobs(A), bB=bobs(B);
+    trailA.push([bA[2],bA[3]]); trailB.push([bB[2],bB[3]]);
+    if(trailA.length>170){ trailA.shift(); trailB.shift(); }
+    const sep=Math.hypot(bA[2]-bB[2], bA[3]-bB[3]);
+    if(!diverged && sep>40) diverged=t;
+    draw();
+    if(diverged){
+      statusEl.textContent='t = '+t.toFixed(1)+' s ／ 枝分かれ ≈ '+diverged.toFixed(1)+' s（初期差 '+fmtE(Math.pow(10,parseFloat(dS.value)))+' rad）── ここから先は予測不能';
+      statusEl.style.color=RED;
+    } else {
+      statusEl.textContent='t = '+t.toFixed(1)+' s ／ まだ2本は重なって動いている';
+      statusEl.style.color=TEAL;
+    }
+  }
+  function loop(){ if(!playing) return; step(); rafId=requestAnimationFrame(loop); }
+  goBtn.addEventListener('click',()=>{
+    playing=!playing; goBtn.textContent=playing?'⏸ 停止':'▶ 再生';
+    goBtn.classList.toggle('primary',!playing);
+    if(playing) loop(); else if(rafId) cancelAnimationFrame(rafId);
+  });
+  resetBtn.addEventListener('click',()=>{ playing=false; goBtn.textContent='▶ 再生'; goBtn.classList.add('primary'); if(rafId)cancelAnimationFrame(rafId); reset(); });
+  dS.addEventListener('input',()=>{ dV.textContent=fmtE(Math.pow(10,parseFloat(dS.value))); if(!playing) reset(); });
+  dV.textContent=fmtE(Math.pow(10,parseFloat(dS.value)));
+  reset();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Lissajous figures
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv=document.getElementById('lj-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+  const aS=document.getElementById('lj-a'), bS=document.getElementById('lj-b'), pS=document.getElementById('lj-p');
+  const aV=document.getElementById('lj-a-v'), bV=document.getElementById('lj-b-v'), pV=document.getElementById('lj-p-v');
+  const animBtn=document.getElementById('lj-anim'), statusEl=document.getElementById('lj-status');
+  const TEAL='#3c7876', MUT='#7d7568', BG='#faf8f4';
+  let animing=false, rafId=null;
+  const cx=W/2, cy=H/2, R=Math.min(W,H)/2-30;
+  function gcd(a,b){ return b?gcd(b,a%b):a; }
+  function draw(){
+    const a=+aS.value, b=+bS.value, phi=(+pS.value/100)*2*Math.PI;
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#e3dbd0'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); ctx.moveTo(cx,cy-R); ctx.lineTo(cx,cy+R); ctx.stroke();
+    ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.lineJoin='round';
+    ctx.beginPath();
+    const N=2000;
+    for(let i=0;i<=N;i++){
+      const t=i/N*2*Math.PI;
+      const x=cx+R*Math.sin(a*t), y=cy-R*Math.sin(b*t+phi);
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    }
+    ctx.stroke();
+    const gg=gcd(a,b);
+    aV.textContent=a; bV.textContent=b; pV.textContent=(phi/Math.PI).toFixed(2)+'π';
+    statusEl.textContent='比 a:b = '+(a/gg)+':'+(b/gg)+'（既約）／ 右の壁に '+a+' 回・上の壁に '+b+' 回触れる ／ 整数比だから閉じた図形';
+    statusEl.style.color=MUT;
+  }
+  function loop(){ if(!animing) return; pS.value=(+pS.value+0.7)%100; draw(); rafId=requestAnimationFrame(loop); }
+  [aS,bS,pS].forEach(s=>s.addEventListener('input',draw));
+  animBtn.addEventListener('click',()=>{ animing=!animing; animBtn.textContent=animing?'停止 ■':'φ を回す ▶'; animBtn.classList.toggle('primary',animing); if(animing) loop(); else if(rafId)cancelAnimationFrame(rafId); });
+  draw();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
+;(function(){try{
+/* ═══════════════════════════════════════════════════
+   Monte Carlo π
+═══════════════════════════════════════════════════ */
+(()=>{
+  const cv=document.getElementById('mc-cv'); if(!cv) return;
+  const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+  const goBtn=document.getElementById('mc-go'), resetBtn=document.getElementById('mc-reset');
+  const rate=document.getElementById('mc-rate'), rateV=document.getElementById('mc-rate-v');
+  const statusEl=document.getElementById('mc-status');
+  const TEAL='#3c7876', OUT='#c9bfae', INK='#1d1b17', MUT='#7d7568', BG='#faf8f4';
+  let inside=0, total=0, playing=false, rafId=null;
+  const R=W/2, cx=W/2, cy=H/2;
+  function base(){
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#d9d2c6'; ctx.lineWidth=1; ctx.strokeRect(0.5,0.5,W-1,H-1);
+    ctx.strokeStyle=INK; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,R-1,0,7); ctx.stroke();
+  }
+  function tell(){
+    if(total===0){ statusEl.textContent='まだ0点 ／ ▶ で撒き始める'; statusEl.style.color=MUT; return; }
+    const est=4*inside/total, err=Math.abs(est-Math.PI);
+    statusEl.textContent='点 '+total.toLocaleString()+' ／ 内 '+inside.toLocaleString()+' ／ π ≈ '+est.toFixed(4)+'（誤差 '+err.toFixed(4)+'）';
+    statusEl.style.color=err<0.01?TEAL:INK;
+  }
+  function reset(){ inside=0; total=0; base(); tell(); }
+  function burst(){
+    const n=parseInt(rate.value,10);
+    for(let i=0;i<n;i++){
+      const x=Math.random(), y=Math.random();
+      const din=(x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)<=0.25;
+      if(din) inside++; total++;
+      ctx.fillStyle=din?TEAL:OUT; ctx.globalAlpha=din?0.7:0.5;
+      ctx.fillRect(x*W-1, y*H-1, 2, 2);
+    }
+    ctx.globalAlpha=1; tell();
+  }
+  function loop(){ if(!playing) return; burst(); rafId=requestAnimationFrame(loop); }
+  goBtn.addEventListener('click',()=>{ playing=!playing; goBtn.textContent=playing?'⏸ 停止':'▶ 撒く'; goBtn.classList.toggle('primary',!playing); if(playing) loop(); else if(rafId)cancelAnimationFrame(rafId); });
+  resetBtn.addEventListener('click',()=>{ playing=false; goBtn.textContent='▶ 撒く'; goBtn.classList.add('primary'); if(rafId)cancelAnimationFrame(rafId); reset(); });
+  rate.addEventListener('input',()=>rateV.textContent=rate.value);
+  rateV.textContent=rate.value; reset();
+})();
+}catch(e){if(typeof console!=="undefined")console.warn("[play widget]",e);}})();
 </script>
   </main>
   <Footer />

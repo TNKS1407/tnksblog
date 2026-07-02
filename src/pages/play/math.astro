@@ -294,4 +294,39 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
       <div class="app-desc">単位円の点をドラッグして θ を回すと、cos と sin が影として出る。さらに角度を足すと、複素数の掛け算＝角度の足し算になる。e<sup>iθ</sup> を「回転」として手で触る。</div>
     </a>
 
+    <!-- Lissajous -->
+    <div class="app-card">
+      <div class="app-title">リサージュ図形 — 2つの揺れが直交すると</div>
+      <div class="app-desc">
+        横に <b>sin(a·t)</b>、縦に <b>sin(b·t + φ)</b> ── 同じ「揺れ」を直交させて重ねるだけで、生き物みたいな曲線が生まれる。<br>
+        鍵は<b>周波数の比 a:b</b>。比が 1:2、2:3 のように<b>簡単な整数比</b>のときだけ曲線は閉じて、静止した模様になる。比が無理数に近づくと、線はいつまでも閉じずに面を塗りつぶしていく。位相 φ を回すと、同じ比のまま形がふくらんだり潰れたりする。昔のオシロスコープで周波数を合わせるのに使われた図だよ。
+      </div>
+      <div class="canvas-label">x = sin(a·t) ／ y = sin(b·t + φ)</div>
+      <canvas id="lj-cv" width="720" height="420" style="width:100%;height:auto;cursor:default;background:#faf8f4;"></canvas>
+      <div class="controls">
+        <div class="ctrl-group"><label>a</label><input type="range" id="lj-a" min="1" max="7" step="1" value="3"><span id="lj-a-v">3</span></div>
+        <div class="ctrl-group"><label>b</label><input type="range" id="lj-b" min="1" max="7" step="1" value="2"><span id="lj-b-v">2</span></div>
+        <div class="ctrl-group"><label>位相 φ</label><input type="range" id="lj-p" min="0" max="100" value="0"><span id="lj-p-v">0.00π</span></div>
+        <button class="btn" id="lj-anim" type="button">φ を回す ▶</button>
+      </div>
+      <div class="status" id="lj-status"></div>
+    </div>
+
+    <!-- Monte Carlo pi -->
+    <div class="app-card">
+      <div class="app-title">モンテカルロで π — 点を撒くだけで円周率</div>
+      <div class="app-desc">
+        正方形にランダムに点を撒く。円の中に落ちた割合は、面積の比 <b>πr²/(2r)² = π/4</b> に近づくはず。だから <b>(中に落ちた数 ÷ 全部) × 4 ≈ π</b>。<br>
+        面白いのは、これは<b>賢い式じゃなく、ただの偶然の積み重ね</b>で π が出てくること。そして正直な所も見えてくる ── 点が少ないと推定はフラつくし、精度は点数の<b>平方根</b>でしか良くならない（100倍撒いても桁は1つしか増えない）。誤魔化しの効かない、素朴な乱数のちからだよ。
+      </div>
+      <div class="canvas-label">正方形に一様乱数 ／ 青 = 円の内, 灰 = 外</div>
+      <canvas id="mc-cv" width="360" height="360" style="width:100%;max-width:360px;height:auto;cursor:default;background:#faf8f4;border-radius:10px;"></canvas>
+      <div class="controls">
+        <button class="btn primary" id="mc-go" type="button">▶ 撒く</button>
+        <button class="btn" id="mc-reset" type="button">↺ リセット</button>
+        <div class="ctrl-group"><label>一度に</label><input type="range" id="mc-rate" min="1" max="500" value="50"><span id="mc-rate-v">50</span>点/フレーム</div>
+      </div>
+      <div class="status" id="mc-status"></div>
+    </div>
+
 </PlayLayout>

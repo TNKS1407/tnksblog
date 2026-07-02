@@ -203,4 +203,25 @@ import PlayLayout from '../../layouts/PlayLayout.astro';
       <div class="app-desc">進む波・定在波・共鳴管を切り替えて、波の基本を動かす。腹と節、そして両端の条件（閉じる／開く）で決まる共鳴のモード。声道ラボの手前の、素朴な足慣らし。</div>
     </a>
 
+    <!-- Double pendulum (chaos / sensitive dependence) -->
+    <div class="app-card">
+      <div class="app-title">二重振り子 — ほとんど同じ始まりが、別の運命へ</div>
+      <div class="app-desc">
+        振り子の先に、もう一本ぶら下げるだけで、運動はカオスになる。<br>
+        ここでは<b>初期角がほんの少しだけ違う2本</b>（尾がティールと赤）を同時に放つ。最初はぴったり重なって動くのに、ある瞬間から枝分かれして、まったく別の軌跡を描き出す ── これが<b>初期値鋭敏性</b>。同じ物理法則・同じ式なのに、たった 0.001 rad の差が育っていく。だから天気は先まで当てられないんだ。Δθ を変えると、枝分かれの時刻がどう動くかも見える。
+      </div>
+      <div class="canvas-label">2本の二重振り子（初期角がわずかに違うだけ）／ 尾 = 先端の軌跡</div>
+      <canvas id="dp-cv" width="720" height="440" style="width:100%;height:auto;cursor:default;background:#faf8f4;"></canvas>
+      <div class="controls">
+        <button class="btn primary" id="dp-go" type="button">▶ 再生</button>
+        <button class="btn" id="dp-reset" type="button">↺ リセット</button>
+        <div class="ctrl-group">
+          <label>初期差 Δθ</label>
+          <input type="range" id="dp-d" min="-5" max="-1" step="0.1" value="-3">
+          <span id="dp-d-v">1e-3</span>
+        </div>
+      </div>
+      <div class="status" id="dp-status"></div>
+    </div>
+
 </PlayLayout>
