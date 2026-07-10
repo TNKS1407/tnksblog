@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ほたる</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#050810}
+  canvas{display:block;width:100vw;height:100vh}
+  #t{position:fixed;right:12px;bottom:10px;color:#3a4a5a;font:11px sans-serif;
+     letter-spacing:.35em;user-select:none;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="t">ほたる</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = cv.width  = innerWidth  * DPR;
+  H = cv.height = innerHeight * DPR;
+  cv.style.width = innerWidth + 'px';
+  cv.style.height = innerHeight + 'px';
+}
+addEventListener('resize', resize); resize();
+
+// ---- 蛍たち ----
+const N = Math.min(90, Math.max(45, Math.floor(innerWidth * innerHeight / 14000)));
+const F = [];
+for (let i = 0; i < N; i++){
+  F.push({
+    x: Math.random(), y: Math.random() * 0.92,
+    s1: Math.random() * 6.28, s2: Math.random() * 6.28,   // 遊泳のゆらぎ位相
+    v1: 0.05 + Math.random() * 0.08, v2: 0.04 + Math.random() * 0.07,
+    ph: Math.random() * 6.28,                              // 明滅の位相
+    om: 0.55 + Math.random() * 0.10,                       // 固有周波数(ばらつき)
+    sz: 0.8 + Math.random() * 0.7
+  });
+}
+const K = 0.045;          // 結合の強さ(弱いほど、揃うまでの時間をゆっくり眺められる)
+const R2 = 0.045;         // 近所の半径^2 (正規化座標)
+let touch = null;
+
+addEventListener('pointerdown', e => {
+  touch = { x: e.clientX / innerWidth, y: e.clientY / innerHeight, t: performance.now() };
+});
+
+let last = performance.now();
+function step(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+
+  // 夜の背景(わずかな残光を残して塗る)
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = 'rgba(5,8,16,0.35)';
+  g.fillRect(0, 0, W, H);
+  // 地平の気配
+  const gr = g.createLinearGradient(0, H*0.75, 0, H);
+  gr.addColorStop(0, 'rgba(5,8,16,0)');
+  gr.addColorStop(1, 'rgba(8,14,10,0.5)');
+  g.fillStyle = gr; g.fillRect(0, H*0.75, W, H*0.25);
+
+  // 位相の更新(近所の光に、ほんの少しずつ引き込まれる)
+  for (let i = 0; i < N; i++){
+    const a = F[i];
+    let pull = 0, n = 0;
+    for (let j = 0; j < N; j++){
+      if (i === j) continue;
+      const b = F[j];
+      const dx = a.x - b.x, dy = a.y - b.y;
+      if (dx*dx + dy*dy < R2){ pull += Math.sin(b.ph - a.ph); n++; }
+    }
+    a.ph += (a.om + (n ? K * pull / Math.sqrt(n) : 0)) * dt * 6.28318;
+    // 触れた場所の近くの子は、少し早く光る(そっと促す)
+    if (touch && now - touch.t < 600){
+      const dx = a.x - touch.x, dy = a.y - touch.y;
+      if (dx*dx + dy*dy < 0.02) a.ph += dt * 4.0;
+    }
+    // ふわふわ遊泳(層にした正弦のゆらぎ)
+    a.s1 += a.v1 * dt * 6.28; a.s2 += a.v2 * dt * 6.28;
+    a.x += (Math.sin(a.s1) * 0.35 + Math.sin(a.s2 * 0.7 + i)) * 0.00022;
+    a.y += (Math.cos(a.s2) * 0.30 + Math.sin(a.s1 * 0.5 + i * 2)) * 0.00017;
+    if (a.x < -0.02) a.x = 1.02; if (a.x > 1.02) a.x = -0.02;
+    if (a.y < -0.02) a.y = 0.94; if (a.y > 0.94) a.y = -0.02;
+  }
+
+  // 光(明滅は位相の頭でだけ、やわらかく)
+  g.globalCompositeOperation = 'lighter';
+  for (const a of F){
+    const c = Math.cos(a.ph);
+    const lum = Math.pow(Math.max(0, c), 6);       // 位相の頂点で短く光る
+    if (lum < 0.02) {                               // 消えている間も、かすかな胴
+      g.fillStyle = 'rgba(60,80,60,0.05)';
+      g.beginPath();
+      g.arc(a.x * W, a.y * H, 1.1 * DPR, 0, 6.29);
+      g.fill();
+      continue;
+    }
+    const r = (2.2 + 9 * lum) * a.sz * DPR;
+    const x = a.x * W, y = a.y * H;
+    const rad = g.createRadialGradient(x, y, 0, x, y, r * 3.2);
+    rad.addColorStop(0,   `rgba(214,255,140,${0.85 * lum})`);
+    rad.addColorStop(0.25,`rgba(170,230,110,${0.35 * lum})`);
+    rad.addColorStop(1,   'rgba(120,200,90,0)');
+    g.fillStyle = rad;
+    g.beginPath(); g.arc(x, y, r * 3.2, 0, 6.29); g.fill();
+    g.fillStyle = `rgba(240,255,200,${0.9 * lum})`;
+    g.beginPath(); g.arc(x, y, Math.max(1, r * 0.35), 0, 6.29); g.fill();
+  }
+
+  requestAnimationFrame(step);
+}
+requestAnimationFrame(step);
+</script>
+</body>
+</html>
