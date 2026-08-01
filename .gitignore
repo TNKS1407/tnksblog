@@ -28,3 +28,6 @@ diary/
 
 # Blog drafts (local only — move into src/content/blog to publish)
 drafts/
+
+# ヘッドレスブラウザでの表示確認スクショ（作業残骸・コミットしない）
+.tmp-shot/
